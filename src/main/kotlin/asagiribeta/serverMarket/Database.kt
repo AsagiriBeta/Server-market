@@ -50,9 +50,7 @@ class Database {
     }
     
     fun addBalance(uuid: UUID, amount: Double) {
-        connection.autoCommit = false
         try {
-            // 更新余额
             connection.prepareStatement("""
                 INSERT INTO balances(uuid, amount) 
                 VALUES(?, ?) 
@@ -62,12 +60,34 @@ class Database {
                 ps.setDouble(2, amount)
                 ps.executeUpdate()
             }
-            connection.commit()
         } catch (e: SQLException) {
             ServerMarket.LOGGER.error("更新余额失败 UUID: $uuid 金额: $amount", e)
             throw e
+        }
+    }
+
+    // 修改转账方法的事务管理逻辑
+    fun transfer(fromUuid: UUID, toUuid: UUID, amount: Double) {
+        val originalAutoCommit = connection.autoCommit
+        try {
+            connection.autoCommit = false
+            val fromBalance = getBalance(fromUuid)
+            if (fromBalance < amount) {
+                throw SQLException("余额不足 UUID: ${fromUuid} 金额: $amount")
+            }
+            addBalance(fromUuid, -amount)
+            addBalance(toUuid, amount)
+            connection.commit()
+        } catch (e: SQLException) {
+            // 仅在非自动提交模式时才执行回滚
+            if (!connection.autoCommit) {
+                connection.rollback()
+            }
+            ServerMarket.LOGGER.error("转账失败 UUID: $fromUuid -> $toUuid 金额: $amount", e)
+            throw e
         } finally {
-            connection.autoCommit = true
+            // 确保恢复原始自动提交状态
+            connection.autoCommit = originalAutoCommit
         }
     }
 
