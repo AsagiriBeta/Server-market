@@ -4,17 +4,17 @@ import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
-import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.server.network.ServerPlayNetworkHandler
 import org.slf4j.LoggerFactory
-import java.util.*
+import org.slf4j.Logger
 
 class ServerMarket : ModInitializer {
     internal val database = Database()
     private val command = Command()
+    private val adminCommand = AdminCommand()
 
     companion object {
-        val LOGGER = LoggerFactory.getLogger(ServerMarket::class.java)
+        val LOGGER: Logger = LoggerFactory.getLogger(ServerMarket::class.java)
         lateinit var instance: ServerMarket
     }
 
@@ -44,6 +44,7 @@ class ServerMarket : ModInitializer {
         // 注册命令
         CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->
             command.register(dispatcher)
+            adminCommand.register(dispatcher) // 注册管理员命令
         }
     }
 }

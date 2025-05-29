@@ -7,12 +7,9 @@ import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.CommandManager.argument
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.arguments.DoubleArgumentType
+import net.minecraft.command.CommandSource
 import net.minecraft.text.Text
-import java.util.*
-import asagiribeta.serverMarket.ServerMarket.Companion.LOGGER
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.server.MinecraftServer
+
 
 class Command {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
@@ -26,6 +23,11 @@ class Command {
             literal("mpay")
                 .requires { source -> source.player != null }
                 .then(argument("player", StringArgumentType.string())
+                    .suggests { context, builder ->
+                        val server = context.source.server
+                        val names = server.playerManager.playerNames
+                        CommandSource.suggestMatching(names, builder)
+                    }  // 玩家名称补全建议
                     .then(argument("amount", DoubleArgumentType.doubleArg())
                         .executes(this::executeMPayCommand)
                     )
@@ -81,6 +83,12 @@ class Command {
             context.source.sendMessage(
                 Text.literal("成功向 ${targetPlayer.name.string} 转账 ${"%.2f".format(amount)} 金币")
             )
+            
+            // 接收者提示（在转账成功后添加）
+            targetPlayer.sendMessage(
+                Text.literal("${sender.name.string} 向您转账 ${"%.2f".format(amount)} 金币")
+            )
+            
             return 1
         } catch (e: Exception) {
             context.source.sendError(Text.literal("转账失败"))

@@ -4,7 +4,6 @@ import java.util.*
 import java.sql.DriverManager
 import java.sql.SQLException
 import java.sql.PreparedStatement
-import java.sql.ResultSet
 
 class Database {
     private val connection = DriverManager.getConnection("jdbc:sqlite:market.db")
@@ -18,7 +17,7 @@ class Database {
                     amount REAL NOT NULL
                 )
             """)
-            // 新增交易历史表（根据参考代码结构调整）
+            // 交易历史表
             it.execute("""
                 CREATE TABLE IF NOT EXISTS history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,7 +48,7 @@ class Database {
         }
     }
     
-    fun addBalance(uuid: UUID, amount: Double) {
+    private fun addBalance(uuid: UUID, amount: Double) {
         try {
             connection.prepareStatement("""
                 INSERT INTO balances(uuid, amount) 
@@ -66,14 +65,32 @@ class Database {
         }
     }
 
-    // 修改转账方法的事务管理逻辑
+    // 余额设置方法
+    fun setBalance(uuid: UUID, amount: Double) {
+        try {
+            connection.prepareStatement("""
+                INSERT INTO balances(uuid, amount) 
+                VALUES(?, ?) 
+                ON CONFLICT(uuid) DO UPDATE SET amount = excluded.amount
+            """).use { ps ->
+                ps.setString(1, uuid.toString())
+                ps.setDouble(2, amount)
+                ps.executeUpdate()
+            }
+        } catch (e: SQLException) {
+            ServerMarket.LOGGER.error("设置余额失败 UUID: $uuid 金额: $amount", e)
+            throw e
+        }
+    }
+
+    // 转账方法的事务管理逻辑
     fun transfer(fromUuid: UUID, toUuid: UUID, amount: Double) {
         val originalAutoCommit = connection.autoCommit
         try {
             connection.autoCommit = false
             val fromBalance = getBalance(fromUuid)
             if (fromBalance < amount) {
-                throw SQLException("余额不足 UUID: ${fromUuid} 金额: $amount")
+                throw SQLException("余额不足 UUID: $fromUuid 金额: $amount")
             }
             addBalance(fromUuid, -amount)
             addBalance(toUuid, amount)
@@ -91,19 +108,20 @@ class Database {
         }
     }
 
-    // 新增同步保存方法
+    // 同步保存方法
     fun syncSave(uuid: UUID) {
         try {
             if (!connection.autoCommit) {
                 connection.commit()
             }
-            ServerMarket.LOGGER.debug("已保存玩家数据 UUID: $uuid")
+            // 将字符串模板改为使用占位符格式，避免日志参数拼接的性能损耗
+            ServerMarket.LOGGER.debug("已保存玩家数据 UUID: {}", uuid.toString())
         } catch (e: SQLException) {
             ServerMarket.LOGGER.error("保存数据失败 UUID: $uuid", e)
         }
     }
 
-    // 新增玩家存在性检查方法
+    // 玩家存在性检查方法
     fun playerExists(uuid: UUID): Boolean {
         return try {
             connection.prepareStatement("SELECT 1 FROM balances WHERE uuid = ?").use { ps ->
@@ -117,7 +135,7 @@ class Database {
         }
     }
 
-    // 新增专用初始化方法（避免使用冲突更新逻辑）
+    // 专用初始化方法（避免使用冲突更新逻辑）
     fun initializeBalance(uuid: UUID, initialAmount: Double) {
         val originalAutoCommit = connection.autoCommit
         try {
@@ -140,7 +158,7 @@ class Database {
         }
     }
 
-    // 新增交易历史记录方法（根据参考代码逻辑适配）
+    // 交易历史记录方法
     fun postHistory(
         dtg: Long,
         fromId: UUID,
@@ -158,7 +176,7 @@ class Database {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()
         
-        executeUpdate(sql) { ps: java.sql.PreparedStatement ->
+        executeUpdate(sql) { ps: PreparedStatement ->
             ps.setLong(1, dtg)
             ps.setString(2, fromId.toString())
             ps.setString(3, fromType)
@@ -171,7 +189,7 @@ class Database {
         }
     }
 
-    // 新增通用执行方法（优化代码复用）
+    // 通用执行方法
     private fun executeUpdate(sql: String, block: (PreparedStatement) -> Unit) {
         try {
             connection.prepareStatement(sql).use { ps ->
@@ -184,18 +202,6 @@ class Database {
         }
     }
 
-    // 新增查询方法（优化异常处理）
-    fun executeQuery(sql: String, block: (PreparedStatement) -> Unit): ResultSet? {
-        return try {
-            connection.prepareStatement(sql).use { ps ->
-                block(ps)
-                ps.executeQuery()
-            }
-        } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("执行SQL查询失败: $sql", e)
-            null
-        }
-    }
 
     fun close() {
         try {
