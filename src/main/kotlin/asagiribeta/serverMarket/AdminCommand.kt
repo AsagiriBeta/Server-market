@@ -26,6 +26,21 @@ class AdminCommand {
                     )
                 )
         )
+
+        dispatcher.register(
+            literal("aprice")
+                .requires { it.hasPermissionLevel(4) }
+                .then(argument("price", DoubleArgumentType.doubleArg(0.0))
+                    .executes(this::executeAPriceCommand)
+                )
+        )
+
+        dispatcher.register(
+            literal("apull")
+                .requires { it.hasPermissionLevel(4) }
+                .executes(this::executeAPullCommand)
+        )
+
     }
 
     private fun executeMSetCommand(context: CommandContext<ServerCommandSource>): Int {
@@ -51,6 +66,70 @@ class AdminCommand {
         } catch (e: Exception) {
             context.source.sendError(Text.literal("设置余额失败"))
             ServerMarket.LOGGER.error("mset命令执行失败", e)
+            return 0
+        }
+    }
+
+    private fun executeAPriceCommand(context: CommandContext<ServerCommandSource>): Int {
+        val source = context.source
+        val player = source.player ?: run {
+            source.sendError(Text.literal("只有玩家可以执行此命令"))
+            return 0
+        }
+
+        val price = DoubleArgumentType.getDouble(context, "price")
+        val itemStack = player.mainHandStack
+        if (itemStack.isEmpty) {
+            source.sendError(Text.literal("请手持要设置价格的物品"))
+            return 0
+        }
+
+        try {
+            val itemId = itemStack.item.translationKey
+            val marketRepo = ServerMarket.instance.database.marketRepository
+            
+            if (!marketRepo.hasSystemItem(itemId)) {
+                marketRepo.addSystemItem(itemId, price)
+                source.sendMessage(Text.literal("成功上架 ${itemStack.name.string} 价格为 $price"))
+            } else {
+                marketRepo.addSystemItem(itemId, price)
+                source.sendMessage(Text.literal("成功更新 ${itemStack.name.string} 价格为 $price"))
+            }
+            return 1
+        } catch (e: Exception) {
+            source.sendError(Text.literal("操作失败"))
+            ServerMarket.LOGGER.error("aprice命令执行失败", e)
+            return 0
+        }
+    }
+
+    private fun executeAPullCommand(context: CommandContext<ServerCommandSource>): Int {
+        val source = context.source
+        val player = source.player ?: run {
+            source.sendError(Text.literal("只有玩家可以执行此命令"))
+            return 0
+        }
+
+        val itemStack = player.mainHandStack
+        if (itemStack.isEmpty) {
+            source.sendError(Text.literal("请手持要下架的物品"))
+            return 0
+        }
+
+        try {
+            val itemId = itemStack.item.translationKey
+            val marketRepo = ServerMarket.instance.database.marketRepository
+            
+            if (marketRepo.hasSystemItem(itemId)) {
+                marketRepo.removeSystemItem(itemId)
+                source.sendMessage(Text.literal("成功下架 ${itemStack.name.string}"))
+                return 1
+            }
+            source.sendError(Text.literal("该物品未上架"))
+            return 0
+        } catch (e: Exception) {
+            source.sendError(Text.literal("操作失败"))
+            ServerMarket.LOGGER.error("apull命令执行失败", e)
             return 0
         }
     }

@@ -8,6 +8,7 @@ import net.minecraft.server.command.CommandManager.argument
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import net.minecraft.command.CommandSource
+import net.minecraft.server.MinecraftServer
 import net.minecraft.text.Text
 
 
@@ -18,7 +19,7 @@ class Command {
                 .executes(this::executeMoneyCommand)
         )
         
-        // 修复参数层级结构
+        // 参数层级结构
         dispatcher.register(
             literal("mpay")
                 .requires { source -> source.player != null }
@@ -31,6 +32,33 @@ class Command {
                     .then(argument("amount", DoubleArgumentType.doubleArg())
                         .executes(this::executeMPayCommand)
                     )
+                )
+        )
+        
+        // mprice命令
+        dispatcher.register(
+            literal("mprice")
+                .then(argument("price", DoubleArgumentType.doubleArg(0.0))
+                    .executes(this::executeMPriceCommand)
+                )
+        )
+        
+        // mpull命令
+        dispatcher.register(
+            literal("mpull")
+                .executes(this::executeMPullCommand)
+        )
+
+        // mlist命令
+        dispatcher.register(
+            literal("mlist")
+                .then(argument("target", StringArgumentType.string())
+                    .suggests { context, builder ->
+                        val server = context.source.server
+                        val names = server.playerManager.playerNames + "server"
+                        CommandSource.suggestMatching(names, builder)
+                    }
+                    .executes(this::executeMListCommand)
                 )
         )
     }
@@ -74,7 +102,7 @@ class Command {
             
             // 记录交易历史
             val dtg = System.currentTimeMillis()
-            database.postHistory(
+            database.historyRepository.postHistory(
                 dtg, fromUuid, "player", sender.name.string,
                 toUuid, "player", targetPlayer.name.string,
                 amount, "MPay Transfer"
@@ -95,5 +123,125 @@ class Command {
             ServerMarket.LOGGER.error("MPay命令执行失败", e)
             return 0
         }
+    }
+
+    // mprice命令处理
+    private fun executeMPriceCommand(context: CommandContext<ServerCommandSource>): Int {
+        val source = context.source
+        val player = source.player ?: run {
+            source.sendError(Text.literal("只有玩家可以执行此命令"))
+            return 0
+        }
+
+        val price = DoubleArgumentType.getDouble(context, "price")
+        val itemStack = player.mainHandStack
+        if (itemStack.isEmpty) {
+            source.sendError(Text.literal("请手持要上架的物品"))
+            return 0
+        }
+
+        try {
+            val itemId = itemStack.item.translationKey
+            val marketRepo = ServerMarket.instance.database.marketRepository
+            
+            if (!marketRepo.hasPlayerItem(player.uuid, itemId)) {
+                marketRepo.addPlayerItem(
+                    sellerUuid = player.uuid,
+                    sellerName = player.name.string,
+                    itemId = itemId,
+                    price = price
+                )
+                source.sendMessage(Text.literal("成功上架 ${itemStack.name.string} 单价为 $price"))
+            } else {
+                marketRepo.updatePlayerItemPrice(player.uuid, itemId, price)
+                source.sendMessage(Text.literal("成功更新 ${itemStack.name.string} 单价为 $price"))
+            }
+            return 1
+        } catch (e: Exception) {
+            source.sendError(Text.literal("操作失败"))
+            ServerMarket.LOGGER.error("mprice命令执行失败", e)
+            return 0
+        }
+    }
+
+    // mpull命令处理
+    private fun executeMPullCommand(context: CommandContext<ServerCommandSource>): Int {
+        val source = context.source
+        val player = source.player ?: run {
+            source.sendError(Text.literal("只有玩家可以执行此命令"))
+            return 0
+        }
+
+        val itemStack = player.mainHandStack
+        if (itemStack.isEmpty) {
+            source.sendError(Text.literal("请手持要下架的物品"))
+            return 0
+        }
+
+        try {
+            val itemId = itemStack.item.translationKey
+            val marketRepo = ServerMarket.instance.database.marketRepository
+            
+            if (marketRepo.hasPlayerItem(player.uuid, itemId)) {
+                marketRepo.removePlayerItem(player.uuid, itemId)
+                source.sendMessage(Text.literal("成功下架 ${itemStack.name.string}"))
+                return 1
+            }
+            source.sendError(Text.literal("该物品未上架"))
+            return 0
+        } catch (e: Exception) {
+            source.sendError(Text.literal("操作失败"))
+            ServerMarket.LOGGER.error("mpull命令执行失败", e)
+            return 0
+        }
+    }
+
+    // mlist命令处理
+    private fun executeMListCommand(context: CommandContext<ServerCommandSource>): Int {
+        val source = context.source
+        val target = StringArgumentType.getString(context, "target")
+        val marketRepo = ServerMarket.instance.database.marketRepository
+
+        return try {
+            val items = when (target.lowercase()) {
+                "server" -> marketRepo.getSystemItems()
+                else -> {
+                    val sellerUuid = resolveSellerUuid(target, source.server) ?: run {
+                        source.sendError(Text.literal("找不到玩家 $target"))
+                        return 0
+                    }
+                    marketRepo.getPlayerItems(sellerUuid)
+                }
+            }
+
+            if (items.isEmpty()) {
+                source.sendMessage(Text.literal("$target 没有上架任何物品"))
+                return 1
+            }
+
+            source.sendMessage(Text.literal("=== $target 上架物品 ===").styled { it.withBold(true) })
+            items.forEach { (itemId, sellerName, price, quantity) ->
+                source.sendMessage(
+                    Text.literal("▸ $itemId")
+                        .append(Text.literal(" 卖家: $sellerName").styled { it.withColor(0x00FF00) })
+                        .append(Text.literal(" 单价: ${"%.2f".format(price)}").styled { it.withColor(0xFFA500) })
+                        .append(Text.literal(" 数量: $quantity").styled { it.withColor(0xADD8E6) }))
+            }
+            1
+        } catch (e: Exception) {
+            source.sendError(Text.literal("查询失败"))
+            ServerMarket.LOGGER.error("mlist命令执行失败", e)
+            0
+        }
+    }
+
+    private fun resolveSellerUuid(name: String, server: MinecraftServer): String? {
+        return server.playerManager.getPlayer(name)?.uuid?.toString()
+            ?: ServerMarket.instance.database.executeQuery(
+                "SELECT uuid FROM balances WHERE uuid = ? OR EXISTS(SELECT 1 FROM player_market WHERE seller_name = ?)"
+            ) { ps ->
+                ps.setString(1, name)
+                ps.setString(2, name)
+            }
     }
 }

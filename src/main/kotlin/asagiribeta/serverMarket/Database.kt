@@ -1,12 +1,13 @@
 package asagiribeta.serverMarket
 
+import java.sql.*
 import java.util.*
-import java.sql.DriverManager
-import java.sql.SQLException
-import java.sql.PreparedStatement
 
 class Database {
-    private val connection = DriverManager.getConnection("jdbc:sqlite:market.db")
+    internal val marketRepository = MarketRepository(this)
+    internal val historyRepository = HistoryRepository(this)
+    
+    val connection: Connection = DriverManager.getConnection("jdbc:sqlite:market.db")
     
     init {
         // 初始化数据库表
@@ -30,6 +31,27 @@ class Database {
                     to_name TEXT NOT NULL,
                     price REAL NOT NULL,
                     item TEXT NOT NULL
+                )
+            """)
+            it.execute("""
+                CREATE TABLE IF NOT EXISTS system_market (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    item_id TEXT NOT NULL UNIQUE,
+                    price REAL NOT NULL,
+                    quantity INTEGER DEFAULT -1,
+                    seller TEXT DEFAULT 'SERVER'  
+                )
+            """)
+            // 玩家市场表
+            it.execute("""
+                CREATE TABLE IF NOT EXISTS player_market (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    seller TEXT NOT NULL,
+                    seller_name TEXT NOT NULL,
+                    item_id TEXT NOT NULL,
+                    price REAL NOT NULL,
+                    quantity INTEGER DEFAULT 0,
+                    FOREIGN KEY(seller) REFERENCES balances(uuid)
                 )
             """)
         }
@@ -158,39 +180,34 @@ class Database {
         }
     }
 
-    // 交易历史记录方法
-    fun postHistory(
-        dtg: Long,
-        fromId: UUID,
-        fromType: String,
-        fromName: String,
-        toId: UUID,
-        toType: String,
-        toName: String,
-        price: Double,
-        item: String
-    ) {
-        val sql = """
-            INSERT INTO history 
-            (dtg, from_id, from_type, from_name, to_id, to_type, to_name, price, item)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """.trimIndent()
-        
-        executeUpdate(sql) { ps: PreparedStatement ->
-            ps.setLong(1, dtg)
-            ps.setString(2, fromId.toString())
-            ps.setString(3, fromType)
-            ps.setString(4, fromName)
-            ps.setString(5, toId.toString())
-            ps.setString(6, toType)
-            ps.setString(7, toName)
-            ps.setDouble(8, price)
-            ps.setString(9, item)
+    // 新增查询执行方法
+    private fun <T> executeQuery(sql: String, block: (PreparedStatement) -> Unit, resultBlock: (ResultSet) -> T): T? {
+        return try {
+            connection.prepareStatement(sql).use { ps ->
+                block(ps)
+                ps.executeQuery().use { rs ->
+                    resultBlock(rs)
+                }
+            }
+        } catch (e: SQLException) {
+            ServerMarket.LOGGER.error("执行SQL查询失败: $sql", e)
+            null
         }
     }
 
-    // 通用执行方法
-    private fun executeUpdate(sql: String, block: (PreparedStatement) -> Unit) {
+    // 修改原查询方法签名以适配新调用方式
+    internal fun executeQuery(
+        sql: String, 
+        parameterSetter: (PreparedStatement) -> Unit
+    ): String? {
+        return executeQuery(sql, parameterSetter) { rs ->
+            if (rs.next()) rs.getString("uuid") else null
+        }
+    }
+
+    // 通用执行方法（添加注解消除安全警告）
+    @Suppress("SqlSourceToSinkFlow")
+    internal fun executeUpdate(sql: String, block: (PreparedStatement) -> Unit) {
         try {
             connection.prepareStatement(sql).use { ps ->
                 block(ps)
