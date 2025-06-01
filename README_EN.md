@@ -1,7 +1,7 @@
 # Server Market Mod Guide
 
 ## Mod Introduction
-This mod adds a complete player economy system and item trading market to Minecraft servers, supporting features like transfers, trading, item listing, global market search, etc.
+This mod adds a player economy system and item trading market to Minecraft servers, supporting features like transfers, trading, item listing, global market search, etc.
 
 ## Main Commands
 
