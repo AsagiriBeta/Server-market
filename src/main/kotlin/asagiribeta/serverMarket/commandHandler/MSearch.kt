@@ -15,7 +15,6 @@ class MSearch {
         val ITEM_ID_SUGGESTIONS = SuggestionProvider<ServerCommandSource> { context, builder ->
             val server = context.source.server
             val registryManager = server.registryManager
-            // 修正注册表键类型为正确的 RegistryKey
             val itemRegistry = registryManager.get(net.minecraft.registry.RegistryKeys.ITEM)
             
             itemRegistry.ids.forEach { identifier: net.minecraft.util.Identifier ->
@@ -28,8 +27,8 @@ class MSearch {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("msearch")
-                .then(argument("item_id", StringArgumentType.greedyString()) // 修改为greedyString处理带特殊字符的参数
-                    .suggests(ITEM_ID_SUGGESTIONS)  // 添加物品ID自动补全建议
+                .then(argument("item_id", StringArgumentType.greedyString())
+                    .suggests(ITEM_ID_SUGGESTIONS)  // 物品ID自动补全建议
                     .executes(this::execute)
                 )
         )
@@ -41,7 +40,7 @@ class MSearch {
         val marketRepo = ServerMarket.instance.database.marketRepository
 
         return try {
-            val items = marketRepo.searchForDisplay(itemId)  // 修改为调用显示专用方法
+            val items = marketRepo.searchForDisplay(itemId)  // 显示专用方法
 
             if (items.isEmpty()) {
                 source.sendMessage(Text.literal("没有找到物品 $itemId 的销售信息"))

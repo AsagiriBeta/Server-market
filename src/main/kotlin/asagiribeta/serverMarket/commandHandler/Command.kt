@@ -37,19 +37,19 @@ class Command {
         // mprice命令
         MPrice().register(dispatcher)
         
-        // mpull命令（改为通过Mpull类注册）
+        // mpull命令
         MPull().register(dispatcher)  // 修改：使用独立类注册
 
         // mlist命令
         MList().register(dispatcher)
 
-        // 添加 msell 命令
+        // msell命令
         MSell().register(dispatcher)
 
-        // 新增 msearch 命令注册
+        // msearch命令
         MSearch().register(dispatcher)
 
-        // 新增 mbuy 命令注册
+        // mbuy命令
         MBuy().register(dispatcher)
     }
 
@@ -94,7 +94,7 @@ class Command {
                 Text.literal("成功向 ${targetPlayer.name.string} 转账 ${"%.2f".format(amount)} 金币")
             )
             
-            // 接收者提示（在转账成功后添加）
+            // 接收者提示（转账成功）
             targetPlayer.sendMessage(
                 Text.literal("${sender.name.string} 向您转账 ${"%.2f".format(amount)} 金币")
             )

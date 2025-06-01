@@ -87,7 +87,7 @@ class AdminCommand {
         }
 
         try {
-            val itemId = Registries.ITEM.getId(itemStack.item).toString()  // 替换原translationKey方式
+            val itemId = Registries.ITEM.getId(itemStack.item).toString()
             val marketRepo = ServerMarket.instance.database.marketRepository
             
             if (!marketRepo.hasSystemItem(itemId)) {
@@ -119,7 +119,7 @@ class AdminCommand {
         }
 
         try {
-            val itemId = Registries.ITEM.getId(itemStack.item).toString()  // 替换原translationKey方式
+            val itemId = Registries.ITEM.getId(itemStack.item).toString()
             val marketRepo = ServerMarket.instance.database.marketRepository
             
             if (marketRepo.hasSystemItem(itemId)) {

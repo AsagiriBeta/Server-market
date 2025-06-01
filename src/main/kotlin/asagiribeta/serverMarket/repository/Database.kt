@@ -181,7 +181,7 @@ class Database {
         }
     }
 
-    // 新增查询执行方法
+    // 查询执行方法
     private fun <T> executeQuery(sql: String, block: (PreparedStatement) -> Unit, resultBlock: (ResultSet) -> T): T? {
         return try {
             connection.prepareStatement(sql).use { ps ->
@@ -196,7 +196,6 @@ class Database {
         }
     }
 
-    // 修改原查询方法签名以适配新调用方式
     internal fun executeQuery(
         sql: String, 
         parameterSetter: (PreparedStatement) -> Unit
@@ -206,7 +205,7 @@ class Database {
         }
     }
 
-    // 通用执行方法（添加注解消除安全警告）
+    // 通用执行方法
     @Suppress("SqlSourceToSinkFlow")
     internal fun executeUpdate(sql: String, block: (PreparedStatement) -> Unit) {
         try {

@@ -30,11 +30,9 @@ class MPull {
         }
 
         try {
-            // 修复：改用与msell/mprice一致的物品ID获取方式
             val itemId = Registries.ITEM.getId(itemStack.item).toString()
             val marketRepo = ServerMarket.instance.database.marketRepository
             
-            // 新增：增加调试日志辅助排查问题
             ServerMarket.LOGGER.debug("尝试下架物品ID: {} 玩家UUID: {}", itemId, player.uuid)
             
             if (marketRepo.hasPlayerItem(player.uuid, itemId)) {

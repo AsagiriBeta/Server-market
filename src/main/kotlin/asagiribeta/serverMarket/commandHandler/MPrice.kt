@@ -35,7 +35,6 @@ class MPrice {
         }
 
         return try {
-            // 修复：改用与msell一致的物品ID获取方式
             val itemId = Registries.ITEM.getId(itemStack.item).toString()
             val marketRepo = ServerMarket.instance.database.marketRepository
             

@@ -153,7 +153,6 @@ class MarketRepository(private val database: Database) {
         }
     }
 
-    // 拆分为两个独立搜索方法
     // 供msearch使用的显示用搜索（保留seller_name字段）
     fun searchForDisplay(itemId: String): List<MarketItem> {
         return database.connection.prepareStatement("""

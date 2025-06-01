@@ -21,7 +21,7 @@ class MBuy {
             literal("mbuy")
                 .then(argument("quantity", DoubleArgumentType.doubleArg(1.0))
                     .then(argument("item", StringArgumentType.greedyString())
-                        .suggests { context, builder ->  // 将建议提供器移到新的参数层级
+                        .suggests { context, builder ->
                             val server = context.source.server
                             val registryManager = server.registryManager
                             val itemRegistry = registryManager.get(net.minecraft.registry.RegistryKeys.ITEM)
@@ -49,7 +49,7 @@ class MBuy {
             return 0
         }
 
-        // 修改库存计算逻辑：当存在系统商品时视为无限库存
+        // 当存在系统商品时视为无限库存
         val hasSystemItem = items.any { it.quantity == -1 }
         val totalAvailable = if (hasSystemItem) Int.MAX_VALUE else items.sumOf { it.quantity }
         
