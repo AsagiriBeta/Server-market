@@ -11,12 +11,6 @@ class Database {
     val connection: Connection = DriverManager.getConnection("jdbc:sqlite:market.db")
     
     init {
-        try {
-            Class.forName("org.sqlite.JDBC")
-        } catch (e: ClassNotFoundException) {
-            ServerMarket.LOGGER.error("无法加载SQLite JDBC驱动", e)
-            throw RuntimeException("SQLite JDBC驱动未找到", e)
-        }
         // 初始化数据库表
         connection.createStatement().use {
             it.execute("""
