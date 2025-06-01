@@ -91,12 +91,12 @@ class Command {
             database.transfer(fromUuid, toUuid, amount)
 
             context.source.sendMessage(
-                Text.literal("成功向 ${targetPlayer.name.string} 转账 ${"%.2f".format(amount)} 金币")
+                Text.literal("成功向 ${targetPlayer.name.string} 转账 ${"%.2f".format(amount)} ")
             )
             
             // 接收者提示（转账成功）
             targetPlayer.sendMessage(
-                Text.literal("${sender.name.string} 向您转账 ${"%.2f".format(amount)} 金币")
+                Text.literal("${sender.name.string} 向您转账 ${"%.2f".format(amount)} ")
             )
             
             return 1

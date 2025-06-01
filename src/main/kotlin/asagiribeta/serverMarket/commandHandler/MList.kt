@@ -48,7 +48,7 @@ class MList {
                 return 1
             }
 
-            source.sendMessage(Text.literal("=== $target 上架物品 ===").styled { it.withBold(true) })
+            source.sendMessage(Text.literal("=== $target 上架物品 ===").styled { it.withBold(true).withColor(0xA020F0) })
             items.forEach { (itemId, sellerName, price, quantity) ->
                 source.sendMessage(
                     Text.literal("▸ $itemId")

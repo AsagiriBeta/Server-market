@@ -80,7 +80,7 @@ class MBuy {
         // 检查余额
         val balance = ServerMarket.instance.database.getBalance(player.uuid)
         if (balance < totalCost) {
-            context.source.sendError(Text.literal("余额不足，需要 ${"%.2f".format(totalCost)} 金币"))
+            context.source.sendError(Text.literal("余额不足，需要 ${"%.2f".format(totalCost)} "))
             return 0
         }
 
@@ -147,7 +147,7 @@ class MBuy {
             }
 
             context.source.sendMessage(
-                Text.literal("成功购买 $quantity 个 $itemId，花费 ${"%.2f".format(totalCost)} 金币")
+                Text.literal("成功购买 $quantity 个 $itemId，花费 ${"%.2f".format(totalCost)} ")
             )
             return 1
         } catch (e: Exception) {

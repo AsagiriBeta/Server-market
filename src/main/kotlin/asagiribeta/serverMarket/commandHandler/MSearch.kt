@@ -47,7 +47,10 @@ class MSearch {
                 return 1
             }
 
-            source.sendMessage(Text.literal("=== 全服 $itemId 销售列表 ===").styled { it.withBold(true) })
+            source.sendMessage(Text.literal("=== 全服 $itemId 销售列表 ===").styled { 
+                it.withBold(true)
+                    .withColor(0xA020F0)
+            })
             items.forEach { (_, sellerName, price, quantity) ->
                 val sellerType = if (sellerName == "SERVER") "系统市场" else "玩家市场"
                 source.sendMessage(
