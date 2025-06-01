@@ -1,5 +1,6 @@
-package asagiribeta.serverMarket
+package asagiribeta.serverMarket.commandHandler
 
+import asagiribeta.serverMarket.ServerMarket
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.arguments.DoubleArgumentType
@@ -9,6 +10,7 @@ import com.mojang.brigadier.context.CommandContext
 import net.minecraft.command.CommandSource
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.CommandManager.argument
+import net.minecraft.registry.Registries
 
 class AdminCommand {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
@@ -85,7 +87,7 @@ class AdminCommand {
         }
 
         try {
-            val itemId = itemStack.item.translationKey
+            val itemId = Registries.ITEM.getId(itemStack.item).toString()  // 替换原translationKey方式
             val marketRepo = ServerMarket.instance.database.marketRepository
             
             if (!marketRepo.hasSystemItem(itemId)) {
@@ -117,7 +119,7 @@ class AdminCommand {
         }
 
         try {
-            val itemId = itemStack.item.translationKey
+            val itemId = Registries.ITEM.getId(itemStack.item).toString()  // 替换原translationKey方式
             val marketRepo = ServerMarket.instance.database.marketRepository
             
             if (marketRepo.hasSystemItem(itemId)) {

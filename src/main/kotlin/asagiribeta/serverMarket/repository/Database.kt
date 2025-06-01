@@ -1,5 +1,6 @@
-package asagiribeta.serverMarket
+package asagiribeta.serverMarket.repository
 
+import asagiribeta.serverMarket.ServerMarket
 import java.sql.*
 import java.util.*
 

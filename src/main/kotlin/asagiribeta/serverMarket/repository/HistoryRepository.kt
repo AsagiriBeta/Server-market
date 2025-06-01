@@ -1,4 +1,4 @@
-package asagiribeta.serverMarket
+package asagiribeta.serverMarket.repository
 
 import java.sql.PreparedStatement
 import java.util.*

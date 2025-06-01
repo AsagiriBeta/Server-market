@@ -1,4 +1,4 @@
-package asagiribeta.serverMarket
+package asagiribeta.serverMarket.repository
 
 import java.util.*
 
@@ -34,6 +34,7 @@ class MarketRepository(private val database: Database) {
         return database.connection.prepareStatement("""
             SELECT item_id, price, seller
             FROM system_market
+            ORDER BY item_id
         """).use { ps ->
             val rs = ps.executeQuery()
             buildList {
@@ -76,13 +77,41 @@ class MarketRepository(private val database: Database) {
         }
     }
 
-    fun removePlayerItem(sellerUuid: UUID, itemId: String) {
+    fun incrementPlayerItemQuantity(sellerUuid: UUID, itemId: String, quantity: Int) {
+        database.executeUpdate("""
+            UPDATE player_market 
+            SET quantity = quantity + ?
+            WHERE seller = ? AND item_id = ?
+        """) { ps ->
+            ps.setInt(1, quantity)
+            ps.setString(2, sellerUuid.toString())
+            ps.setString(3, itemId)
+        }
+    }
+
+    fun removePlayerItem(sellerUuid: UUID, itemId: String): Int {
+        val quantity = getPlayerItemQuantity(sellerUuid, itemId)
+        
         database.executeUpdate("""
             DELETE FROM player_market 
             WHERE seller = ? AND item_id = ?
         """) { ps ->
             ps.setString(1, sellerUuid.toString())
             ps.setString(2, itemId)
+        }
+        return quantity
+    }
+
+    private fun getPlayerItemQuantity(sellerUuid: UUID, itemId: String): Int {
+        return database.connection.prepareStatement("""
+            SELECT quantity 
+            FROM player_market 
+            WHERE seller = ? AND item_id = ?
+        """).use { ps ->
+            ps.setString(1, sellerUuid.toString())
+            ps.setString(2, itemId)
+            val rs = ps.executeQuery()
+            if (rs.next()) rs.getInt("quantity") else 0
         }
     }
 
@@ -105,6 +134,7 @@ class MarketRepository(private val database: Database) {
             SELECT item_id, seller_name, price, quantity 
             FROM player_market 
             WHERE seller = ?
+            ORDER BY item_id  -- 新增按物品名称排序
         """).use { ps ->
             ps.setString(1, sellerUuid)
             val rs = ps.executeQuery()
@@ -114,6 +144,67 @@ class MarketRepository(private val database: Database) {
                         MarketItem(
                             itemId = rs.getString("item_id"),
                             sellerName = rs.getString("seller_name"),
+                            price = rs.getDouble("price"),
+                            quantity = rs.getInt("quantity")
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    // 拆分为两个独立搜索方法
+    // 供msearch使用的显示用搜索（保留seller_name字段）
+    fun searchForDisplay(itemId: String): List<MarketItem> {
+        return database.connection.prepareStatement("""
+            SELECT sm.item_id, 'SERVER' as seller_name, sm.price, sm.quantity
+            FROM system_market sm
+            WHERE sm.item_id = ?
+            UNION ALL
+            SELECT pm.item_id, pm.seller_name as seller_name, pm.price, pm.quantity
+            FROM player_market pm
+            WHERE pm.item_id = ?
+            ORDER BY price ASC
+        """).use { ps ->
+            ps.setString(1, itemId)
+            ps.setString(2, itemId)
+            val rs = ps.executeQuery()
+            buildList {
+                while (rs.next()) {
+                    add(
+                        MarketItem(
+                            itemId = rs.getString("item_id"),
+                            sellerName = rs.getString("seller_name"),
+                            price = rs.getDouble("price"),
+                            quantity = rs.getInt("quantity")
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    // 供mbuy使用的交易用搜索（使用seller字段）
+    fun searchForTransaction(itemId: String): List<MarketItem> {
+        return database.connection.prepareStatement("""
+            SELECT sm.item_id, 'SERVER' as seller_name, sm.price, sm.quantity
+            FROM system_market sm
+            WHERE sm.item_id = ?
+            UNION ALL
+            SELECT pm.item_id, pm.seller as seller_name, pm.price, pm.quantity
+            FROM player_market pm
+            WHERE pm.item_id = ?
+            ORDER BY price ASC
+        """).use { ps ->
+            ps.setString(1, itemId)
+            ps.setString(2, itemId)
+            val rs = ps.executeQuery()
+            buildList {
+                while (rs.next()) {
+                    add(
+                        MarketItem(
+                            itemId = rs.getString("item_id"),
+                            sellerName = rs.getString("seller_name"), // 这里实际存储的是seller的UUID
                             price = rs.getDouble("price"),
                             quantity = rs.getInt("quantity")
                         )
