@@ -4,9 +4,11 @@
   "version": "${version}",
 
   "name": "Server-market",
-  "description": "",
+  "description": "Currency and Market Mod for Minecraft Server",
   "authors": ["AsagiriBeta"],
-  "contact": {},
+  "contact": {
+    "homepage": "https://github.com/AsagiriBeta/Server-market"
+  },
 
   "license": "MIT",
   "icon": "assets/server-market/icon.png",
