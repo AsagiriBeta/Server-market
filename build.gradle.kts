@@ -56,9 +56,10 @@ dependencies {
     modImplementation("net.fabricmc:fabric-loader:${project.property("loader_version")}")
     modImplementation("net.fabricmc:fabric-language-kotlin:${project.property("kotlin_loader_version")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${project.property("fabric_version")}")
-    // 新增生命周期事件依赖
-    modImplementation("net.fabricmc.fabric-api:fabric-lifecycle-events-v1:${project.property("fabric_version")}")
     implementation("org.xerial:sqlite-jdbc:3.45.1.0")
+    //modImplementation("net.fabricmc.fabric-api:fabric-command-api-v2:${project.property("fabric_version")}")
+    //modImplementation("net.fabricmc.fabric-api:fabric-networking-api-v1:${project.property("fabric_version")}")
+    //implementation("net.fabricmc.fabric-api:fabric-lifecycle-events-v1:${project.property("fabric_version")}")
 }
 
 tasks.processResources {
