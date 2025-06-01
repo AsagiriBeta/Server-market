@@ -5,6 +5,7 @@ plugins {
     kotlin("jvm") version "2.1.21"
     id("fabric-loom") version "1.9.2"
     id("maven-publish")
+    id("com.gradleup.shadow") version "8.3.6"
 }
 
 version = project.property("mod_version") as String
@@ -87,6 +88,22 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.withType<KotlinCompile>().configureEach {
     compilerOptions.jvmTarget.set(JvmTarget.fromTarget(targetJavaVersion.toString()))
+}
+
+tasks{
+     shadowJar {
+        archiveBaseName.set(project.property("archives_base_name") as String)
+        archiveVersion.set(project.version.toString())
+        configurations =  listOf(project.configurations.runtimeClasspath.get())
+        dependencies {
+            include(dependency("org.xerial:sqlite-jdbc"))
+        }
+        minimize()
+    }
+
+    build {
+        dependsOn(shadowJar)
+    }
 }
 
 tasks.jar {
