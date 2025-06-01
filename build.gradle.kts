@@ -56,9 +56,10 @@ dependencies {
     modImplementation("net.fabricmc:fabric-loader:${project.property("loader_version")}")
     modImplementation("net.fabricmc:fabric-language-kotlin:${project.property("kotlin_loader_version")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${project.property("fabric_version")}")
-    // 新增生命周期事件依赖
     modImplementation("net.fabricmc.fabric-api:fabric-lifecycle-events-v1:${project.property("fabric_version")}")
     implementation("org.xerial:sqlite-jdbc:3.45.1.0")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.1.21")
+
 }
 
 tasks.processResources {
