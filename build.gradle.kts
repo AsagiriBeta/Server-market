@@ -33,12 +33,7 @@ loom {
             sourceSet("client")
         }
     }
-    runs {
-        getByName("server") {
-            runDir("run")
-            vmArgs("-Dfabric.log.level=debug")
-        }
-    }
+
 }
 
 fabricApi {
@@ -94,23 +89,7 @@ tasks.withType<JavaCompile>().configureEach {
 tasks.withType<KotlinCompile>().configureEach {
     compilerOptions.jvmTarget.set(JvmTarget.fromTarget(targetJavaVersion.toString()))
 }
-/*
-tasks{
-     shadowJar {
-        archiveBaseName.set(project.property("archives_base_name") as String)
-        archiveVersion.set(project.version.toString())
-        configurations =  listOf(project.configurations.runtimeClasspath.get())
-        dependencies {
-            include(dependency("org.xerial:sqlite-jdbc"))
-        }
-        minimize()
-    }
 
-    build {
-        dependsOn(shadowJar)
-    }
-}
-*/
 tasks.jar {
     from("LICENSE") {
         rename { "${it}_${project.base.archivesName}" }
