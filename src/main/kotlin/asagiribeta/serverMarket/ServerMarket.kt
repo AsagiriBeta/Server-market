@@ -7,7 +7,6 @@ import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
-import net.minecraft.server.network.ServerPlayNetworkHandler
 import org.slf4j.LoggerFactory
 import org.slf4j.Logger
 
@@ -23,7 +22,7 @@ class ServerMarket : ModInitializer {
 
     override fun onInitialize() {
         instance = this
-        ServerPlayConnectionEvents.JOIN.register { handler: ServerPlayNetworkHandler, _, _ ->
+        ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
             val player = handler.player
             val uuid = player.uuid
             if (!database.playerExists(uuid)) {
@@ -39,7 +38,7 @@ class ServerMarket : ModInitializer {
         }
 
         // 注册玩家离线事件保存数据
-        ServerPlayConnectionEvents.DISCONNECT.register { handler: ServerPlayNetworkHandler, _ ->
+        ServerPlayConnectionEvents.DISCONNECT.register { handler, _ ->
             val uuid = handler.player.uuid
             database.syncSave(uuid)
         }
@@ -51,3 +50,4 @@ class ServerMarket : ModInitializer {
         }
     }
 }
+

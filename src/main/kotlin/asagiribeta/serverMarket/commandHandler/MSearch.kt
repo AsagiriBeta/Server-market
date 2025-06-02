@@ -16,9 +16,12 @@ class MSearch {
             val server = context.source.server
             val registryManager = server.registryManager
             val itemRegistry = registryManager.get(net.minecraft.registry.RegistryKeys.ITEM)
-            
-            itemRegistry.ids.forEach { identifier: net.minecraft.util.Identifier ->
-                builder.suggest(identifier.toString())
+            val remaining = builder.remaining.lowercase()
+            itemRegistry.ids.forEach { identifier ->
+                val idStr = identifier.toString()
+                if (idStr.contains(remaining)) {
+                    builder.suggest(idStr)
+                }
             }
             builder.buildFuture()
         }

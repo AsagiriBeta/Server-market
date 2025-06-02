@@ -25,9 +25,12 @@ class MBuy {
                             val server = context.source.server
                             val registryManager = server.registryManager
                             val itemRegistry = registryManager.get(net.minecraft.registry.RegistryKeys.ITEM)
-                            
+                            val remaining = builder.remaining.lowercase()
                             itemRegistry.ids.forEach { identifier ->
-                                builder.suggest(identifier.toString())
+                                val idStr = identifier.toString()
+                                if (idStr.contains(remaining)) {
+                                    builder.suggest(idStr)
+                                }
                             }
                             builder.buildFuture()
                         }

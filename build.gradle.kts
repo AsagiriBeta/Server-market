@@ -33,6 +33,12 @@ loom {
             sourceSet("client")
         }
     }
+    runs {
+        getByName("server") {
+            runDir("run")
+            vmArgs("-Dfabric.log.level=debug")
+        }
+    }
 }
 
 fabricApi {
@@ -56,10 +62,8 @@ dependencies {
     modImplementation("net.fabricmc:fabric-loader:${project.property("loader_version")}")
     modImplementation("net.fabricmc:fabric-language-kotlin:${project.property("kotlin_loader_version")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${project.property("fabric_version")}")
-    implementation("org.xerial:sqlite-jdbc:3.45.1.0")
-    //modImplementation("net.fabricmc.fabric-api:fabric-command-api-v2:${project.property("fabric_version")}")
-    //modImplementation("net.fabricmc.fabric-api:fabric-networking-api-v1:${project.property("fabric_version")}")
-    //implementation("net.fabricmc.fabric-api:fabric-lifecycle-events-v1:${project.property("fabric_version")}")
+    modImplementation("org.xerial:sqlite-jdbc:3.45.1.0")
+    include("org.xerial:sqlite-jdbc:3.45.1.0")
 }
 
 tasks.processResources {
@@ -90,7 +94,7 @@ tasks.withType<JavaCompile>().configureEach {
 tasks.withType<KotlinCompile>().configureEach {
     compilerOptions.jvmTarget.set(JvmTarget.fromTarget(targetJavaVersion.toString()))
 }
-
+/*
 tasks{
      shadowJar {
         archiveBaseName.set(project.property("archives_base_name") as String)
@@ -106,7 +110,7 @@ tasks{
         dependsOn(shadowJar)
     }
 }
-
+*/
 tasks.jar {
     from("LICENSE") {
         rename { "${it}_${project.base.archivesName}" }
