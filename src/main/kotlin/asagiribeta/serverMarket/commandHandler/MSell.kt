@@ -1,5 +1,6 @@
 package asagiribeta.serverMarket.commandHandler
 
+import asagiribeta.serverMarket.util.Language
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import net.minecraft.server.command.ServerCommandSource
@@ -22,7 +23,7 @@ class MSell {
 
     private fun execute(context: CommandContext<ServerCommandSource>): Int {
         val player = context.source.player ?: run {
-            context.source.sendError(Text.literal("该命令只能由玩家执行"))
+            context.source.sendError(Text.literal(Language.get("command.msell.player_only")))
             return 0
         }
         val quantity = IntegerArgumentType.getInteger(context, "quantity")
@@ -38,7 +39,7 @@ class MSell {
         val marketRepo = ServerMarket.instance.database.marketRepository
         val uuid = player.uuid
         if (!marketRepo.hasPlayerItem(uuid, itemId)) {
-            context.source.sendError(Text.literal("该物品尚未在您的店铺上架"))
+            context.source.sendError(Text.literal(Language.get("command.msell.not_listed")))
             return 0
         }
 
@@ -50,7 +51,7 @@ class MSell {
         // 检查总数量是否足够
         val totalAvailable = allStacks.sumOf { it.count }
         if (totalAvailable < quantity) {
-            context.source.sendError(Text.literal("物品总数量不足（需要 $quantity 个）"))
+            context.source.sendError(Text.literal(Language.get("command.msell.insufficient_items", quantity)))
             return 0
         }
 
@@ -66,11 +67,11 @@ class MSell {
         try {
             marketRepo.incrementPlayerItemQuantity(uuid, itemId, quantity)
             context.source.sendMessage(
-                Text.literal("成功补货 $quantity 个 $itemName")  // 使用预先保存的物品名称
+                Text.literal(Language.get("command.msell.success", quantity, itemName))
             )
             return 1
         } catch (e: Exception) {
-            context.source.sendError(Text.literal("补货失败"))
+            context.source.sendError(Text.literal(Language.get("command.msell.operation_failed")))
             ServerMarket.LOGGER.error("msell命令执行失败", e)
             return 0
         }

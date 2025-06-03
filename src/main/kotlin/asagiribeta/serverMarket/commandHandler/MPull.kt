@@ -7,6 +7,7 @@ import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.ServerMarket
 import net.minecraft.registry.Registries
+import asagiribeta.serverMarket.util.Language
 
 class MPull {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
@@ -19,13 +20,13 @@ class MPull {
     fun execute(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
         val player = source.player ?: run {
-            source.sendError(Text.literal("只有玩家可以执行此命令"))
+            source.sendError(Text.literal(Language.get("command.mpull.player_only")))
             return 0
         }
 
         val itemStack = player.mainHandStack
         if (itemStack.isEmpty) {
-            source.sendError(Text.literal("请手持要下架的物品"))
+            source.sendError(Text.literal(Language.get("command.mpull.hold_item")))
             return 0
         }
 
@@ -45,13 +46,13 @@ class MPull {
                     player.giveItemStack(returnStack)
                 }
                 
-                source.sendMessage(Text.literal("成功下架 ${itemStack.name.string}（返还 $returnedQuantity 个）"))
+                source.sendMessage(Text.literal(Language.get("command.mpull.success", itemStack.name.string, returnedQuantity)))
                 return 1
             }
-            source.sendError(Text.literal("该物品未上架"))
+            source.sendError(Text.literal(Language.get("command.mpull.not_listed")))
             return 0
         } catch (e: Exception) {
-            source.sendError(Text.literal("操作失败"))
+            source.sendError(Text.literal(Language.get("command.mpull.operation_failed")))
             ServerMarket.LOGGER.error("mpull命令执行失败", e)
             return 0
         }

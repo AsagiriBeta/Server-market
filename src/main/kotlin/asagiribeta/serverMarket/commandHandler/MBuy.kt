@@ -1,6 +1,7 @@
 package asagiribeta.serverMarket.commandHandler
 
 import asagiribeta.serverMarket.ServerMarket
+import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.repository.MarketItem
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
@@ -48,7 +49,7 @@ class MBuy {
 
         val items = marketRepo.searchForTransaction(itemId)
         if (items.isEmpty()) {
-            context.source.sendError(Text.literal("没有找到可购买的 $itemId"))
+            context.source.sendError(Text.literal(Language.get("command.mbuy.not_found", itemId)))
             return 0
         }
 
@@ -57,7 +58,7 @@ class MBuy {
         val totalAvailable = if (hasSystemItem) Int.MAX_VALUE else items.sumOf { it.quantity }
         
         if (totalAvailable < quantity) {
-            context.source.sendError(Text.literal("全服库存不足，最多可购买 $totalAvailable 个"))
+            context.source.sendError(Text.literal(Language.get("command.mbuy.insufficient_stock", totalAvailable)))
             return 0
         }
 
@@ -83,7 +84,7 @@ class MBuy {
         // 检查余额
         val balance = ServerMarket.instance.database.getBalance(player.uuid)
         if (balance < totalCost) {
-            context.source.sendError(Text.literal("余额不足，需要 ${"%.2f".format(totalCost)} "))
+            context.source.sendError(Text.literal(Language.get("command.mbuy.insufficient_balance", "%.2f".format(totalCost))))
             return 0
         }
 
@@ -150,11 +151,11 @@ class MBuy {
             }
 
             context.source.sendMessage(
-                Text.literal("成功购买 $quantity 个 $itemId，花费 ${"%.2f".format(totalCost)} ")
+                Text.literal(Language.get("command.mbuy.success", quantity, itemId, "%.2f".format(totalCost)))
             )
             return 1
         } catch (e: Exception) {
-            context.source.sendError(Text.literal("购买过程中发生错误"))
+            context.source.sendError(Text.literal(Language.get("command.mbuy.error")))
             ServerMarket.LOGGER.error("MBuy命令执行失败", e)
             return 0
         }

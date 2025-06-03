@@ -1,6 +1,7 @@
 package asagiribeta.serverMarket.commandHandler
 
 import asagiribeta.serverMarket.ServerMarket
+import asagiribeta.serverMarket.util.Language
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
 import net.minecraft.server.command.ServerCommandSource
@@ -55,14 +56,14 @@ class Command {
 
     private fun executeMoneyCommand(context: CommandContext<ServerCommandSource>): Int {
         val player = context.source.player ?: run {
-            context.source.sendError(Text.literal("该命令只能由玩家执行"))
+            context.source.sendError(Text.literal(Language.get("error.player_only")))
             return 0
         }
         val uuid = player.uuid
         val balance = ServerMarket().database.getBalance(uuid)
         
         context.source.sendMessage(
-            Text.literal("您的当前余额: ${"%.2f".format(balance)}")
+            Text.literal(Language.get("command.money.balance", "%.2f".format(balance)))
         )
         return 1
     }
@@ -72,14 +73,14 @@ class Command {
         val amount = DoubleArgumentType.getDouble(context, "amount")
         
         if (amount <= 0) {
-            context.source.sendMessage(Text.literal("金额必须大于0"))
+            context.source.sendMessage(Text.literal(Language.get("command.mpay.amount_must_be_positive")))
             return 0
         }
 
         val targetName = StringArgumentType.getString(context, "player")
         val server = context.source.server
         val targetPlayer = server.playerManager.getPlayer(targetName) ?: run {
-            context.source.sendError(Text.literal("目标玩家不在线"))
+            context.source.sendError(Text.literal(Language.get("command.mpay.player_offline")))
             return 0
         }
 
@@ -91,17 +92,17 @@ class Command {
             database.transfer(fromUuid, toUuid, amount)
 
             context.source.sendMessage(
-                Text.literal("成功向 ${targetPlayer.name.string} 转账 ${"%.2f".format(amount)} ")
+                Text.literal(Language.get("command.mpay.success", targetPlayer.name.string, "%.2f".format(amount)))
             )
             
             // 接收者提示（转账成功）
             targetPlayer.sendMessage(
-                Text.literal("${sender.name.string} 向您转账 ${"%.2f".format(amount)} ")
+                Text.literal(Language.get("command.mpay.received", sender.name.string, "%.2f".format(amount)))
             )
             
             return 1
         } catch (e: Exception) {
-            context.source.sendError(Text.literal("转账失败"))
+            context.source.sendError(Text.literal(Language.get("command.mpay.transfer_failed")))
             ServerMarket.LOGGER.error("MPay命令执行失败", e)
             return 0
         }

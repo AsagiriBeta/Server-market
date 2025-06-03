@@ -3,6 +3,7 @@ package asagiribeta.serverMarket
 import asagiribeta.serverMarket.commandHandler.AdminCommand
 import asagiribeta.serverMarket.commandHandler.Command
 import asagiribeta.serverMarket.repository.Database
+import asagiribeta.serverMarket.util.Language
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
@@ -22,6 +23,10 @@ class ServerMarket : ModInitializer {
 
     override fun onInitialize() {
         instance = this
+        
+        // 初始化语言系统
+        LOGGER.info("Initializing language system, current language: {}", Language.getCurrentLanguage())
+        
         ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
             val player = handler.player
             val uuid = player.uuid
@@ -50,4 +55,3 @@ class ServerMarket : ModInitializer {
         }
     }
 }
-
