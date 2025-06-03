@@ -48,6 +48,10 @@ This mod adds a player economy system and item trading market to Minecraft serve
 - **/apull**  
   Remove held item from system shop
 
+- **/mlang <language>**  
+  Switch system language  
+  Example: `/mlang en` or `/mlang zh`
+
 ## Market System Features
 1. **Dual Markets**
    - Player Market: Player-set prices, limited stock
