@@ -11,10 +11,6 @@ plugins {
 version = project.property("mod_version") as String
 group = project.property("maven_group") as String
 
-base {
-    archivesName.set(project.property("archives_base_name") as String)
-}
-
 val targetJavaVersion = 21
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
@@ -42,6 +38,18 @@ fabricApi {
     }
 }
 
+val supportedVersions: List<String> = (project.findProperty("supported_mc_versions") as String).split(",")
+val mcVersion = project.findProperty("mc_version") as String? ?: "1_20"
+val minecraftVersion = findProperty("minecraft_version_$mcVersion")?.toString()
+    ?: throw GradleException("Minecraft version property for $mcVersion not found")
+fun prop(ver: String, key: String) = project.property("${key}_$ver") as String
+
+val loaderVersion = project.property("loader_version") as String
+val kotlinLoaderVersion = project.property("kotlin_loader_version") as String
+
+base {
+    archivesName.set("${project.property("archives_base_name")}_${minecraftVersion}")
+}
 repositories {
     // Add repositories to retrieve artifacts from in here.
     // You should only use this when depending on other mods because
@@ -52,29 +60,13 @@ repositories {
 
 dependencies {
     // To change the versions see the gradle.properties file
-    minecraft("com.mojang:minecraft:${project.property("minecraft_version")}")
-    mappings("net.fabricmc:yarn:${project.property("yarn_mappings")}:v2")
-    modImplementation("net.fabricmc:fabric-loader:${project.property("loader_version")}")
-    modImplementation("net.fabricmc:fabric-language-kotlin:${project.property("kotlin_loader_version")}")
-    modImplementation("net.fabricmc.fabric-api:fabric-api:${project.property("fabric_version")}")
+    minecraft("com.mojang:minecraft:${prop(mcVersion, "minecraft_version")}")
+    mappings("net.fabricmc:yarn:${prop(mcVersion, "yarn_mappings")}:v2")
+    modImplementation("net.fabricmc:fabric-loader:$loaderVersion")
+    modImplementation("net.fabricmc:fabric-language-kotlin:$kotlinLoaderVersion")
+    modImplementation("net.fabricmc.fabric-api:fabric-api:${prop(mcVersion, "fabric_version")}")
     modImplementation("org.xerial:sqlite-jdbc:3.45.1.0")
     include("org.xerial:sqlite-jdbc:3.45.1.0")
-}
-
-tasks.processResources {
-    inputs.property("version", project.version)
-    inputs.property("minecraft_version", project.property("minecraft_version"))
-    inputs.property("loader_version", project.property("loader_version"))
-    filteringCharset = "UTF-8"
-
-    filesMatching("fabric.mod.json") {
-        expand(
-            "version" to project.version,
-            "minecraft_version" to project.property("minecraft_version"),
-            "loader_version" to project.property("loader_version"),
-            "kotlin_loader_version" to project.property("kotlin_loader_version")
-        )
-    }
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -96,6 +88,43 @@ tasks.jar {
     }
 }
 
+tasks.processResources {
+    filesMatching("fabric.mod.json") {
+        expand(
+            "version" to project.version,
+            "minecraft_version" to prop(mcVersion, "minecraft_version"),
+            "loader_version" to loaderVersion,
+            "kotlin_loader_version" to kotlinLoaderVersion,
+            "fabric_version" to prop(mcVersion, "fabric_version")
+        )
+    }
+}
+
+tasks.register("buildAllWin") {
+    group = "build"
+    description = "为所有支持的Minecraft版本自动编译jar"
+    doLast {
+        supportedVersions.forEach { ver ->
+            println("=== 正在编译 Minecraft $ver ===")
+            exec {
+                commandLine = listOf("gradlew.bat", "build", "-Pmc_version=$ver", "--stacktrace")
+            }
+        }
+    }
+}
+
+tasks.register("buildAllLinMac") {
+    group = "build"
+    description = "为所有支持的Minecraft版本自动编译jar"
+    doLast {
+        supportedVersions.forEach { ver ->
+            println("=== 正在编译 Minecraft $ver ===")
+            exec {
+                commandLine = listOf("./gradlew", "build", "-Pmc_version=$ver", "--stacktrace")
+            }
+        }
+    }
+}
 // configure the maven publication
 publishing {
     publications {
