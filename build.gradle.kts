@@ -1,5 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.gradle.process.ExecOperations
+import javax.inject.Inject
 
 plugins {
     kotlin("jvm") version "2.1.21"
@@ -100,31 +102,48 @@ tasks.processResources {
     }
 }
 
-tasks.register("buildAllWin") {
-    group = "build"
-    description = "为所有支持的Minecraft版本自动编译jar"
-    doLast {
+abstract class BuildAllWinTask : DefaultTask() {
+    @get:Inject
+    abstract val execOps: ExecOperations
+
+    @TaskAction
+    fun buildAll() {
+        val supportedVersions: List<String> = (project.findProperty("supported_mc_versions") as String).split(",")
         supportedVersions.forEach { ver ->
             println("=== 正在编译 Minecraft $ver ===")
-            exec {
-                commandLine = listOf("gradlew.bat", "build", "-Pmc_version=$ver", "--stacktrace")
+            execOps.exec {
+                commandLine("gradlew.bat", "build", "-Pmc_version=$ver", "--stacktrace")
             }
         }
     }
 }
 
-tasks.register("buildAllLinMac") {
-    group = "build"
-    description = "为所有支持的Minecraft版本自动编译jar"
-    doLast {
+abstract class BuildAllLinMacTask : DefaultTask() {
+    @get:Inject
+    abstract val execOps: ExecOperations
+
+    @TaskAction
+    fun buildAll() {
+        val supportedVersions: List<String> = (project.findProperty("supported_mc_versions") as String).split(",")
         supportedVersions.forEach { ver ->
             println("=== 正在编译 Minecraft $ver ===")
-            exec {
-                commandLine = listOf("./gradlew", "build", "-Pmc_version=$ver", "--stacktrace")
+            execOps.exec {
+                commandLine("./gradlew", "build", "-Pmc_version=$ver", "--stacktrace")
             }
         }
     }
 }
+
+tasks.register<BuildAllWinTask>("buildAllWin") {
+    group = "build"
+    description = "为所有支持的Minecraft版本自动编译jar"
+}
+
+tasks.register<BuildAllLinMacTask>("buildAllLinMac") {
+    group = "build"
+    description = "为所有支持的Minecraft版本自动编译jar"
+}
+
 // configure the maven publication
 publishing {
     publications {
