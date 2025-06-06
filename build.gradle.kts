@@ -5,7 +5,7 @@ import javax.inject.Inject
 
 plugins {
     kotlin("jvm") version "2.1.21"
-    id("fabric-loom") version "1.9.2"
+    id("fabric-loom") version "1.10-SNAPSHOT"
     id("maven-publish")
     id("com.gradleup.shadow") version "8.3.6"
 }
@@ -40,7 +40,6 @@ fabricApi {
     }
 }
 
-val supportedVersions: List<String> = (project.findProperty("supported_mc_versions") as String).split(",")
 val mcVersion = project.findProperty("mc_version") as String? ?: "1_20"
 val minecraftVersion = findProperty("minecraft_version_$mcVersion")?.toString()
     ?: throw GradleException("Minecraft version property for $mcVersion not found")
