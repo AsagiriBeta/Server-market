@@ -9,12 +9,14 @@ import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
+import net.minecraft.registry.RegistryKeys
 import net.minecraft.util.Identifier
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.text.Text
 import java.util.*
+import kotlin.jvm.optionals.toList
 
 class MBuy {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
@@ -25,9 +27,9 @@ class MBuy {
                         .suggests { context, builder ->
                             val server = context.source.server
                             val registryManager = server.registryManager
-                            val itemRegistry = registryManager.get(net.minecraft.registry.RegistryKeys.ITEM)
+                            val itemRegistry = registryManager.getOptional(RegistryKeys.ITEM)
                             val remaining = builder.remaining.lowercase()
-                            itemRegistry.ids.forEach { identifier ->
+                            itemRegistry.toList().forEach { identifier ->
                                 val idStr = identifier.toString()
                                 if (idStr.contains(remaining)) {
                                     builder.suggest(idStr)
@@ -143,8 +145,8 @@ class MBuy {
                 // 给予玩家物品
                 val server = context.source.server
                 val registryManager = server.registryManager
-                val itemRegistry = registryManager.get(net.minecraft.registry.RegistryKeys.ITEM)
-                val itemType = itemRegistry.get(Identifier.tryParse(itemId)) ?: Items.AIR  // 修复Registry引用路径
+                val itemRegistry = registryManager.getOptional(RegistryKeys.ITEM)
+                val itemType = itemRegistry.get().get(Identifier.tryParse(itemId)) ?: Items.AIR  // 修复Registry引用路径
                 val itemStack = ItemStack(itemType, amount)
                 player.giveItemStack(itemStack)
 

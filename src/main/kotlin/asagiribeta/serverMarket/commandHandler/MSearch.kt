@@ -8,17 +8,19 @@ import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.CommandManager.argument
 import com.mojang.brigadier.arguments.StringArgumentType
 import net.minecraft.text.Text
+import net.minecraft.registry.RegistryKeys
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
+import kotlin.jvm.optionals.toList
 
 class MSearch {
     companion object {
         val ITEM_ID_SUGGESTIONS = SuggestionProvider<ServerCommandSource> { context, builder ->
             val server = context.source.server
             val registryManager = server.registryManager
-            val itemRegistry = registryManager.get(net.minecraft.registry.RegistryKeys.ITEM)
+            val itemRegistry = registryManager.getOptional(RegistryKeys.ITEM)
             val remaining = builder.remaining.lowercase()
-            itemRegistry.ids.forEach { identifier ->
+            itemRegistry.toList().forEach { identifier ->
                 val idStr = identifier.toString()
                 if (idStr.contains(remaining)) {
                     builder.suggest(idStr)

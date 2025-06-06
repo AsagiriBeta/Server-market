@@ -5,7 +5,7 @@ import javax.inject.Inject
 
 plugins {
     kotlin("jvm") version "2.1.21"
-    id("fabric-loom") version "1.9.2"
+    id("fabric-loom") version "1.10-SNAPSHOT"
     id("maven-publish")
     id("com.gradleup.shadow") version "8.3.6"
 }
