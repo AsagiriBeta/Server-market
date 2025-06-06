@@ -101,44 +101,40 @@ tasks.processResources {
     }
 }
 
-abstract class BuildAllWinTask : DefaultTask() {
+abstract class BuildAllTask : DefaultTask() {
     @get:Inject
     abstract val execOps: ExecOperations
 
     @TaskAction
     fun buildAll() {
         val supportedVersions: List<String> = (project.findProperty("supported_mc_versions") as String).split(",")
+        val gradleCommand = getGradleCommand()
+
+        // 构建所有支持的Minecraft版本
         supportedVersions.forEach { ver ->
             println("=== 正在编译 Minecraft $ver ===")
             execOps.exec {
-                commandLine("gradlew.bat", "build", "-Pmc_version=$ver", "--stacktrace")
+                commandLine(gradleCommand, "build", "-Pmc_version=$ver", "--stacktrace")
             }
+        }
+
+        // 删除源文件
+        execOps.exec {
+            commandLine(gradleCommand, "deleteSourcesJar", "--stacktrace")
+        }
+    }
+
+    private fun getGradleCommand(): String {
+        // 根据操作系统选择正确的命令
+        return if (System.getProperty("os.name").lowercase().contains("win")) {
+            "gradlew.bat"
+        } else {
+            "./gradlew"
         }
     }
 }
 
-abstract class BuildAllLinMacTask : DefaultTask() {
-    @get:Inject
-    abstract val execOps: ExecOperations
-
-    @TaskAction
-    fun buildAll() {
-        val supportedVersions: List<String> = (project.findProperty("supported_mc_versions") as String).split(",")
-        supportedVersions.forEach { ver ->
-            println("=== 正在编译 Minecraft $ver ===")
-            execOps.exec {
-                commandLine("./gradlew", "build", "-Pmc_version=$ver", "--stacktrace")
-            }
-        }
-    }
-}
-
-tasks.register<BuildAllWinTask>("buildAllWin") {
-    group = "build"
-    description = "为所有支持的Minecraft版本自动编译jar"
-}
-
-tasks.register<BuildAllLinMacTask>("buildAllLinMac") {
+tasks.register<BuildAllTask>("buildAll") {
     group = "build"
     description = "为所有支持的Minecraft版本自动编译jar"
 }
@@ -159,4 +155,13 @@ publishing {
         // The repositories here will be used for publishing your artifact, not for
         // retrieving dependencies.
     }
+}
+
+tasks.register<Delete>("deleteSourcesJar") {
+    group = "build"
+    description = "删除所有版本的 source.jar 文件"
+    val sourceJarFiles = fileTree("build/libs") {
+        include("**/*-sources.jar")
+    }
+    delete(sourceJarFiles)
 }
