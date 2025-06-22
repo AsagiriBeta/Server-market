@@ -40,7 +40,7 @@ fabricApi {
     }
 }
 
-val mcVersion = project.findProperty("mc_version") as String? ?: "1_20"
+val mcVersion = project.findProperty("mc_version") as String? ?: "1_21"
 val minecraftVersion = findProperty("minecraft_version_$mcVersion")?.toString()
     ?: throw GradleException("Minecraft version property for $mcVersion not found")
 fun prop(ver: String, key: String) = project.property("${key}_$ver") as String
@@ -90,6 +90,12 @@ tasks.jar {
 }
 
 tasks.processResources {
+    inputs.property("version", project.version)
+    inputs.property("minecraft_version", prop(mcVersion, "minecraft_version"))
+    inputs.property("loader_version", loaderVersion)
+    inputs.property("kotlin_loader_version", kotlinLoaderVersion)
+    inputs.property("fabric_version", prop(mcVersion, "fabric_version"))
+
     filesMatching("fabric.mod.json") {
         expand(
             "version" to project.version,
