@@ -10,7 +10,7 @@
     "homepage": "https://github.com/AsagiriBeta/Server-market"
   },
 
-  "license": "MIT",
+  "license": "GPL-3.0",
   "icon": "assets/server-market/icon.png",
 
   "environment": "server",
