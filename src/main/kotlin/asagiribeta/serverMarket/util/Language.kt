@@ -8,8 +8,10 @@ object Language {
     private const val DEFAULT_LANGUAGE = "en"
     private var currentLanguage = DEFAULT_LANGUAGE
     private val translations = mutableMapOf<String, MutableMap<String, String>>()
-    
+    private val configFile = File("config/server-market/language.properties")
+
     init {
+        loadSavedLanguage()
         loadTranslations()
     }
     
@@ -18,6 +20,7 @@ object Language {
     fun setLanguage(lang: String): Boolean {
         return if (translations.containsKey(lang)) {
             currentLanguage = lang
+            saveLanguageSetting()
             true
         } else {
             false
@@ -36,6 +39,42 @@ object Language {
         }
     }
     
+    private fun loadSavedLanguage() {
+        try {
+            if (configFile.exists()) {
+                val props = Properties()
+                configFile.inputStream().use { props.load(it) }
+                val savedLang = props.getProperty("language")
+                if (!savedLang.isNullOrBlank()) {
+                    currentLanguage = savedLang
+                    ServerMarket.LOGGER.info("Loaded saved language setting: $savedLang")
+                }
+            }
+        } catch (e: Exception) {
+            ServerMarket.LOGGER.warn("Failed to load saved language setting, using default: $DEFAULT_LANGUAGE", e)
+        }
+    }
+
+    private fun saveLanguageSetting() {
+        try {
+            val dataDir = configFile.parentFile
+            if (!dataDir.exists()) {
+                dataDir.mkdirs()
+            }
+
+            val props = Properties()
+            props.setProperty("language", currentLanguage)
+            props.setProperty("last_updated", System.currentTimeMillis().toString())
+
+            configFile.outputStream().use {
+                props.store(it, "ServerMarket Language Configuration")
+            }
+            ServerMarket.LOGGER.info("Saved language setting: $currentLanguage")
+        } catch (e: Exception) {
+            ServerMarket.LOGGER.error("Failed to save language setting", e)
+        }
+    }
+
     private fun loadTranslations() {
         try {
             val dataDir = File("config/server-market")
@@ -54,6 +93,8 @@ object Language {
             
             // MPay 命令
             zhTranslations["command.mpay.amount_must_be_positive"] = "金额必须大于0"
+            zhTranslations["command.mpay.amount_too_large"] = "转账金额过大，最大允许 1,000,000"
+            zhTranslations["command.mpay.cannot_pay_self"] = "不能向自己转账"
             zhTranslations["command.mpay.player_offline"] = "目标玩家不在线"
             zhTranslations["command.mpay.success"] = "成功向 %s 转账 %s"
             zhTranslations["command.mpay.received"] = "%s 向您转账 %s"
@@ -110,6 +151,9 @@ object Language {
             zhTranslations["command.mset.success"] = "成功设置玩家 %s 的余额为 %s"
             zhTranslations["command.mset.failed"] = "设置余额失败"
             
+            zhTranslations["command.mreload.success"] = "配置重新加载成功"
+            zhTranslations["command.mreload.failed"] = "配置重新加载失败"
+
             zhTranslations["command.aprice.player_only"] = "只有玩家可以执行此命令"
             zhTranslations["command.aprice.hold_item"] = "请手持要设置价格的物品"
             zhTranslations["command.aprice.add_success"] = "成功上架 %s 价格为 %s"
@@ -138,6 +182,8 @@ object Language {
             
             // MPay 命令
             enTranslations["command.mpay.amount_must_be_positive"] = "Amount must be positive"
+            enTranslations["command.mpay.amount_too_large"] = "Transfer amount too large, maximum allowed: 1,000,000"
+            enTranslations["command.mpay.cannot_pay_self"] = "Cannot transfer money to yourself"
             enTranslations["command.mpay.player_offline"] = "Target player is offline"
             enTranslations["command.mpay.success"] = "Successfully transferred %s to %s"
             enTranslations["command.mpay.received"] = "Received %s from %s"
@@ -194,6 +240,9 @@ object Language {
             enTranslations["command.mset.success"] = "Successfully set player %s's balance to %s"
             enTranslations["command.mset.failed"] = "Failed to set balance"
             
+            enTranslations["command.mreload.success"] = "Configuration reloaded successfully"
+            enTranslations["command.mreload.failed"] = "Failed to reload configuration"
+
             enTranslations["command.aprice.player_only"] = "Only players can execute this command"
             enTranslations["command.aprice.hold_item"] = "Please hold the item you want to price"
             enTranslations["command.aprice.add_success"] = "Successfully listed %s at price %s"

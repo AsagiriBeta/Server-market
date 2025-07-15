@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.commandHandler
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.Config
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
 import net.minecraft.server.command.ServerCommandSource
@@ -60,8 +61,8 @@ class Command {
             return 0
         }
         val uuid = player.uuid
-        val balance = ServerMarket().database.getBalance(uuid)
-        
+        val balance = ServerMarket.instance.database.getBalance(uuid)  // 修复：使用单例
+
         context.source.sendMessage(
             Text.literal(Language.get("command.money.balance", "%.2f".format(balance)))
         )
@@ -77,7 +78,20 @@ class Command {
             return 0
         }
 
+        // 使用配置系统中的最大转账金额
+        if (amount > Config.maxTransferAmount) {
+            context.source.sendError(Text.literal(Language.get("command.mpay.amount_too_large", Config.maxTransferAmount.toString())))
+            return 0
+        }
+
         val targetName = StringArgumentType.getString(context, "player")
+
+        // 防止自己给自己转账
+        if (targetName.equals(sender.name.string, ignoreCase = true)) {
+            context.source.sendError(Text.literal(Language.get("command.mpay.cannot_pay_self")))
+            return 0
+        }
+
         val server = context.source.server
         val targetPlayer = server.playerManager.getPlayer(targetName) ?: run {
             context.source.sendError(Text.literal(Language.get("command.mpay.player_offline")))

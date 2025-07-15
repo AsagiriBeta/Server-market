@@ -108,9 +108,8 @@ class Database {
 
     // 转账方法的事务管理逻辑
     fun transfer(fromUuid: UUID, toUuid: UUID, amount: Double) {
-        val originalAutoCommit = connection.autoCommit
+        connection.autoCommit = false
         try {
-            connection.autoCommit = false
             val fromBalance = getBalance(fromUuid)
             if (fromBalance < amount) {
                 throw SQLException("余额不足 UUID: $fromUuid 金额: $amount")
@@ -119,15 +118,11 @@ class Database {
             addBalance(toUuid, amount)
             connection.commit()
         } catch (e: SQLException) {
-            // 仅在非自动提交模式时才执行回滚
-            if (!connection.autoCommit) {
-                connection.rollback()
-            }
+            connection.rollback()
             ServerMarket.LOGGER.error("转账失败 UUID: $fromUuid -> $toUuid 金额: $amount", e)
             throw e
         } finally {
-            // 确保恢复原始自动提交状态
-            connection.autoCommit = originalAutoCommit
+            connection.autoCommit = true
         }
     }
 

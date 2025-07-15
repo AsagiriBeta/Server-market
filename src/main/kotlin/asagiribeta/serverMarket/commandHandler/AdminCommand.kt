@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.commandHandler
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.Config
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.arguments.DoubleArgumentType
@@ -53,6 +54,12 @@ class AdminCommand {
                     }
                     .executes(this::executeMLangCommand)
                 )
+        )
+
+        dispatcher.register(
+            literal("mreload")
+                .requires { it.hasPermissionLevel(4) }
+                .executes(this::executeMReloadCommand)
         )
     }
 
@@ -160,6 +167,23 @@ class AdminCommand {
         } catch (e: Exception) {
             source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
             ServerMarket.LOGGER.error("apull命令执行失败", e)
+            return 0
+        }
+    }
+
+    private fun executeMReloadCommand(context: CommandContext<ServerCommandSource>): Int {
+        try {
+            Config.reloadConfig()
+            context.source.sendMessage(
+                Text.literal(Language.get("command.mreload.success"))
+            )
+            ServerMarket.LOGGER.info("Configuration reloaded by ${context.source.name}")
+            return 1
+        } catch (e: Exception) {
+            context.source.sendError(
+                Text.literal(Language.get("command.mreload.failed"))
+            )
+            ServerMarket.LOGGER.error("Failed to reload configuration", e)
             return 0
         }
     }
