@@ -68,7 +68,11 @@ class MList {
     private fun resolveSellerUuid(name: String, server: MinecraftServer): String? {
         return server.playerManager.getPlayer(name)?.uuid?.toString()
             ?: ServerMarket.instance.database.executeQuery(
-                "SELECT uuid FROM balances WHERE uuid = ? OR EXISTS(SELECT 1 FROM player_market WHERE seller_name = ?)"
+                // 先尝试精确匹配 balances.uuid；若不匹配，再从 player_market 取出 seller（别名为 uuid），限制只取一条
+                "SELECT uuid FROM balances WHERE uuid = ? \n" +
+                "UNION ALL \n" +
+                "SELECT seller AS uuid FROM player_market WHERE seller_name = ? \n" +
+                "LIMIT 1"
             ) { ps ->
                 ps.setString(1, name)
                 ps.setString(2, name)

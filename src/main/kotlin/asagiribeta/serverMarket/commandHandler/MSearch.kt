@@ -11,18 +11,17 @@ import net.minecraft.text.Text
 import net.minecraft.registry.RegistryKeys
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
-import kotlin.jvm.optionals.toList
 
 class MSearch {
     companion object {
         val ITEM_ID_SUGGESTIONS = SuggestionProvider<ServerCommandSource> { context, builder ->
             val server = context.source.server
-            val registryManager = server.registryManager
-            val itemRegistry = registryManager.getOptional(RegistryKeys.ITEM)
+            val registry = server.registryManager.get(RegistryKeys.ITEM)
             val remaining = builder.remaining.lowercase()
-            itemRegistry.toList().forEach { identifier ->
-                val idStr = identifier.toString()
-                if (idStr.contains(remaining)) {
+            // 遍历所有物品的 Identifier（如 minecraft:stone）进行建议
+            registry.ids.forEach { id ->
+                val idStr = id.toString()
+                if (remaining.isEmpty() || idStr.contains(remaining)) {
                     builder.suggest(idStr)
                 }
             }

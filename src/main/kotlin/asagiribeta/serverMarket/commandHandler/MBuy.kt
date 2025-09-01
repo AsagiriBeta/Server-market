@@ -16,7 +16,6 @@ import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.text.Text
 import java.util.*
-import kotlin.jvm.optionals.toList
 
 class MBuy {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
@@ -26,12 +25,11 @@ class MBuy {
                     .then(argument("item", StringArgumentType.greedyString())
                         .suggests { context, builder ->
                             val server = context.source.server
-                            val registryManager = server.registryManager
-                            val itemRegistry = registryManager.getOptional(RegistryKeys.ITEM)
+                            val registry = server.registryManager.get(RegistryKeys.ITEM)
                             val remaining = builder.remaining.lowercase()
-                            itemRegistry.toList().forEach { identifier ->
-                                val idStr = identifier.toString()
-                                if (idStr.contains(remaining)) {
+                            registry.ids.forEach { id ->
+                                val idStr = id.toString()
+                                if (remaining.isEmpty() || idStr.contains(remaining)) {
                                     builder.suggest(idStr)
                                 }
                             }

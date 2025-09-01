@@ -11,7 +11,7 @@ class Database {
     val connection: Connection = DriverManager.getConnection("jdbc:sqlite:market.db")
     
     init {
-        // 初始化数据库表
+        // 基础表结构
         connection.createStatement().use {
             it.execute("""
                 CREATE TABLE IF NOT EXISTS balances (
@@ -55,6 +55,18 @@ class Database {
                     FOREIGN KEY(seller) REFERENCES balances(uuid)
                 )
             """)
+            // 为玩家市场建立唯一索引，避免重复 (seller, item_id)
+            it.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_player_market_unique 
+                ON player_market(seller, item_id)
+            """)
+        }
+        // SQLite 运行参数（提升并发与一致性）
+        connection.createStatement().use {
+            it.execute("PRAGMA foreign_keys = ON")
+            it.execute("PRAGMA journal_mode = WAL")
+            it.execute("PRAGMA synchronous = NORMAL")
+            it.execute("PRAGMA busy_timeout = 5000")
         }
     }
     
@@ -77,7 +89,8 @@ class Database {
                 INSERT INTO balances(uuid, amount) 
                 VALUES(?, ?) 
                 ON CONFLICT(uuid) DO UPDATE SET amount = amount + excluded.amount
-            """).use { ps ->
+            """
+            ).use { ps ->
                 ps.setString(1, uuid.toString())
                 ps.setDouble(2, amount)
                 ps.executeUpdate()
@@ -95,7 +108,8 @@ class Database {
                 INSERT INTO balances(uuid, amount) 
                 VALUES(?, ?) 
                 ON CONFLICT(uuid) DO UPDATE SET amount = excluded.amount
-            """).use { ps ->
+            """
+            ).use { ps ->
                 ps.setString(1, uuid.toString())
                 ps.setDouble(2, amount)
                 ps.executeUpdate()
@@ -106,23 +120,35 @@ class Database {
         }
     }
 
-    // 转账方法的事务管理逻辑
+    // 转账：使用原子扣款避免竞态；完整事务并恢复原 autoCommit
     fun transfer(fromUuid: UUID, toUuid: UUID, amount: Double) {
+        if (amount.isNaN() || amount.isInfinite() || amount <= 0.0) {
+            throw SQLException("非法金额: $amount")
+        }
+        val originalAutoCommit = connection.autoCommit
         connection.autoCommit = false
         try {
-            val fromBalance = getBalance(fromUuid)
-            if (fromBalance < amount) {
-                throw SQLException("余额不足 UUID: $fromUuid 金额: $amount")
+            // 原子扣款：仅当余额足够才扣减
+            connection.prepareStatement(
+                "UPDATE balances SET amount = amount - ? WHERE uuid = ? AND amount >= ?"
+            ).use { ps ->
+                ps.setDouble(1, amount)
+                ps.setString(2, fromUuid.toString())
+                ps.setDouble(3, amount)
+                val updated = ps.executeUpdate()
+                if (updated == 0) {
+                    throw SQLException("余额不足 UUID: $fromUuid 金额: $amount")
+                }
             }
-            addBalance(fromUuid, -amount)
+            // 入账（UPSERT）
             addBalance(toUuid, amount)
             connection.commit()
         } catch (e: SQLException) {
-            connection.rollback()
+            try { connection.rollback() } catch (_: SQLException) {}
             ServerMarket.LOGGER.error("转账失败 UUID: $fromUuid -> $toUuid 金额: $amount", e)
             throw e
         } finally {
-            connection.autoCommit = true
+            try { connection.autoCommit = originalAutoCommit } catch (_: SQLException) {}
         }
     }
 
@@ -132,7 +158,6 @@ class Database {
             if (!connection.autoCommit) {
                 connection.commit()
             }
-            // 将字符串模板改为使用占位符格式，避免日志参数拼接的性能损耗
             ServerMarket.LOGGER.debug("已保存玩家数据 UUID: {}", uuid.toString())
         } catch (e: SQLException) {
             ServerMarket.LOGGER.error("保存数据失败 UUID: $uuid", e)
@@ -145,7 +170,7 @@ class Database {
             connection.prepareStatement("SELECT 1 FROM balances WHERE uuid = ?").use { ps ->
                 ps.setString(1, uuid.toString())
                 val rs = ps.executeQuery()
-                rs.next() // 返回是否存在记录
+                rs.next()
             }
         } catch (e: SQLException) {
             ServerMarket.LOGGER.error("检查玩家存在性失败 UUID: $uuid", e)
@@ -162,7 +187,8 @@ class Database {
                 INSERT INTO balances(uuid, amount)
                 VALUES(?, ?)
                 ON CONFLICT(uuid) DO NOTHING
-            """).use { ps ->
+            """
+            ).use { ps ->
                 ps.setString(1, uuid.toString())
                 ps.setDouble(2, initialAmount)
                 ps.executeUpdate()
