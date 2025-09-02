@@ -75,6 +75,33 @@ class CurrencyRepository(private val database: Database) {
         }
     }
 
+    // 新增：按面值精确查找一条货币映射（优先返回 nbt 为空的记录，便于发放）
+    fun findByValue(value: Double): CurrencyItem? {
+        return try {
+            database.connection.prepareStatement(
+                """
+                SELECT item_id, nbt, value
+                FROM currency_items
+                WHERE value = ?
+                ORDER BY CASE WHEN nbt = '' THEN 0 ELSE 1 END, item_id
+                LIMIT 1
+                """.trimIndent()
+            ).use { ps ->
+                ps.setDouble(1, value)
+                ps.executeQuery().use { rs ->
+                    if (rs.next()) CurrencyItem(
+                        rs.getString("item_id"),
+                        rs.getString("nbt"),
+                        rs.getDouble("value")
+                    ) else null
+                }
+            }
+        } catch (e: Exception) {
+            ServerMarket.LOGGER.error("按面值查找实体货币失败 value=$value", e)
+            null
+        }
+    }
+
     private fun queryMany(sql: String, binder: (PreparedStatement) -> Unit): List<CurrencyItem> {
         return try {
             database.connection.prepareStatement(sql).use { ps ->

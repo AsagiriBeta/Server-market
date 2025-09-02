@@ -96,7 +96,8 @@ class Database {
     
     private fun addBalance(uuid: UUID, amount: Double) {
         try {
-            connection.prepareStatement("""
+            connection.prepareStatement(
+                """
                 INSERT INTO balances(uuid, amount) 
                 VALUES(?, ?) 
                 ON CONFLICT(uuid) DO UPDATE SET amount = amount + excluded.amount
@@ -112,10 +113,35 @@ class Database {
         }
     }
 
+    // 对外：入账（正数），使用 upsert 叠加
+    fun deposit(uuid: UUID, amount: Double) {
+        if (amount.isNaN() || amount.isInfinite() || amount <= 0.0) return
+        addBalance(uuid, amount)
+    }
+
+    // 对外：原子扣款，余额不足返回 false
+    fun tryWithdraw(uuid: UUID, amount: Double): Boolean {
+        if (amount.isNaN() || amount.isInfinite() || amount <= 0.0) return false
+        return try {
+            connection.prepareStatement(
+                "UPDATE balances SET amount = amount - ? WHERE uuid = ? AND amount >= ?"
+            ).use { ps ->
+                ps.setDouble(1, amount)
+                ps.setString(2, uuid.toString())
+                ps.setDouble(3, amount)
+                ps.executeUpdate() > 0
+            }
+        } catch (e: SQLException) {
+            ServerMarket.LOGGER.error("扣款失败 UUID: $uuid 金额: $amount", e)
+            false
+        }
+    }
+
     // 余额设置方法
     fun setBalance(uuid: UUID, amount: Double) {
         try {
-            connection.prepareStatement("""
+            connection.prepareStatement(
+                """
                 INSERT INTO balances(uuid, amount) 
                 VALUES(?, ?) 
                 ON CONFLICT(uuid) DO UPDATE SET amount = excluded.amount
@@ -194,7 +220,8 @@ class Database {
         val originalAutoCommit = connection.autoCommit
         try {
             connection.autoCommit = false
-            connection.prepareStatement("""
+            connection.prepareStatement(
+                """
                 INSERT INTO balances(uuid, amount)
                 VALUES(?, ?)
                 ON CONFLICT(uuid) DO NOTHING

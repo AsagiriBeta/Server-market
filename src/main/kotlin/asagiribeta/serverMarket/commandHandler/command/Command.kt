@@ -53,6 +53,12 @@ class Command {
 
         // mbuy命令
         MBuy().register(dispatcher)
+
+        // mcash命令（兑换现金）
+        MCash().register(dispatcher)
+
+        // mexchange命令（现金换回余额）
+        MExchange().register(dispatcher)
     }
 
     private fun executeMoneyCommand(context: CommandContext<ServerCommandSource>): Int {

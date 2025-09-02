@@ -1,89 +1,105 @@
-# Server Market 模组使用指南 | [English](./README_EN.md)
+# Server Market Mod Guide | [中文文档](./README_ZH.md)
 
-## 模组简介
-本模组为Minecraft服务器添加了玩家经济系统和物品交易市场，支持转账，交易、物品上架销售、全服市场搜索等功能。
+## Introduction
+This mod adds a complete player economy and item trading market to Minecraft servers. It supports balance transfers, item listing, global market search, a system shop, and physical currency mapping between items and balance.
 
-## 主要指令列表
+## Main Commands
 
-### 玩家基础指令
+### Player Commands
 - **/money**  
-  查看当前余额
+  Check current balance.
 
-- **/mpay <玩家> <金额>**  
-  向其他玩家转账  
-  示例: `/mpay Steve 100.5`
+- **/mpay <player> <amount>**  
+  Transfer money to another player.  
+  Example: `/mpay Steve 100.5`
 
-- **/mprice <价格>**  
-  设置手持物品的出售价格  
-  示例: `/mprice 5.0`
+- **/mprice <price>**  
+  Set the sale price for the held item in your personal shop.  
+  Example: `/mprice 5.0`
 
-- **/msell <数量>**  
-  补货手持物品到个人店铺  
-  示例: `/msell 32`
+- **/msell <quantity>**  
+  Restock the held item to your personal shop.  
+  Example: `/msell 32`
 
 - **/mpull**  
-  下架手持物品并取回库存
+  Unlist the held item and retrieve its stock.
 
-- **/msearch <物品ID>**  
-  搜索全服销售信息  
-  示例: `/msearch minecraft:diamond`
+- **/msearch <itemID>**  
+  Search the global market for an item.  
+  Example: `/msearch minecraft:diamond`
 
-- **/mbuy <数量> <物品ID>**  
-  从市场购买物品  
-  示例: `/mbuy 3 minecraft:emerald`
+- **/mbuy <quantity> <itemID>**  
+  Buy items from the market. Automatically matches the lowest price.  
+  Example: `/mbuy 3 minecraft:emerald`
 
-- **/mlist [玩家/server]**  
-  查看指定玩家或系统商店的上架物品  
-  示例: `/mlist Steve` 或 `/mlist server`
+- **/mlist [player|server]**  
+  View listed items for a player or the system shop.  
+  Example: `/mlist Steve` or `/mlist server`
 
-### 管理员指令 (需要权限等级4)
-- **/mset <玩家> <金额>**  
-  设置玩家余额  
-  示例: `/mset Steve 1000.0`
+- **/mcash <value> <quantity>**  
+  Redeem balance into physical currency items according to configured face value mappings.  
+  Example: `/mcash 10 5`  
+  Notes:
+  - The value must be configured by admins via `/acash`.
+  - Requires sufficient balance; items are given respecting max stack size.
+  - If the currency mapping has custom NBT, it will be applied to the issued items.
 
-- **/aprice <价格>**  
-  设置手持物品的系统商店物品价格  
-  示例: `/aprice 8.5`
+- **/mexchange <quantity>**  
+  Exchange physical currency items held (and matching items in inventory) back into balance.  
+  Example: `/mexchange 16`  
+  Notes:
+  - Hold the currency item in your main hand; quantity counts across inventory stacks that match the same signature (Item ID + CUSTOM_DATA).
+
+### Admin Commands (Requires OP Level 4)
+- **/mset <player> <amount>**  
+  Set a player's balance.  
+  Example: `/mset Steve 1000.0`
+
+- **/aprice <price>**  
+  Set system shop price for the held item (infinite stock).  
+  Example: `/aprice 8.5`
 
 - **/apull**  
-  下架手持物品的系统商店物品
+  Unlist the held item from the system shop.
 
-- **/mlang <语言>**  
-  切换系统语言  
-  示例: `/mlang en` 或 `/mlang zh`
+- **/mlang <language>**  
+  Switch system language.  
+  Example: `/mlang en` or `/mlang zh`
 
-- **/acash <面值>**  
-  将手持物品标记为“现金”并设置面值（兼容简写用法）  
-  示例: `/acash 10.0`
+- **/acash <value>**  
+  Mark the held item as a currency with the given face value (short form supported).  
+  Example: `/acash 10.0`
 
 - **/acash get**  
-  查询手持物品已设置的面值
+  Show the face value configured for the held item.
 
 - **/acash del**  
-  删除手持物品的面值映射
+  Remove the currency mapping for the held item.
 
-- **/acash list [物品ID]**  
-  列出已设置为“现金”的物品映射，支持按物品ID过滤  
-  示例: `/acash list minecraft:diamond`
+- **/acash list [itemID]**  
+  List all currency mappings; optionally filter by item ID.  
+  Example: `/acash list minecraft:diamond`
 
 - **/mreload**  
-  重新加载配置（若语言在配置中会一并生效）
+  Reload configuration (including language from config if present).
 
-## 交易系统特性
-1. **双市场**
-   - 玩家市场：玩家自主定价，库存有限
-   - 系统市场：管理员设置，无限库存
+## Market System Features
+1. **Dual Markets**
+   - Player Market: Player-set prices, limited stock.
+   - System Market: Admin-controlled, unlimited stock.
 
-2. **交易流程**
-   - 自动匹配最低价商品
-   - 支持跨玩家库存合并购买
+2. **Transactions**
+   - Auto-match the lowest price.
+   - Merge across multiple sellers' inventories.
 
-## 高级：实物货币（/acash）
-- 识别规则：按“物品ID + NBT(自定义数据/CUSTOM_DATA)”区分同类物品；若无 NBT 则仅按物品ID识别。
-- 常见用途：为特定物品设定固定面值，供服务器内作为“现金”使用。
-- 管理操作：
-  - 设置：`/acash <面值>`（需手持目标物品）
-  - 查看：`/acash get`
-  - 删除：`/acash del`
-  - 列表：`/acash list [物品ID]`
-- 安全提示：建议使用带独特自定义数据的物品作为“现金”以降低仿制风险。
+## Advanced: Physical Currency (/acash) and Player Exchange
+- Identification: Distinguished by "Item ID + NBT (CUSTOM_DATA)"; if no NBT, item ID only.
+- Admin operations:
+  - Set: `/acash <value>` (hold target item)
+  - Check: `/acash get`
+  - Delete: `/acash del`
+  - List: `/acash list [itemID]`
+- Player operations:
+  - `/mcash` to convert balance to physical currency items.
+  - `/mexchange` to convert currency items back into balance.
+- Security tip: Prefer items with unique custom data to reduce counterfeiting risk.

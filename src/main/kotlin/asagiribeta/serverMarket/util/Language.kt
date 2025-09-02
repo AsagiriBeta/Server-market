@@ -181,6 +181,25 @@ object Language {
             zhTranslations["command.acash.list.title"] = "共 %d 条实体货币配置："
             zhTranslations["command.acash.list.entry"] = "%s | NBT=%s | 值=%s"
 
+            // 新增：MCash/MExchange 普通玩家命令
+            zhTranslations["command.mcash.player_only"] = "只有玩家可以执行此命令"
+            zhTranslations["command.mcash.invalid_value"] = "面值必须大于 0"
+            zhTranslations["command.mcash.invalid_quantity"] = "数量必须大于 0"
+            zhTranslations["command.mcash.value_not_found"] = "未配置该面值的实体货币：%s"
+            zhTranslations["command.mcash.nbt_not_supported"] = "该面值的货币包含自定义数据，暂不支持发放"
+            zhTranslations["command.mcash.insufficient_balance"] = "余额不足，需要 %s"
+            zhTranslations["command.mcash.success"] = "已兑换 %d 个 %s，共花费 %s"
+            zhTranslations["command.mcash.failed"] = "兑换现金失败"
+
+            zhTranslations["command.mexchange.player_only"] = "只有玩家可以执行此命令"
+            zhTranslations["command.mexchange.invalid_amount"] = "数量必须大于 0"
+            zhTranslations["command.mexchange.not_currency"] = "主手物品不是服务器认定的实体货币"
+            zhTranslations["command.mexchange.insufficient_items"] = "物品数量不足（需要 %d 个）"
+            zhTranslations["command.mexchange.success"] = "已将 %d 个 %s 兑换为余额 %s"
+            zhTranslations["command.mexchange.failed"] = "兑换失败"
+            // 新增：MExchange 专用提示
+            zhTranslations["command.mexchange.hold_item"] = "请手持要兑换的现金物品"
+
             // UI 相关
             zhTranslations["ui.seller"] = "卖家: %s"
             zhTranslations["ui.price"] = "单价: %s"
@@ -284,6 +303,25 @@ object Language {
             enTranslations["command.acash.list.empty"] = "No currency mappings yet"
             enTranslations["command.acash.list.title"] = "%d currency mappings:"
             enTranslations["command.acash.list.entry"] = "%s | NBT=%s | value=%s"
+
+            // 新增：MCash/MExchange 普通玩家命令
+            enTranslations["command.mcash.player_only"] = "Only players can execute this command"
+            enTranslations["command.mcash.invalid_value"] = "Value must be greater than 0"
+            enTranslations["command.mcash.invalid_quantity"] = "Quantity must be greater than 0"
+            enTranslations["command.mcash.value_not_found"] = "No currency configured for value: %s"
+            enTranslations["command.mcash.nbt_not_supported"] = "This currency value requires custom NBT; issuance not supported yet"
+            enTranslations["command.mcash.insufficient_balance"] = "Insufficient balance, need %s"
+            enTranslations["command.mcash.success"] = "Redeemed %d %s for %s"
+            enTranslations["command.mcash.failed"] = "Cash redemption failed"
+
+            enTranslations["command.mexchange.player_only"] = "Only players can execute this command"
+            enTranslations["command.mexchange.invalid_amount"] = "Quantity must be greater than 0"
+            enTranslations["command.mexchange.not_currency"] = "The item in main hand is not a configured currency"
+            enTranslations["command.mexchange.insufficient_items"] = "Insufficient items (need %d)"
+            enTranslations["command.mexchange.success"] = "Exchanged %d %s for balance %s"
+            enTranslations["command.mexchange.failed"] = "Exchange failed"
+            // 新增：MExchange 专用提示
+            enTranslations["command.mexchange.hold_item"] = "Please hold the currency item you want to exchange"
 
             // UI 相关
             enTranslations["ui.seller"] = "Seller: %s"
