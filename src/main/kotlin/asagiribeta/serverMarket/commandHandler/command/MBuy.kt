@@ -9,7 +9,7 @@ import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
-import net.minecraft.registry.RegistryKeys
+import net.minecraft.registry.Registries
 import net.minecraft.util.Identifier
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.server.command.CommandManager.argument
@@ -24,10 +24,9 @@ class MBuy {
                 .then(argument("quantity", DoubleArgumentType.doubleArg(1.0))
                     .then(argument("item", StringArgumentType.greedyString())
                         .suggests { context, builder ->
-                            val server = context.source.server
-                            val registry = server.registryManager.get(RegistryKeys.ITEM)
+                            // 使用全局 Registries 以兼容 1.21.2
                             val remaining = builder.remaining.lowercase()
-                            registry.ids.forEach { id ->
+                            Registries.ITEM.ids.forEach { id ->
                                 val idStr = id.toString()
                                 if (remaining.isEmpty() || idStr.contains(remaining)) {
                                     builder.suggest(idStr)
@@ -140,11 +139,9 @@ class MBuy {
                     )
                 }
                 
-                // 给予玩家物品
-                val server = context.source.server
-                val registryManager = server.registryManager
-                val itemRegistry = registryManager.getOptional(RegistryKeys.ITEM)
-                val itemType = itemRegistry.get().get(Identifier.tryParse(itemId)) ?: Items.AIR  // 修复Registry引用路径
+                // 给予玩家物品（兼容 1.21.2 的注册表 API）
+                val id = Identifier.tryParse(itemId)
+                val itemType = if (id != null) (Registries.ITEM.get(id) ?: Items.AIR) else Items.AIR
                 val itemStack = ItemStack(itemType, amount)
                 player.giveItemStack(itemStack)
 

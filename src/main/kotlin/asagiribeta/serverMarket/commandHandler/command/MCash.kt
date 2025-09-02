@@ -15,8 +15,8 @@ import net.minecraft.text.Text
 import net.minecraft.util.Identifier
 import net.minecraft.component.DataComponentTypes
 import net.minecraft.component.type.NbtComponent
-import net.minecraft.nbt.StringNbtReader
 import net.minecraft.nbt.NbtCompound
+import net.minecraft.nbt.NbtHelper
 
 class MCash {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
@@ -73,7 +73,7 @@ class MCash {
 
             val parsedNbt: NbtCompound? = if (mapping.nbt.isNotEmpty()) {
                 try {
-                    val el = StringNbtReader.parse(mapping.nbt)
+                    val el = NbtHelper.fromNbtProviderString(mapping.nbt)
                     if (el is NbtCompound) el else {
                         try { db.deposit(uuid, totalCost) } catch (_: Exception) {}
                         source.sendError(Text.literal(Language.get("command.mcash.failed")))
@@ -95,6 +95,7 @@ class MCash {
                 val stack = ItemStack(item, give)
                 if (parsedNbt != null) {
                     val nbtCopy = parsedNbt.copy() as NbtCompound
+                    // 使用 Data Component API 写入自定义数据（Yarn: NbtComponent）
                     stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbtCopy))
                 }
                 player.giveItemStack(stack)

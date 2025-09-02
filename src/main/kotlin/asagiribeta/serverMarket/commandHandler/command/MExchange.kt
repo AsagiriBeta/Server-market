@@ -46,8 +46,9 @@ class MExchange {
 
         val itemId = Registries.ITEM.getId(main.item).toString()
         val nbt = try {
-            val customData = try { main.get(DataComponentTypes.CUSTOM_DATA) } catch (_: Throwable) { null }
-            customData?.toString() ?: ""
+            val nbtComp = try { main.get(DataComponentTypes.CUSTOM_DATA) } catch (_: Throwable) { null }
+            val tag = try { nbtComp?.copyNbt() } catch (_: Throwable) { null }
+            tag?.toString() ?: ""
         } catch (_: Throwable) { "" }
 
         val value = repo.getCurrencyValue(itemId, nbt) ?: run {
@@ -60,7 +61,7 @@ class MExchange {
         val matchingStacks = (0 until inv.size()).map { inv.getStack(it) }.filter {
             !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && run {
                 val cd = try { it.get(DataComponentTypes.CUSTOM_DATA) } catch (_: Throwable) { null }
-                val sn = try { cd?.toString() ?: "" } catch (_: Throwable) { "" }
+                val sn = try { cd?.copyNbt()?.toString() ?: "" } catch (_: Throwable) { "" }
                 sn == nbt
             }
         }

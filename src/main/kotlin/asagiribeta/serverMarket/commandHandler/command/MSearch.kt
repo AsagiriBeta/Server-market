@@ -8,18 +8,16 @@ import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.CommandManager.argument
 import com.mojang.brigadier.arguments.StringArgumentType
 import net.minecraft.text.Text
-import net.minecraft.registry.RegistryKeys
+import net.minecraft.registry.Registries
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
 
 class MSearch {
     companion object {
         val ITEM_ID_SUGGESTIONS = SuggestionProvider<ServerCommandSource> { context, builder ->
-            val server = context.source.server
-            val registry = server.registryManager.get(RegistryKeys.ITEM)
             val remaining = builder.remaining.lowercase()
-            // 遍历所有物品的 Identifier（如 minecraft:stone）进行建议
-            registry.ids.forEach { id ->
+            // 遍历所有物品的 Identifier（如 minecraft:stone）进行建议（使用 Registries 兼容 1.21.2）
+            Registries.ITEM.ids.forEach { id ->
                 val idStr = id.toString()
                 if (remaining.isEmpty() || idStr.contains(remaining)) {
                     builder.suggest(idStr)

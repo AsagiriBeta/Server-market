@@ -8,6 +8,7 @@ import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import net.minecraft.command.CommandSource
 import net.minecraft.component.DataComponentTypes
+import net.minecraft.component.type.NbtComponent
 import net.minecraft.item.ItemStack
 import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager
@@ -129,7 +130,7 @@ class ACash {
 
     private fun executeList(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
-        val player = source.player // 允许控制台
+        val player = context.source.player // 允许控制台
         val db = ServerMarket.instance.database
         val repo = db.currencyRepository
         return try {
@@ -170,10 +171,10 @@ class ACash {
     private fun getItemSignature(stack: ItemStack): Pair<String, String> {
         val itemId = Registries.ITEM.getId(stack.item).toString()
         val snbt = try {
-            val customData = try { stack.get(DataComponentTypes.CUSTOM_DATA) } catch (_: Throwable) { null }
-            customData?.toString() ?: ""
+            val nbtComp = try { stack.get(DataComponentTypes.CUSTOM_DATA) } catch (_: Throwable) { null }
+            val tag = try { nbtComp?.copyNbt() } catch (_: Throwable) { null }
+            tag?.toString() ?: ""
         } catch (_: Throwable) { "" }
         return itemId to snbt
     }
 }
-
