@@ -1,4 +1,4 @@
-package asagiribeta.serverMarket.commandHandler
+package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.util.Language
 import com.mojang.brigadier.CommandDispatcher

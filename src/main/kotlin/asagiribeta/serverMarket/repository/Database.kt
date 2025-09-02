@@ -7,6 +7,7 @@ import java.util.*
 class Database {
     internal val marketRepository = MarketRepository(this)
     internal val historyRepository = HistoryRepository(this)
+    internal val currencyRepository = CurrencyRepository(this)
 
     val connection: Connection = DriverManager.getConnection("jdbc:sqlite:market.db")
     
@@ -59,6 +60,16 @@ class Database {
             it.execute("""
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_player_market_unique 
                 ON player_market(seller, item_id)
+            """)
+            // 实体货币映射表（支持同一物品不同 NBT 多种面值）
+            it.execute("""
+                CREATE TABLE IF NOT EXISTS currency_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    item_id TEXT NOT NULL,
+                    nbt TEXT NOT NULL DEFAULT '',
+                    value REAL NOT NULL,
+                    UNIQUE(item_id, nbt)
+                )
             """)
         }
         // SQLite 运行参数（提升并发与一致性）

@@ -1,4 +1,4 @@
-package asagiribeta.serverMarket.commandHandler
+package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language

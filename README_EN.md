@@ -52,6 +52,23 @@ This mod adds a player economy system and item trading market to Minecraft serve
   Switch system language  
   Example: `/mlang en` or `/mlang zh`
 
+- **/acash <value>**  
+  Mark held item as "cash" with a face value (short form supported)  
+  Example: `/acash 10.0`
+
+- **/acash get**  
+  Query the face value set for the held item
+
+- **/acash del**  
+  Delete the face value mapping for the held item
+
+- **/acash list [itemID]**  
+  List items mapped as "cash", optionally filter by item ID  
+  Example: `/acash list minecraft:diamond`
+
+- **/mreload**  
+  Reload configuration (language changes in config take effect)
+
 ## Market System Features
 1. **Dual Markets**
    - Player Market: Player-set prices, limited stock
@@ -60,5 +77,15 @@ This mod adds a player economy system and item trading market to Minecraft serve
 2. **Transaction Process**
    - Auto-match lowest price
    - Cross-player inventory merging
+
+## Advanced: Physical Currency (/acash)
+- Identification: Distinguished by "Item ID + NBT (CUSTOM_DATA)"; if no NBT, item ID only.
+- Common use: Assign a fixed face value to specific items as in-server currency.
+- Admin ops:
+  - Set: `/acash <value>` (hold target item)
+  - Check: `/acash get`
+  - Delete: `/acash del`
+  - List: `/acash list [itemID]`
+- Security tip: Prefer items with unique custom data to reduce counterfeiting risk.
 
 [中文文档](./README.md)

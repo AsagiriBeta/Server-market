@@ -1,7 +1,7 @@
 package asagiribeta.serverMarket
 
-import asagiribeta.serverMarket.commandHandler.AdminCommand
-import asagiribeta.serverMarket.commandHandler.Command
+import asagiribeta.serverMarket.commandHandler.adminCommand.AdminCommand
+import asagiribeta.serverMarket.commandHandler.command.Command
 import asagiribeta.serverMarket.repository.Database
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.Config

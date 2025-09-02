@@ -165,7 +165,22 @@ object Language {
             zhTranslations["command.apull.not_listed"] = "该物品未上架"
             zhTranslations["command.apull.success"] = "成功下架 %s"
             zhTranslations["command.apull.operation_failed"] = "操作失败"
-            
+
+            // ACash 命令
+            zhTranslations["command.acash.player_only"] = "只有玩家可以执行此命令"
+            zhTranslations["command.acash.hold_item"] = "请手持要设置为货币的物品"
+            zhTranslations["command.acash.non_positive_value"] = "货币面值必须大于 0"
+            zhTranslations["command.acash.success"] = "已将 %s 设置为面值 %s 的实体货币"
+            zhTranslations["command.acash.operation_failed"] = "设置实体货币失败"
+            // 新增：ACash 子命令
+            zhTranslations["command.acash.get.success"] = "当前面值：%s"
+            zhTranslations["command.acash.get.not_set"] = "该物品未设置为实体货币"
+            zhTranslations["command.acash.del.success"] = "已取消 %s 的实体货币设置"
+            zhTranslations["command.acash.del.not_set"] = "该物品未设置为实体货币，无需删除"
+            zhTranslations["command.acash.list.empty"] = "暂无实体货币配置"
+            zhTranslations["command.acash.list.title"] = "共 %d 条实体货币配置："
+            zhTranslations["command.acash.list.entry"] = "%s | NBT=%s | 值=%s"
+
             // UI 相关
             zhTranslations["ui.seller"] = "卖家: %s"
             zhTranslations["ui.price"] = "单价: %s"
@@ -254,7 +269,22 @@ object Language {
             enTranslations["command.apull.not_listed"] = "This item is not listed"
             enTranslations["command.apull.success"] = "Successfully unlisted %s"
             enTranslations["command.apull.operation_failed"] = "Operation failed"
-            
+
+            // ACash 命令
+            enTranslations["command.acash.player_only"] = "Only players can execute this command"
+            enTranslations["command.acash.hold_item"] = "Please hold the item you want to set as currency"
+            enTranslations["command.acash.non_positive_value"] = "Currency value must be greater than 0"
+            enTranslations["command.acash.success"] = "Set %s as currency with value %s"
+            enTranslations["command.acash.operation_failed"] = "Failed to set currency"
+            // 新增：ACash 子命令
+            enTranslations["command.acash.get.success"] = "Current value: %s"
+            enTranslations["command.acash.get.not_set"] = "This item is not configured as currency"
+            enTranslations["command.acash.del.success"] = "Removed currency setting for %s"
+            enTranslations["command.acash.del.not_set"] = "This item is not configured as currency"
+            enTranslations["command.acash.list.empty"] = "No currency mappings yet"
+            enTranslations["command.acash.list.title"] = "%d currency mappings:"
+            enTranslations["command.acash.list.entry"] = "%s | NBT=%s | value=%s"
+
             // UI 相关
             enTranslations["ui.seller"] = "Seller: %s"
             enTranslations["ui.price"] = "Price: %s"

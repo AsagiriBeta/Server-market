@@ -1,4 +1,4 @@
-package asagiribeta.serverMarket.commandHandler
+package asagiribeta.serverMarket.commandHandler.command
 
 import com.mojang.brigadier.suggestion.SuggestionProvider
 import net.minecraft.server.command.ServerCommandSource
