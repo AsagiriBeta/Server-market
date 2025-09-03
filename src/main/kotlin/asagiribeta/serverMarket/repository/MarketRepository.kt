@@ -5,18 +5,6 @@ import java.sql.ResultSet
 
 class MarketRepository(private val database: Database) {
     
-    fun addSystemItem(itemId: String, nbt: String, price: Double) {
-        database.executeUpdate("""
-            INSERT INTO system_market(item_id, nbt, price) 
-            VALUES(?, ?, ?)
-            ON CONFLICT(item_id, nbt) DO UPDATE SET price = excluded.price
-        """) { ps ->
-            ps.setString(1, itemId)
-            ps.setString(2, nbt)
-            ps.setDouble(3, price)
-        }
-    }
-
     // 新增重载：支持限购（-1 为无限制）
     fun addSystemItem(itemId: String, nbt: String, price: Double, limitPerDay: Int) {
         database.executeUpdate(

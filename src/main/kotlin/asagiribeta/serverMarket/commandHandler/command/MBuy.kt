@@ -19,13 +19,14 @@ import java.util.*
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.CommandSuggestions
 import java.time.LocalDate
+import net.minecraft.command.argument.IdentifierArgumentType
 
 class MBuy {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("mbuy")
                 .then(argument("quantity", DoubleArgumentType.doubleArg(1.0))
-                    .then(argument("item", StringArgumentType.string())
+                    .then(argument("item", IdentifierArgumentType.identifier())
                         .suggests(CommandSuggestions.ITEM_ID_SUGGESTIONS)
                         .executes(this::executeBuy)
                         .then(argument("seller", StringArgumentType.string())
@@ -40,7 +41,7 @@ class MBuy {
     private fun executeBuy(context: CommandContext<ServerCommandSource>): Int {
         val player = context.source.player ?: return 0
         val quantity = DoubleArgumentType.getDouble(context, "quantity").toInt()
-        val itemId = StringArgumentType.getString(context, "item")
+        val itemId = IdentifierArgumentType.getIdentifier(context, "item").toString()
         val marketRepo = ServerMarket.instance.database.marketRepository
 
         val items = marketRepo.searchForTransaction(itemId)
@@ -196,7 +197,7 @@ class MBuy {
     private fun executeBuyWithSeller(context: CommandContext<ServerCommandSource>): Int {
         val player = context.source.player ?: return 0
         val quantity = DoubleArgumentType.getDouble(context, "quantity").toInt()
-        val itemId = StringArgumentType.getString(context, "item")
+        val itemId = IdentifierArgumentType.getIdentifier(context, "item").toString()
         val seller = StringArgumentType.getString(context, "seller")
         val marketRepo = ServerMarket.instance.database.marketRepository
 
