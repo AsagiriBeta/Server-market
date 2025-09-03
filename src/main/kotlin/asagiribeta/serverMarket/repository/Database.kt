@@ -44,6 +44,7 @@ class Database {
                     price REAL NOT NULL,
                     quantity INTEGER DEFAULT -1,
                     seller TEXT DEFAULT 'SERVER',
+                    limit_per_day INTEGER NOT NULL DEFAULT -1,
                     UNIQUE(item_id, nbt)
                 )
             """)
@@ -74,6 +75,17 @@ class Database {
                     UNIQUE(item_id, nbt)
                 )
             """)
+            // 系统商店每日购买量表（每玩家、每日、每物品+NBT 累计）
+            it.execute("""
+                CREATE TABLE IF NOT EXISTS system_daily_purchase (
+                    date TEXT NOT NULL,
+                    player_uuid TEXT NOT NULL,
+                    item_id TEXT NOT NULL,
+                    nbt TEXT NOT NULL DEFAULT '',
+                    purchased INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY(date, player_uuid, item_id, nbt)
+                )
+            """)
         }
         // SQLite 运行参数（提升并发与一致性）
         connection.createStatement().use {
@@ -82,7 +94,14 @@ class Database {
             it.execute("PRAGMA synchronous = NORMAL")
             it.execute("PRAGMA busy_timeout = 5000")
         }
-        // 不执行任何迁移逻辑：使用上述最终版表结构直接初始化
+        // 迁移：向既有 system_market 添加 limit_per_day 列（若已存在则忽略错误）
+        try {
+            connection.createStatement().use {
+                it.execute("ALTER TABLE system_market ADD COLUMN limit_per_day INTEGER NOT NULL DEFAULT -1")
+            }
+        } catch (_: SQLException) {
+            // 列已存在，忽略
+        }
     }
 
     fun getBalance(uuid: UUID): Double {

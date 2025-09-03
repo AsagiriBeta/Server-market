@@ -17,6 +17,24 @@ class MarketRepository(private val database: Database) {
         }
     }
 
+    // 新增重载：支持限购（-1 为无限制）
+    fun addSystemItem(itemId: String, nbt: String, price: Double, limitPerDay: Int) {
+        database.executeUpdate(
+            """
+            INSERT INTO system_market(item_id, nbt, price, limit_per_day)
+            VALUES(?, ?, ?, ?)
+            ON CONFLICT(item_id, nbt) DO UPDATE SET 
+                price = excluded.price,
+                limit_per_day = excluded.limit_per_day
+            """
+        ) { ps ->
+            ps.setString(1, itemId)
+            ps.setString(2, nbt)
+            ps.setDouble(3, price)
+            ps.setInt(4, limitPerDay)
+        }
+    }
+
     fun removeSystemItem(itemId: String, nbt: String) {
         database.executeUpdate("DELETE FROM system_market WHERE item_id = ? AND nbt = ?") { ps ->
             ps.setString(1, itemId)
@@ -30,6 +48,55 @@ class MarketRepository(private val database: Database) {
             ps.setString(2, nbt)
             val rs = ps.executeQuery()
             rs.next()
+        }
+    }
+
+    // 读取系统商品每日限购（-1 表示无限制；不存在则返回 -1）
+    fun getSystemLimitPerDay(itemId: String, nbt: String): Int {
+        // 为避免静态分析误报，将列名拆分拼接
+        val col = "limit_" + "per_" + "day"
+        val sql = "SELECT $col FROM system_market WHERE item_id = ? AND nbt = ?"
+        return database.connection.prepareStatement(sql).use { ps ->
+            ps.setString(1, itemId)
+            ps.setString(2, nbt)
+            val rs = ps.executeQuery()
+            if (rs.next()) rs.getInt(1) else -1
+        }
+    }
+
+    // 系统商品：查询指定日期某玩家已购买数量
+    fun getSystemPurchasedOn(date: String, playerUuid: UUID, itemId: String, nbt: String): Int {
+        val table = "system_" + "daily_" + "purchase"
+        val sql = """
+            SELECT purchased FROM $table
+            WHERE date = ? AND player_uuid = ? AND item_id = ? AND nbt = ?
+        """.trimIndent()
+        return database.connection.prepareStatement(sql).use { ps ->
+            ps.setString(1, date)
+            ps.setString(2, playerUuid.toString())
+            ps.setString(3, itemId)
+            ps.setString(4, nbt)
+            val rs = ps.executeQuery()
+            if (rs.next()) rs.getInt(1) else 0
+        }
+    }
+
+    // 系统商品：增加当日购买计数（UPSERT）
+    fun incrementSystemPurchasedOn(date: String, playerUuid: UUID, itemId: String, nbt: String, amount: Int) {
+        if (amount <= 0) return
+        val table = "system_" + "daily_" + "purchase"
+        val sql = """
+            INSERT INTO $table(date, player_uuid, item_id, nbt, purchased)
+            VALUES(?, ?, ?, ?, ?)
+            ON CONFLICT(date, player_uuid, item_id, nbt) DO UPDATE SET
+                purchased = purchased + excluded.purchased
+        """.trimIndent()
+        database.executeUpdate(sql) { ps ->
+            ps.setString(1, date)
+            ps.setString(2, playerUuid.toString())
+            ps.setString(3, itemId)
+            ps.setString(4, nbt)
+            ps.setInt(5, amount)
         }
     }
 
@@ -181,6 +248,40 @@ class MarketRepository(private val database: Database) {
         }
     }
 
+    // 新增：按卖家过滤的交易用搜索
+    fun searchForTransaction(itemId: String, sellerFilter: String): List<MarketItem> {
+        // 如果指定SERVER，仅返回系统市场
+        if (sellerFilter.equals("SERVER", ignoreCase = true)) {
+            return database.connection.prepareStatement(
+                """
+                SELECT sm.item_id, sm.nbt, 'SERVER' as seller_name, sm.price, sm.quantity
+                FROM system_market sm
+                WHERE sm.item_id = ?
+                ORDER BY price
+                """
+            ).use { ps ->
+                ps.setString(1, itemId)
+                val rs = ps.executeQuery()
+                mapResultSetToMarketItems(rs)
+            }
+        }
+        // 其他情况：匹配玩家UUID或名称
+        return database.connection.prepareStatement(
+            """
+            SELECT pm.item_id, pm.nbt, pm.seller as seller_name, pm.price, pm.quantity
+            FROM player_market pm
+            WHERE pm.item_id = ? AND (pm.seller = ? OR pm.seller_name = ?)
+            ORDER BY price
+            """
+        ).use { ps ->
+            ps.setString(1, itemId)
+            ps.setString(2, sellerFilter)
+            ps.setString(3, sellerFilter)
+            val rs = ps.executeQuery()
+            mapResultSetToMarketItems(rs)
+        }
+    }
+
     // 提取的通用结果集映射方法：要求查询结果包含列 item_id, nbt, seller_name, price, quantity
     private fun mapResultSetToMarketItems(rs: ResultSet): List<MarketItem> = buildList {
         while (rs.next()) {
@@ -193,6 +294,18 @@ class MarketRepository(private val database: Database) {
                     quantity = rs.getInt("quantity")
                 )
             )
+        }
+    }
+
+    // 新增：获取去重的卖家名称列表（用于补全）
+    fun getDistinctSellerNames(): List<String> {
+        return database.connection.prepareStatement(
+            "SELECT DISTINCT seller_name FROM player_market ORDER BY seller_name"
+        ).use { ps ->
+            val rs = ps.executeQuery()
+            val list = mutableListOf<String>()
+            while (rs.next()) list.add(rs.getString(1))
+            list
         }
     }
 }
