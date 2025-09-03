@@ -44,6 +44,9 @@ class MExchange {
             return 0
         }
 
+        // 在扣除物品数量前缓存物品名称，避免被清空后显示为 Air
+        val itemName = main.name.string
+
         val itemId = Registries.ITEM.getId(main.item).toString()
         val nbt = try {
             val nbtComp = try { main.get(DataComponentTypes.CUSTOM_DATA) } catch (_: Throwable) { null }
@@ -88,7 +91,7 @@ class MExchange {
                     Language.get(
                         "command.mexchange.success",
                         quantity,
-                        main.name.string,
+                        itemName,
                         String.format("%.2f", totalGain)
                     )
                 )

@@ -186,7 +186,7 @@ object Language {
             zhTranslations["command.mcash.invalid_value"] = "面值必须大于 0"
             zhTranslations["command.mcash.invalid_quantity"] = "数量必须大于 0"
             zhTranslations["command.mcash.value_not_found"] = "未配置该面值的实体货币：%s"
-            zhTranslations["command.mcash.nbt_not_supported"] = "该面值的货币包含自定义数据，暂不支持发放"
+
             zhTranslations["command.mcash.insufficient_balance"] = "余额不足，需要 %s"
             zhTranslations["command.mcash.success"] = "已兑换 %d 个 %s，共花费 %s"
             zhTranslations["command.mcash.failed"] = "兑换现金失败"
@@ -309,7 +309,7 @@ object Language {
             enTranslations["command.mcash.invalid_value"] = "Value must be greater than 0"
             enTranslations["command.mcash.invalid_quantity"] = "Quantity must be greater than 0"
             enTranslations["command.mcash.value_not_found"] = "No currency configured for value: %s"
-            enTranslations["command.mcash.nbt_not_supported"] = "This currency value requires custom NBT; issuance not supported yet"
+
             enTranslations["command.mcash.insufficient_balance"] = "Insufficient balance, need %s"
             enTranslations["command.mcash.success"] = "Redeemed %d %s for %s"
             enTranslations["command.mcash.failed"] = "Cash redemption failed"
@@ -342,14 +342,14 @@ object Language {
     
     private fun saveTranslationsToFile(lang: String, translations: Map<String, String>) {
         val dataDir = File("config/server-market")
-        val langFile = File(dataDir, "lang_$lang.properties")
-        
+        val langFile = File(dataDir, "lang_${'$'}lang.properties")
+
         if (!langFile.exists()) {
             val props = Properties()
             translations.forEach { (key, value) -> props.setProperty(key, value) }
             
             langFile.outputStream().use { 
-                props.store(it, "ServerMarket Language File ($lang)") 
+                props.store(it, "ServerMarket Language File (${'$'}lang)")
             }
         }
     }

@@ -8,7 +8,6 @@ import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import net.minecraft.command.CommandSource
 import net.minecraft.component.DataComponentTypes
-import net.minecraft.component.type.NbtComponent
 import net.minecraft.item.ItemStack
 import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager

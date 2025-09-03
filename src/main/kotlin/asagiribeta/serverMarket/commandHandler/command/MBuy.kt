@@ -23,7 +23,7 @@ class MBuy {
             literal("mbuy")
                 .then(argument("quantity", DoubleArgumentType.doubleArg(1.0))
                     .then(argument("item", StringArgumentType.greedyString())
-                        .suggests { context, builder ->
+                        .suggests { _, builder ->
                             // 使用全局 Registries 以兼容 1.21.2
                             val remaining = builder.remaining.lowercase()
                             Registries.ITEM.ids.forEach { id ->
@@ -141,7 +141,7 @@ class MBuy {
                 
                 // 给予玩家物品（兼容 1.21.2 的注册表 API）
                 val id = Identifier.tryParse(itemId)
-                val itemType = if (id != null) (Registries.ITEM.get(id) ?: Items.AIR) else Items.AIR
+                val itemType = if (id != null && Registries.ITEM.containsId(id)) Registries.ITEM.get(id) else Items.AIR
                 val itemStack = ItemStack(itemType, amount)
                 player.giveItemStack(itemStack)
 
