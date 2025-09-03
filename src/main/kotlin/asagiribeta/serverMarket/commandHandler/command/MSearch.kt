@@ -1,6 +1,5 @@
 package asagiribeta.serverMarket.commandHandler.command
 
-import com.mojang.brigadier.suggestion.SuggestionProvider
 import net.minecraft.server.command.ServerCommandSource
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
@@ -8,30 +7,16 @@ import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.CommandManager.argument
 import com.mojang.brigadier.arguments.StringArgumentType
 import net.minecraft.text.Text
-import net.minecraft.registry.Registries
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.CommandSuggestions
 
 class MSearch {
-    companion object {
-        val ITEM_ID_SUGGESTIONS = SuggestionProvider<ServerCommandSource> { context, builder ->
-            val remaining = builder.remaining.lowercase()
-            // 遍历所有物品的 Identifier（如 minecraft:stone）进行建议（使用 Registries 兼容 1.21.2）
-            Registries.ITEM.ids.forEach { id ->
-                val idStr = id.toString()
-                if (remaining.isEmpty() || idStr.contains(remaining)) {
-                    builder.suggest(idStr)
-                }
-            }
-            builder.buildFuture()
-        }
-    }
-
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("msearch")
                 .then(argument("item_id", StringArgumentType.greedyString())
-                    .suggests(ITEM_ID_SUGGESTIONS)  // 物品ID自动补全建议
+                    .suggests(CommandSuggestions.ITEM_ID_SUGGESTIONS)  // 物品ID自动补全建议
                     .executes(this::execute)
                 )
         )
@@ -54,8 +39,8 @@ class MSearch {
                 it.withBold(true)
                     .withColor(0xA020F0)
             })
-            items.forEach { (_, sellerName, price, quantity) ->
-                val sellerType = if (sellerName == "SERVER") 
+            items.forEach { (_, _, sellerName, price, quantity) ->
+                val sellerType = if (sellerName == "SERVER")
                     Language.get("command.msearch.system_market")
                 else 
                     Language.get("command.msearch.player_market")

@@ -50,12 +50,13 @@ class MList {
             }
 
             source.sendMessage(Text.literal(Language.get("command.mlist.title", target)).styled { it.withBold(true).withColor(0xA020F0) })
-            items.forEach { (itemId, sellerName, price, quantity) ->
+            items.forEach { item ->
+                val nbtSuffix = if (item.nbt.isNotEmpty()) " [NBT]" else ""
                 source.sendMessage(
-                    Text.literal("▸ $itemId")
-                        .append(Text.literal(Language.get("ui.seller", sellerName)).styled { it.withColor(0x00FF00) })
-                        .append(Text.literal(Language.get("ui.price", "%.2f".format(price))).styled { it.withColor(0xFFA500) })
-                        .append(Text.literal(Language.get("ui.quantity", quantity.toString())).styled { it.withColor(0xADD8E6) }))
+                    Text.literal("▸ ${item.itemId}$nbtSuffix")
+                        .append(Text.literal(Language.get("ui.seller", item.sellerName)).styled { it.withColor(0x00FF00) })
+                        .append(Text.literal(Language.get("ui.price", "%.2f".format(item.price))).styled { it.withColor(0xFFA500) })
+                        .append(Text.literal(Language.get("ui.quantity", item.quantity.toString())).styled { it.withColor(0xADD8E6) }))
             }
             1
         } catch (e: Exception) {

@@ -1,3 +1,4 @@
+@file:Suppress("SqlResolve")
 package asagiribeta.serverMarket.repository
 
 import asagiribeta.serverMarket.ServerMarket

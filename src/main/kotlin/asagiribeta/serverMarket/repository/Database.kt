@@ -1,3 +1,4 @@
+@file:Suppress("SqlResolve")
 package asagiribeta.serverMarket.repository
 
 import asagiribeta.serverMarket.ServerMarket
@@ -35,32 +36,35 @@ class Database {
                     item TEXT NOT NULL
                 )
             """)
+            // 系统市场表（含 nbt，唯一键为 item_id + nbt）
             it.execute("""
                 CREATE TABLE IF NOT EXISTS system_market (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    item_id TEXT NOT NULL UNIQUE,
+                    item_id TEXT NOT NULL,
+                    nbt TEXT NOT NULL DEFAULT '',
                     price REAL NOT NULL,
                     quantity INTEGER DEFAULT -1,
-                    seller TEXT DEFAULT 'SERVER'  
+                    seller TEXT DEFAULT 'SERVER',
+                    UNIQUE(item_id, nbt)
                 )
             """)
-            // 玩家市场表
+            // 玩家市场表（含 nbt）
             it.execute("""
                 CREATE TABLE IF NOT EXISTS player_market (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     seller TEXT NOT NULL,
                     seller_name TEXT NOT NULL,
                     item_id TEXT NOT NULL,
+                    nbt TEXT NOT NULL DEFAULT '',
                     price REAL NOT NULL,
                     quantity INTEGER DEFAULT 0,
                     FOREIGN KEY(seller) REFERENCES balances(uuid)
                 )
             """)
-            // 为玩家市场建立唯一索引，避免重复 (seller, item_id)
-            it.execute("""
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_player_market_unique 
-                ON player_market(seller, item_id)
-            """)
+            // 为玩家市场建立唯一索引 (seller, item_id, nbt)
+            it.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_player_market_unique_v2 ON player_market(seller, item_id, nbt)"
+            )
             // 实体货币映射表（支持同一物品不同 NBT 多种面值）
             it.execute("""
                 CREATE TABLE IF NOT EXISTS currency_items (
@@ -79,8 +83,9 @@ class Database {
             it.execute("PRAGMA synchronous = NORMAL")
             it.execute("PRAGMA busy_timeout = 5000")
         }
+        // 不执行任何迁移逻辑：使用上述最终版表结构直接初始化
     }
-    
+
     fun getBalance(uuid: UUID): Double {
         return try {
             connection.prepareStatement("SELECT amount FROM balances WHERE uuid = ?").use { ps ->

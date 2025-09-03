@@ -10,6 +10,7 @@ import net.minecraft.text.Text
 import asagiribeta.serverMarket.ServerMarket
 import net.minecraft.registry.Registries
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.ItemKey
 
 class MPrice {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
@@ -37,18 +38,20 @@ class MPrice {
 
         return try {
             val itemId = Registries.ITEM.getId(itemStack.item).toString()
+            val nbt = ItemKey.snbtOf(itemStack)
             val marketRepo = ServerMarket.instance.database.marketRepository
             
-            if (!marketRepo.hasPlayerItem(player.uuid, itemId)) {
+            if (!marketRepo.hasPlayerItem(player.uuid, itemId, nbt)) {
                 marketRepo.addPlayerItem(
                     sellerUuid = player.uuid,
                     sellerName = player.name.string,
                     itemId = itemId,
+                    nbt = nbt,
                     price = price
                 )
                 source.sendMessage(Text.literal(Language.get("command.mprice.add_success", itemStack.name.string, price)))
             } else {
-                marketRepo.updatePlayerItemPrice(player.uuid, itemId, price)
+                marketRepo.updatePlayerItemPrice(player.uuid, itemId, nbt, price)
                 source.sendMessage(Text.literal(Language.get("command.mprice.update_success", itemStack.name.string, price)))
             }
             1

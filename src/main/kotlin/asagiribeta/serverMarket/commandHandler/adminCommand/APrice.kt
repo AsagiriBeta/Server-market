@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.ItemKey
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.context.CommandContext
@@ -37,13 +38,14 @@ class APrice {
 
         val price = DoubleArgumentType.getDouble(context, "price")
         val itemId = Registries.ITEM.getId(itemStack.item).toString()
+        val nbt = ItemKey.snbtOf(itemStack)
         val marketRepo = ServerMarket.instance.database.marketRepository
         return try {
-            if (!marketRepo.hasSystemItem(itemId)) {
-                marketRepo.addSystemItem(itemId, price)
+            if (!marketRepo.hasSystemItem(itemId, nbt)) {
+                marketRepo.addSystemItem(itemId, nbt, price)
                 source.sendMessage(Text.literal(Language.get("command.aprice.add_success", itemStack.name.string, price)))
             } else {
-                marketRepo.addSystemItem(itemId, price) // upsert 行为
+                marketRepo.addSystemItem(itemId, nbt, price) // upsert 行为
                 source.sendMessage(Text.literal(Language.get("command.aprice.update_success", itemStack.name.string, price)))
             }
             1
@@ -54,4 +56,3 @@ class APrice {
         }
     }
 }
-

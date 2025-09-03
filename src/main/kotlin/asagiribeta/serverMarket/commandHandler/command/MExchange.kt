@@ -2,10 +2,10 @@ package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.ItemKey
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.context.CommandContext
-import net.minecraft.component.DataComponentTypes
 import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
@@ -48,11 +48,7 @@ class MExchange {
         val itemName = main.name.string
 
         val itemId = Registries.ITEM.getId(main.item).toString()
-        val nbt = try {
-            val nbtComp = try { main.get(DataComponentTypes.CUSTOM_DATA) } catch (_: Throwable) { null }
-            val tag = try { nbtComp?.copyNbt() } catch (_: Throwable) { null }
-            tag?.toString() ?: ""
-        } catch (_: Throwable) { "" }
+        val nbt = ItemKey.snbtOf(main)
 
         val value = repo.getCurrencyValue(itemId, nbt) ?: run {
             source.sendError(Text.literal(Language.get("command.mexchange.not_currency")))
@@ -62,11 +58,7 @@ class MExchange {
         // 统计背包中与主手相同签名的数量
         val inv = player.inventory
         val matchingStacks = (0 until inv.size()).map { inv.getStack(it) }.filter {
-            !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && run {
-                val cd = try { it.get(DataComponentTypes.CUSTOM_DATA) } catch (_: Throwable) { null }
-                val sn = try { cd?.copyNbt()?.toString() ?: "" } catch (_: Throwable) { "" }
-                sn == nbt
-            }
+            !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == nbt
         }
         val totalAvailable = matchingStacks.sumOf { it.count }
         if (totalAvailable < quantity) {

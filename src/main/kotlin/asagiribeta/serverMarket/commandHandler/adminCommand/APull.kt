@@ -8,6 +8,7 @@ import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
+import asagiribeta.serverMarket.util.ItemKey
 
 class APull {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
@@ -32,13 +33,14 @@ class APull {
         }
 
         val itemId = Registries.ITEM.getId(itemStack.item).toString()
+        val nbt = ItemKey.snbtOf(itemStack)
         val marketRepo = ServerMarket.instance.database.marketRepository
         return try {
-            if (!marketRepo.hasSystemItem(itemId)) {
+            if (!marketRepo.hasSystemItem(itemId, nbt)) {
                 source.sendError(Text.literal(Language.get("command.apull.not_listed")))
                 0
             } else {
-                marketRepo.removeSystemItem(itemId)
+                marketRepo.removeSystemItem(itemId, nbt)
                 source.sendMessage(Text.literal(Language.get("command.apull.success", itemStack.name.string)))
                 1
             }
@@ -49,4 +51,3 @@ class APull {
         }
     }
 }
-

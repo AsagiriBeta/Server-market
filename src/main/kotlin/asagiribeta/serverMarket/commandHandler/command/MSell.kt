@@ -10,6 +10,7 @@ import com.mojang.brigadier.context.CommandContext
 import net.minecraft.registry.Registries
 import asagiribeta.serverMarket.ServerMarket
 import net.minecraft.text.Text
+import asagiribeta.serverMarket.util.ItemKey
 
 class MSell {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
@@ -28,24 +29,27 @@ class MSell {
         }
         val quantity = IntegerArgumentType.getInteger(context, "quantity")
         val mainHandStack = player.mainHandStack
-        
+        if (mainHandStack.isEmpty) {
+            context.source.sendError(Text.literal(Language.get("command.msell.hold_item")))
+            return 0
+        }
+
         // 提前获取物品名称
-        val itemName = mainHandStack.name.string  // 在扣除前获取物品名称
-        
-        // 获取所有同类物品堆栈
+        val itemName = mainHandStack.name.string
         val itemId = Registries.ITEM.getId(mainHandStack.item).toString()
-        
-        // 提前检查物品是否已上架
+        val snbt = ItemKey.snbtOf(mainHandStack)
+
+        // 提前检查物品是否已上架（精确到 NBT）
         val marketRepo = ServerMarket.instance.database.marketRepository
         val uuid = player.uuid
-        if (!marketRepo.hasPlayerItem(uuid, itemId)) {
+        if (!marketRepo.hasPlayerItem(uuid, itemId, snbt)) {
             context.source.sendError(Text.literal(Language.get("command.msell.not_listed")))
             return 0
         }
 
-        // 物品栏访问
-        val allStacks = (0 until player.inventory.size()).map { player.inventory.getStack(it) }.filter { 
-            !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId 
+        // 物品栏访问：仅筛选同ID且同NBT的堆栈
+        val allStacks = (0 until player.inventory.size()).map { player.inventory.getStack(it) }.filter {
+            !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == snbt
         }
 
         // 检查总数量是否足够
@@ -60,12 +64,12 @@ class MSell {
         for (stack in allStacks) {
             if (remaining <= 0) break
             val deduct = minOf(remaining, stack.count)
-            stack.count -= deduct
+            stack.decrement(deduct)
             remaining -= deduct
         }
 
         try {
-            marketRepo.incrementPlayerItemQuantity(uuid, itemId, quantity)
+            marketRepo.incrementPlayerItemQuantity(uuid, itemId, snbt, quantity)
             context.source.sendMessage(
                 Text.literal(Language.get("command.msell.success", quantity, itemName))
             )

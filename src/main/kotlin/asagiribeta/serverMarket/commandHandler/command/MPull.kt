@@ -8,6 +8,7 @@ import net.minecraft.text.Text
 import asagiribeta.serverMarket.ServerMarket
 import net.minecraft.registry.Registries
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.ItemKey
 
 class MPull {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
@@ -32,14 +33,15 @@ class MPull {
 
         try {
             val itemId = Registries.ITEM.getId(itemStack.item).toString()
+            val nbt = ItemKey.snbtOf(itemStack)
             val marketRepo = ServerMarket.instance.database.marketRepository
             
-            ServerMarket.LOGGER.debug("尝试下架物品ID: {} 玩家UUID: {}", itemId, player.uuid)
-            
-            if (marketRepo.hasPlayerItem(player.uuid, itemId)) {
+            ServerMarket.LOGGER.debug("尝试下架物品ID: {} NBT:{} 玩家UUID: {}", itemId, nbt, player.uuid)
+
+            if (marketRepo.hasPlayerItem(player.uuid, itemId, nbt)) {
                 // 获取下架前的库存数量并删除记录
-                val returnedQuantity = marketRepo.removePlayerItem(player.uuid, itemId)
-                
+                val returnedQuantity = marketRepo.removePlayerItem(player.uuid, itemId, nbt)
+
                 // 返还物品给玩家
                 if (returnedQuantity > 0) {
                     val returnStack = itemStack.copy().apply { count = returnedQuantity }

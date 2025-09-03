@@ -94,7 +94,7 @@ class MCash {
                 val give = kotlin.math.min(remaining, maxStack)
                 val stack = ItemStack(item, give)
                 if (parsedNbt != null) {
-                    val nbtCopy = parsedNbt.copy() as NbtCompound
+                    val nbtCopy = parsedNbt.copy()
                     // 使用 Data Component API 写入自定义数据（Yarn: NbtComponent）
                     stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbtCopy))
                 }

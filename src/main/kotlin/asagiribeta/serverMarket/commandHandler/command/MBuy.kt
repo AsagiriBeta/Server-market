@@ -16,6 +16,8 @@ import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.text.Text
 import java.util.*
+import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.CommandSuggestions
 
 class MBuy {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
@@ -23,17 +25,7 @@ class MBuy {
             literal("mbuy")
                 .then(argument("quantity", DoubleArgumentType.doubleArg(1.0))
                     .then(argument("item", StringArgumentType.greedyString())
-                        .suggests { _, builder ->
-                            // 使用全局 Registries 以兼容 1.21.2
-                            val remaining = builder.remaining.lowercase()
-                            Registries.ITEM.ids.forEach { id ->
-                                val idStr = id.toString()
-                                if (remaining.isEmpty() || idStr.contains(remaining)) {
-                                    builder.suggest(idStr)
-                                }
-                            }
-                            builder.buildFuture()
-                        }
+                        .suggests(CommandSuggestions.ITEM_ID_SUGGESTIONS)
                         .executes(this::executeBuy)
                     )
                 )
@@ -113,16 +105,18 @@ class MBuy {
             // 处理每个卖家的交易
             for ((item, amount) in purchaseList) {
                 if (item.sellerName != "SERVER") {
-                    // 使用正确的seller字段（UUID字符串）
+                    // 减少玩家市场库存（按 NBT 精确扣减）
                     ServerMarket.instance.database.marketRepository.incrementPlayerItemQuantity(
-                        UUID.fromString(item.sellerName),  // 此处sellerName存储的是UUID字符串
+                        UUID.fromString(item.sellerName),
                         item.itemId,
+                        item.nbt,
                         -amount
                     )
                     
+                    // 结算给卖家
                     ServerMarket.instance.database.transfer(
                         UUID(0, 0),
-                        UUID.fromString(item.sellerName),  // 使用UUID字符串
+                        UUID.fromString(item.sellerName),
                         item.price * amount
                     )
 
@@ -133,18 +127,23 @@ class MBuy {
                         fromName = "MARKET",
                         toId = UUID.fromString(item.sellerName),
                         toType = "player",
-                        toName = item.sellerName,  // 此处保留原始UUID字符串
+                        toName = item.sellerName,
                         price = item.price * amount,
-                        item = "$itemId x$amount"
+                        item = "${item.itemId} x$amount"
                     )
                 }
                 
-                // 给予玩家物品（兼容 1.21.2 的注册表 API）
-                val id = Identifier.tryParse(itemId)
+                // 给予玩家物品（尝试带回原始 NBT）
+                val id = Identifier.tryParse(item.itemId)
                 val itemType = if (id != null && Registries.ITEM.containsId(id)) Registries.ITEM.get(id) else Items.AIR
-                val itemStack = ItemStack(itemType, amount)
-                player.giveItemStack(itemStack)
-
+                val stack = ItemStack(itemType, amount)
+                try {
+                    // 尝试解析 SNBT；若失败则忽略
+                    if (item.nbt.isNotEmpty()) {
+                        ItemKey.applySnbt(stack, item.nbt)
+                    }
+                } catch (_: Exception) { /* ignore */ }
+                player.giveItemStack(stack)
             }
 
             context.source.sendMessage(

@@ -2,12 +2,12 @@ package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.ItemKey
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import net.minecraft.command.CommandSource
-import net.minecraft.component.DataComponentTypes
 import net.minecraft.item.ItemStack
 import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager
@@ -43,22 +43,28 @@ class ACash {
         dispatcher.register(root)
     }
 
-    private fun executeSetValue(context: CommandContext<ServerCommandSource>): Int {
-        val source = context.source
+    // 提取的公用方法：要求执行者为玩家且主手持有物品，否则提示并返回 null
+    private fun requireHeldItem(source: ServerCommandSource): ItemStack? {
         val player = source.player ?: run {
             source.sendError(Text.literal(Language.get("command.acash.player_only")))
-            return 0
+            return null
         }
+        val stack = player.mainHandStack
+        if (stack.isEmpty) {
+            source.sendError(Text.literal(Language.get("command.acash.hold_item")))
+            return null
+        }
+        return stack
+    }
+
+    private fun executeSetValue(context: CommandContext<ServerCommandSource>): Int {
+        val source = context.source
         val value = DoubleArgumentType.getDouble(context, "value")
         if (value <= 0.0) {
             source.sendError(Text.literal(Language.get("command.acash.non_positive_value")))
             return 0
         }
-        val stack = player.mainHandStack
-        if (stack.isEmpty) {
-            source.sendError(Text.literal(Language.get("command.acash.hold_item")))
-            return 0
-        }
+        val stack = requireHeldItem(source) ?: return 0
         return try {
             val (itemId, snbt) = getItemSignature(stack)
             ServerMarket.instance.database.currencyRepository.upsertCurrency(itemId, snbt, value)
@@ -73,15 +79,7 @@ class ACash {
 
     private fun executeGet(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
-        val player = source.player ?: run {
-            source.sendError(Text.literal(Language.get("command.acash.player_only")))
-            return 0
-        }
-        val stack = player.mainHandStack
-        if (stack.isEmpty) {
-            source.sendError(Text.literal(Language.get("command.acash.hold_item")))
-            return 0
-        }
+        val stack = requireHeldItem(source) ?: return 0
         return try {
             val (itemId, snbt) = getItemSignature(stack)
             val value = ServerMarket.instance.database.currencyRepository.getCurrencyValue(itemId, snbt)
@@ -101,15 +99,7 @@ class ACash {
 
     private fun executeDel(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
-        val player = source.player ?: run {
-            source.sendError(Text.literal(Language.get("command.acash.player_only")))
-            return 0
-        }
-        val stack = player.mainHandStack
-        if (stack.isEmpty) {
-            source.sendError(Text.literal(Language.get("command.acash.hold_item")))
-            return 0
-        }
+        val stack = requireHeldItem(source) ?: return 0
         return try {
             val (itemId, snbt) = getItemSignature(stack)
             val deleted = ServerMarket.instance.database.currencyRepository.deleteCurrency(itemId, snbt)
@@ -169,11 +159,7 @@ class ACash {
 
     private fun getItemSignature(stack: ItemStack): Pair<String, String> {
         val itemId = Registries.ITEM.getId(stack.item).toString()
-        val snbt = try {
-            val nbtComp = try { stack.get(DataComponentTypes.CUSTOM_DATA) } catch (_: Throwable) { null }
-            val tag = try { nbtComp?.copyNbt() } catch (_: Throwable) { null }
-            tag?.toString() ?: ""
-        } catch (_: Throwable) { "" }
+        val snbt = ItemKey.snbtOf(stack)
         return itemId to snbt
     }
 }
