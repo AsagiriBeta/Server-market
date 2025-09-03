@@ -3,7 +3,8 @@ package asagiribeta.serverMarket.util
 import net.minecraft.item.ItemStack
 import net.minecraft.component.DataComponentTypes
 import net.minecraft.component.type.NbtComponent
-import net.minecraft.nbt.StringNbtReader
+import net.minecraft.nbt.NbtCompound
+import net.minecraft.nbt.NbtHelper
 
 @Suppress("unused")
 object ItemKey {
@@ -20,8 +21,12 @@ object ItemKey {
     fun applySnbt(stack: ItemStack, snbt: String) {
         if (snbt.isEmpty()) return
         try {
-            val tag = StringNbtReader.parse(snbt)
-            stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(tag))
-        } catch (_: Exception) { /* ignore */ }
+            val el = NbtHelper.fromNbtProviderString(snbt)
+            if (el is NbtCompound) {
+                stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(el))
+            }
+        } catch (_: Exception) {
+            // 忽略解析失败
+        }
     }
 }
