@@ -9,6 +9,7 @@ import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
+import net.minecraft.server.MinecraftServer
 import org.slf4j.LoggerFactory
 import org.slf4j.Logger
 
@@ -16,6 +17,8 @@ class ServerMarket : ModInitializer {
     internal val database = Database()
     private val command = Command()
     private val adminCommand = AdminCommand()
+    // 新增：保存当前运行中的服务器引用（1.21+ 用于 ItemStack.CODEC 序列化组件）
+    internal var server: MinecraftServer? = null
 
     companion object {
         val LOGGER: Logger = LoggerFactory.getLogger(ServerMarket::class.java)
@@ -24,7 +27,10 @@ class ServerMarket : ModInitializer {
 
     override fun onInitialize() {
         instance = this
-        
+        // 记录服务器引用
+        ServerLifecycleEvents.SERVER_STARTING.register { srv -> server = srv }
+        ServerLifecycleEvents.SERVER_STOPPED.register { srv -> if (server === srv) server = null }
+
         // 初始化配置系统
         Config.reloadConfig()
 

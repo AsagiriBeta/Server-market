@@ -169,16 +169,14 @@ class MBuy {
                     )
                 }
 
-                // 给予玩家物品（尝试带回原始 NBT）
-                val id = Identifier.tryParse(mi.itemId)
-                val itemType = if (id != null && Registries.ITEM.containsId(id)) Registries.ITEM.get(id) else Items.AIR
-                val stack = ItemStack(itemType, amount)
-                try {
-                    // 尝试解析 SNBT；若失败则忽略
-                    if (mi.nbt.isNotEmpty()) {
-                        ItemKey.applySnbt(stack, mi.nbt)
-                    }
-                } catch (_: Exception) { /* ignore */ }
+                // 给予玩家物品：优先尝试完整 SNBT 重建
+                val stack = ItemKey.tryBuildFullStackFromSnbt(mi.nbt, amount) ?: run {
+                    val id = Identifier.tryParse(mi.itemId)
+                    val itemType = if (id != null && Registries.ITEM.containsId(id)) Registries.ITEM.get(id) else Items.AIR
+                    val fallback = ItemStack(itemType, amount)
+                    try { if (mi.nbt.isNotEmpty()) ItemKey.applySnbt(fallback, mi.nbt) } catch (_: Exception) {}
+                    fallback
+                }
                 player.giveItemStack(stack)
             }
 
@@ -308,10 +306,14 @@ class MBuy {
                         amount
                     )
                 }
-                val id = Identifier.tryParse(mi.itemId)
-                val itemType = if (id != null && Registries.ITEM.containsId(id)) Registries.ITEM.get(id) else Items.AIR
-                val stack = ItemStack(itemType, amount)
-                try { if (mi.nbt.isNotEmpty()) ItemKey.applySnbt(stack, mi.nbt) } catch (_: Exception) {}
+                // 给予玩家物品：优先尝试完整 SNBT 重建
+                val stack = ItemKey.tryBuildFullStackFromSnbt(mi.nbt, amount) ?: run {
+                    val id = Identifier.tryParse(mi.itemId)
+                    val itemType = if (id != null && Registries.ITEM.containsId(id)) Registries.ITEM.get(id) else Items.AIR
+                    val fallback = ItemStack(itemType, amount)
+                    try { if (mi.nbt.isNotEmpty()) ItemKey.applySnbt(fallback, mi.nbt) } catch (_: Exception) {}
+                    fallback
+                }
                 player.giveItemStack(stack)
             }
 
