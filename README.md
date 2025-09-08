@@ -53,8 +53,22 @@ This mod adds a complete player economy and item trading market to Minecraft ser
 - **/mexchange <quantity>**  
   Exchange physical currency items held (and matching items in inventory) back into balance.  
   Example: `/mexchange 16`  
-  Notes:
+  Notes:  
   - Hold the currency item in your main hand; quantity counts across inventory stacks that match the same signature (Item ID + CUSTOM_DATA).
+
+- **/mmenu**  
+  Open an interactive Market GUI:  
+  Overview:  
+  - Home: shows your balance and entry button to seller list.  
+  - Seller List: all player sellers plus system shop (SERVER) with pagination; click head to enter shop (player heads show skin).  
+  - Shop: all listings of that seller; Left Click buys 1, Right Click attempts a stack (up to 64, limited by stock or daily cap).  
+  Navigation:  
+  - ARROW: page prev/next  
+  - BOOK: help tooltip  
+  - CHEST: enter seller list from home  
+  - NETHER_STAR: go back (home or seller list)  
+  - BARRIER: close menu  
+  Tip: For system items with daily limits, right-click bulk buys will auto-trim to remaining allowance.
 
 ### Admin Commands (Requires OP Level 4)
 - **/mset <player> <amount>**  
@@ -100,10 +114,11 @@ This mod adds a complete player economy and item trading market to Minecraft ser
    - Player Market: Player-set prices, limited stock.
    - System Market: Admin-controlled, unlimited stock (with optional per-player daily caps).
 
-2. **Transactions**
+2. **Transactions & UI**
    - Auto-match the lowest price.
    - Merge across multiple sellers' inventories.
    - Optional seller-specific purchase.
+   - Visual Market Menu (/mmenu) for browsing & quick purchase.
 
 ## Advanced: Physical Currency (/acash) and Player Exchange
 - Identification: Distinguished by "Item ID + NBT (CUSTOM_DATA)"; if no NBT, item ID only.
