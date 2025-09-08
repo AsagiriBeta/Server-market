@@ -41,6 +41,9 @@ class Command {
 
         // mexchange命令（现金换回余额）
         MExchange().register(dispatcher)
+
+        // 新增 mmenu 命令
+        MMenu().register(dispatcher)
     }
 
     private fun executeMoneyCommand(context: CommandContext<ServerCommandSource>): Int {

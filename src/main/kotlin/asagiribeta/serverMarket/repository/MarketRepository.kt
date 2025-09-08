@@ -296,6 +296,37 @@ class MarketRepository(private val database: Database) {
             list
         }
     }
+
+    // 新增：菜单统一查询（含系统与玩家商品），提供 seller_id 与 seller_name
+    fun getAllListingsForMenu(): List<MarketMenuEntry> {
+        return database.connection.prepareStatement(
+            """
+            SELECT item_id, nbt, price, quantity, 'SERVER' as seller_id, 'SERVER' as seller_name, 1 as is_system
+            FROM system_market
+            UNION ALL
+            SELECT item_id, nbt, price, quantity, seller as seller_id, seller_name, 0 as is_system
+            FROM player_market
+            ORDER BY item_id, is_system DESC, price
+            """.trimIndent()
+        ).use { ps ->
+            val rs = ps.executeQuery()
+            val list = mutableListOf<MarketMenuEntry>()
+            while (rs.next()) {
+                list.add(
+                    MarketMenuEntry(
+                        itemId = rs.getString("item_id"),
+                        nbt = rs.getString("nbt"),
+                        price = rs.getDouble("price"),
+                        quantity = rs.getInt("quantity"),
+                        sellerId = rs.getString("seller_id"),
+                        sellerName = rs.getString("seller_name"),
+                        isSystem = rs.getInt("is_system") == 1
+                    )
+                )
+            }
+            list
+        }
+    }
 }
 
 data class MarketItem(
@@ -304,4 +335,15 @@ data class MarketItem(
     val sellerName: String,
     val price: Double,
     val quantity: Int
+)
+
+// 新增：菜单专用条目
+data class MarketMenuEntry(
+    val itemId: String,
+    val nbt: String,
+    val price: Double,
+    val quantity: Int,
+    val sellerId: String, // 'SERVER' 或 玩家UUID
+    val sellerName: String, // 展示名称
+    val isSystem: Boolean
 )

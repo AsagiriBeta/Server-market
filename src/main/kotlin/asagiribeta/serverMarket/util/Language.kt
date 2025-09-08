@@ -204,7 +204,21 @@ object Language {
             zhTranslations["ui.seller"] = "卖家: %s"
             zhTranslations["ui.price"] = "单价: %s"
             zhTranslations["ui.quantity"] = "数量: %s"
-            
+            // 菜单新增
+            zhTranslations["menu.title"] = "服务器市场"
+            zhTranslations["menu.prev"] = "上一页"
+            zhTranslations["menu.next"] = "下一页 %s"
+            zhTranslations["menu.close"] = "关闭"
+            zhTranslations["menu.limit_reached"] = "已到达今日限购上限"
+            zhTranslations["menu.out_of_stock"] = "该商品已售罄"
+            zhTranslations["menu.no_money"] = "余额不足，需要 %s"
+            zhTranslations["menu.buy_ok"] = "成功购买 %d 个 %s 花费 %s"
+            zhTranslations["menu.buy_error"] = "购买失败"
+            // 首页新增键
+            zhTranslations["menu.balance"] = "当前余额: %s"
+            zhTranslations["menu.enter_market"] = "进入市场"
+            zhTranslations["menu.back_home"] = "返回首页"
+
             // 加载英文翻译
             val enTranslations = mutableMapOf<String, String>()
             // 通用错误信息
@@ -327,7 +341,21 @@ object Language {
             enTranslations["ui.seller"] = "Seller: %s"
             enTranslations["ui.price"] = "Price: %s"
             enTranslations["ui.quantity"] = "Quantity: %s"
-            
+            // 菜单新增
+            enTranslations["menu.title"] = "Server Market"
+            enTranslations["menu.prev"] = "Prev"
+            enTranslations["menu.next"] = "Next %s"
+            enTranslations["menu.close"] = "Close"
+            enTranslations["menu.limit_reached"] = "Daily purchase limit reached"
+            enTranslations["menu.out_of_stock"] = "Out of stock"
+            enTranslations["menu.no_money"] = "Insufficient balance, need %s"
+            enTranslations["menu.buy_ok"] = "Purchased %d %s for %s"
+            enTranslations["menu.buy_error"] = "Purchase failed"
+            // 首页新增键
+            enTranslations["menu.balance"] = "Balance: %s"
+            enTranslations["menu.enter_market"] = "Enter Market"
+            enTranslations["menu.back_home"] = "Home"
+
             translations["zh"] = zhTranslations
             translations["en"] = enTranslations
             
