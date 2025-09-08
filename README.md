@@ -28,9 +28,15 @@ This mod adds a complete player economy and item trading market to Minecraft ser
   Search the global market for an item.  
   Example: `/msearch minecraft:diamond`
 
-- **/mbuy <quantity> <itemID>**  
-  Buy items from the market. Automatically matches the lowest price.  
-  Example: `/mbuy 3 minecraft:emerald`
+- **/mbuy <quantity> <itemID> [seller]**  
+  Buy items from the market. Without seller it auto-matches the lowest price across all sellers. If a seller is specified, only buys from that seller (use `server` for system shop, or a seller's name if required by your setup).  
+  Examples:  
+  - `/mbuy 3 minecraft:emerald` (auto match)  
+  - `/mbuy 5 minecraft:diamond server` (force system shop)  
+  - `/mbuy 2 minecraft:iron_ingot Steve` (specific seller)
+  Notes:  
+  - System items may have a per-player per-day purchase limit (see /aprice).  
+  - Purchase splits across multiple listings until quantity is satisfied.
 
 - **/mlist [player|server]**  
   View listed items for a player or the system shop.  
@@ -55,9 +61,15 @@ This mod adds a complete player economy and item trading market to Minecraft ser
   Set a player's balance.  
   Example: `/mset Steve 1000.0`
 
-- **/aprice <price>**  
-  Set system shop price for the held item (infinite stock).  
-  Example: `/aprice 8.5`
+- **/aprice <price> [limitPerDay]**  
+  Set system shop price for the held item. Adds optional per-player daily purchase limit. Omit or use -1 for unlimited daily purchases (stock itself is infinite).  
+  Examples:  
+  - `/aprice 8.5` (no daily limit)  
+  - `/aprice 12.0 32` (each player can buy at most 32 per day)  
+  Notes:  
+  - limitPerDay counts per player per real-world day (server local date).  
+  - Changing price or limit re-applies settings.  
+  - If the item was not previously in the system shop it is added automatically.
 
 - **/apull**  
   Unlist the held item from the system shop.
@@ -86,11 +98,12 @@ This mod adds a complete player economy and item trading market to Minecraft ser
 ## Market System Features
 1. **Dual Markets**
    - Player Market: Player-set prices, limited stock.
-   - System Market: Admin-controlled, unlimited stock.
+   - System Market: Admin-controlled, unlimited stock (with optional per-player daily caps).
 
 2. **Transactions**
    - Auto-match the lowest price.
    - Merge across multiple sellers' inventories.
+   - Optional seller-specific purchase.
 
 ## Advanced: Physical Currency (/acash) and Player Exchange
 - Identification: Distinguished by "Item ID + NBT (CUSTOM_DATA)"; if no NBT, item ID only.
