@@ -218,6 +218,28 @@ object Language {
             zhTranslations["menu.balance"] = "当前余额: %s"
             zhTranslations["menu.enter_market"] = "进入市场"
             zhTranslations["menu.back_home"] = "返回首页"
+            // 首页/导航新增键
+            zhTranslations["menu.home.help_title"] = "市场导航"
+            zhTranslations["menu.home.help1"] = "点击右下角进入按卖家分类"
+            zhTranslations["menu.home.help2"] = "在卖家列表中选择卖家进入其店铺"
+            zhTranslations["menu.home.help3"] = "店铺内左/右键购买 1/64"
+            zhTranslations["menu.enter_market_sellers"] = "进入市场(按卖家)"
+            // 卖家列表/卖家条目
+            zhTranslations["menu.seller.items"] = "商品数: %d"
+            zhTranslations["menu.seller.open_shop"] = "左键打开店铺"
+            zhTranslations["menu.seller_list.title"] = "卖家列表"
+            zhTranslations["menu.seller_list.tip1"] = "点击卖家进入店铺"
+            zhTranslations["menu.seller_list.tip2"] = "箭头翻页"
+            zhTranslations["menu.seller_list.tip3"] = "下界之星返回首页"
+            zhTranslations["menu.seller_list.tip4"] = "屏障关闭"
+            // 店铺导航/提示
+            zhTranslations["menu.shop.title"] = "店铺操作"
+            zhTranslations["menu.shop.tip_left"] = "左键: 购买1"
+            zhTranslations["menu.shop.tip_right"] = "右键: 购买64"
+            zhTranslations["menu.shop.tip_back"] = "下界之星返回卖家列表"
+            zhTranslations["menu.shop.tip_close"] = "屏障关闭"
+            zhTranslations["menu.back_sellers"] = "返回卖家"
+            zhTranslations["menu.shop.click_tip"] = "左键: +1  |  右键: +64"
 
             // 加载英文翻译
             val enTranslations = mutableMapOf<String, String>()
@@ -355,6 +377,28 @@ object Language {
             enTranslations["menu.balance"] = "Balance: %s"
             enTranslations["menu.enter_market"] = "Enter Market"
             enTranslations["menu.back_home"] = "Home"
+            // 首页/导航新增键
+            enTranslations["menu.home.help_title"] = "Market Help"
+            enTranslations["menu.home.help1"] = "Click bottom-right to view sellers"
+            enTranslations["menu.home.help2"] = "Select a seller to enter the shop"
+            enTranslations["menu.home.help3"] = "In shop: Left/Right = 1/64"
+            enTranslations["menu.enter_market_sellers"] = "Enter Market (Sellers)"
+            // Seller list / entry
+            enTranslations["menu.seller.items"] = "Items: %d"
+            enTranslations["menu.seller.open_shop"] = "Left click to open shop"
+            enTranslations["menu.seller_list.title"] = "Seller List"
+            enTranslations["menu.seller_list.tip1"] = "Click seller to open shop"
+            enTranslations["menu.seller_list.tip2"] = "Use arrows to turn page"
+            enTranslations["menu.seller_list.tip3"] = "Nether Star: Home"
+            enTranslations["menu.seller_list.tip4"] = "Barrier: Close"
+            // Shop navigation / tips
+            enTranslations["menu.shop.title"] = "Shop"
+            enTranslations["menu.shop.tip_left"] = "Left: Buy 1"
+            enTranslations["menu.shop.tip_right"] = "Right: Buy 64"
+            enTranslations["menu.shop.tip_back"] = "Nether Star: Sellers"
+            enTranslations["menu.shop.tip_close"] = "Barrier: Close"
+            enTranslations["menu.back_sellers"] = "Back to Sellers"
+            enTranslations["menu.shop.click_tip"] = "Left: +1  |  Right: +64"
 
             translations["zh"] = zhTranslations
             translations["en"] = enTranslations

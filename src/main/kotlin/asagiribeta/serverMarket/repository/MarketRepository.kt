@@ -297,34 +297,93 @@ class MarketRepository(private val database: Database) {
         }
     }
 
-    // 新增：菜单统一查询（含系统与玩家商品），提供 seller_id 与 seller_name
-    fun getAllListingsForMenu(): List<MarketMenuEntry> {
-        return database.connection.prepareStatement(
-            """
-            SELECT item_id, nbt, price, quantity, 'SERVER' as seller_id, 'SERVER' as seller_name, 1 as is_system
-            FROM system_market
-            UNION ALL
-            SELECT item_id, nbt, price, quantity, seller as seller_id, seller_name, 0 as is_system
-            FROM player_market
-            ORDER BY item_id, is_system DESC, price
-            """.trimIndent()
-        ).use { ps ->
+    // 新增：卖家列表（含系统）
+    data class SellerMenuEntry(
+        val sellerId: String, // 'SERVER' 或 玩家 UUID
+        val sellerName: String,
+        val itemCount: Int
+    )
+
+    // 新增：查询所有卖家（系统与玩家）
+    fun getAllSellersForMenu(): List<SellerMenuEntry> {
+        // 汇总系统与玩家卖家，系统优先，其余按名称排序
+        val sql = """
+            SELECT * FROM (
+              SELECT 'SERVER' AS seller_id, 'SERVER' AS seller_name, COUNT(*) AS item_count FROM system_market
+              UNION ALL
+              SELECT seller AS seller_id, seller_name, COUNT(*) AS item_count FROM player_market GROUP BY seller, seller_name
+            ) ORDER BY CASE WHEN seller_id='SERVER' THEN 0 ELSE 1 END, seller_name
+        """.trimIndent()
+        return database.connection.prepareStatement(sql).use { ps ->
             val rs = ps.executeQuery()
-            val list = mutableListOf<MarketMenuEntry>()
+            val list = mutableListOf<SellerMenuEntry>()
             while (rs.next()) {
                 list.add(
-                    MarketMenuEntry(
-                        itemId = rs.getString("item_id"),
-                        nbt = rs.getString("nbt"),
-                        price = rs.getDouble("price"),
-                        quantity = rs.getInt("quantity"),
+                    SellerMenuEntry(
                         sellerId = rs.getString("seller_id"),
                         sellerName = rs.getString("seller_name"),
-                        isSystem = rs.getInt("is_system") == 1
+                        itemCount = rs.getInt("item_count")
                     )
                 )
             }
             list
+        }
+    }
+
+    // 新增：按卖家获取全部商品
+    fun getAllListingsForSeller(sellerId: String): List<MarketMenuEntry> {
+        return if (sellerId.equals("SERVER", ignoreCase = true)) {
+            database.connection.prepareStatement(
+                """
+                SELECT item_id, nbt, price, quantity, 'SERVER' as seller_id, 'SERVER' as seller_name, 1 as is_system
+                FROM system_market
+                ORDER BY item_id, price
+                """.trimIndent()
+            ).use { ps ->
+                val rs = ps.executeQuery()
+                val list = mutableListOf<MarketMenuEntry>()
+                while (rs.next()) {
+                    list.add(
+                        MarketMenuEntry(
+                            itemId = rs.getString("item_id"),
+                            nbt = rs.getString("nbt"),
+                            price = rs.getDouble("price"),
+                            quantity = rs.getInt("quantity"),
+                            sellerId = rs.getString("seller_id"),
+                            sellerName = rs.getString("seller_name"),
+                            isSystem = rs.getInt("is_system") == 1
+                        )
+                    )
+                }
+                list
+            }
+        } else {
+            database.connection.prepareStatement(
+                """
+                SELECT item_id, nbt, price, quantity, seller as seller_id, seller_name, 0 as is_system
+                FROM player_market
+                WHERE seller = ?
+                ORDER BY item_id, price
+                """.trimIndent()
+            ).use { ps ->
+                ps.setString(1, sellerId)
+                val rs = ps.executeQuery()
+                val list = mutableListOf<MarketMenuEntry>()
+                while (rs.next()) {
+                    list.add(
+                        MarketMenuEntry(
+                            itemId = rs.getString("item_id"),
+                            nbt = rs.getString("nbt"),
+                            price = rs.getDouble("price"),
+                            quantity = rs.getInt("quantity"),
+                            sellerId = rs.getString("seller_id"),
+                            sellerName = rs.getString("seller_name"),
+                            isSystem = rs.getInt("is_system") == 1
+                        )
+                    )
+                }
+                list
+            }
         }
     }
 }

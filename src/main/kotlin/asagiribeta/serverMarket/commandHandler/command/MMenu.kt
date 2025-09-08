@@ -4,7 +4,6 @@ import asagiribeta.serverMarket.menu.MarketMenuScreenHandler
 import asagiribeta.serverMarket.util.Language
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
-import net.minecraft.screen.ScreenHandlerContext
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
@@ -25,7 +24,7 @@ class MMenu {
             return 0
         }
         player.openHandledScreen(SimpleNamedScreenHandlerFactory({ syncId, inv, _ ->
-            MarketMenuScreenHandler(syncId, inv, ScreenHandlerContext.EMPTY, emptyList())
+            MarketMenuScreenHandler(syncId, inv, emptyList())
         }, Text.literal(Language.get("menu.title"))))
         return 1
     }

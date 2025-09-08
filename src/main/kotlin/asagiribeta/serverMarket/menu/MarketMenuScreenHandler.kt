@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.menu
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.repository.MarketMenuEntry
+import asagiribeta.serverMarket.repository.MarketRepository
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.Language
 import net.minecraft.component.DataComponentTypes
@@ -13,7 +14,6 @@ import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
 import net.minecraft.registry.Registries
 import net.minecraft.screen.ScreenHandler
-import net.minecraft.screen.ScreenHandlerContext
 import net.minecraft.screen.slot.Slot
 import net.minecraft.screen.slot.SlotActionType
 import net.minecraft.server.network.ServerPlayerEntity
@@ -22,48 +22,49 @@ import net.minecraft.util.Identifier
 import java.time.LocalDate
 import java.util.*
 import kotlin.math.min
+// 新增: 头像组件 & GameProfile
+import net.minecraft.component.type.ProfileComponent
+import com.mojang.authlib.GameProfile
 
 /**
- * 市场主菜单 ScreenHandler (首页 + 市场分页)
- * 首页：显示玩家余额（槽位4） + 关闭(49) + 进入市场(53)
- * 市场结构：
- *  - 前 5 行(0..44) 商品槽位 (PAGE_SIZE = 45)
- *  - 第 6 行导航：
- *      45 <- 上一页 (箭头)
- *      47 返回首页 (下界之星)
- *      49 关闭 (Barrier)
- *      53 下一页 (箭头)
+ * 市场主菜单 ScreenHandler
+ * 三级：
+ *  HOME 首页 -> SELLER_LIST 卖家分类 -> SELLER_SHOP 卖家店铺(其全部商品分页)
  */
 class MarketMenuScreenHandler(
     syncId: Int,
     private val playerInventory: PlayerInventory,
-    private val context: ScreenHandlerContext,
-    private var entries: List<MarketMenuEntry>,
+    private var entries: List<MarketMenuEntry>, // 当前卖家店铺商品列表
     private var page: Int = 0
 ) : ScreenHandler(TYPE, syncId) {
 
     companion object {
         const val PAGE_SIZE = 45
-        // 占位类型；复用 GENERIC_9X6 的 type id 通过反射或常量困难，这里使用一个自定义 type 占位
-        // 在纯服务端环境下只要不发起客户端自定义界面 JSON 渲染即可；这里使用 ScreenHandlerType.GENERIC_9X6
-        val TYPE = net.minecraft.screen.ScreenHandlerType.GENERIC_9X6
+        // 明确指定非空类型，避免平台类型可空性警告
+        val TYPE: net.minecraft.screen.ScreenHandlerType<*> = net.minecraft.screen.ScreenHandlerType.GENERIC_9X6
     }
 
+    private enum class ViewMode { HOME, SELLER_LIST, SELLER_SHOP }
+
+    private var mode: ViewMode = ViewMode.HOME
     private val dummyInventories: MutableList<SimpleInventory> = MutableList(54) { SimpleInventory(1) }
-    private var onHomePage: Boolean = true
+
+    // 卖家列表缓存
+    private var sellerEntries: List<MarketRepository.SellerMenuEntry> = emptyList()
+    private var selectedSellerId: String? = null
 
     init {
-        // 商品槽位 0..44
+        // 商品/内容槽位 0..44
         for (i in 0 until PAGE_SIZE) {
             val x = 8 + (i % 9) * 18
             val y = 18 + (i / 9) * 18
-            addSlot(ReadOnlySlot(dummyInventories[i], i, x, y))
+            addSlot(ReadOnlySlot(dummyInventories[i], x, y))
         }
         // 导航槽位 45..53
         for (i in PAGE_SIZE until 54) {
             val x = 8 + (i % 9) * 18
             val y = 18 + (i / 9) * 18
-            addSlot(ReadOnlySlot(dummyInventories[i], i, x, y))
+            addSlot(ReadOnlySlot(dummyInventories[i], x, y))
         }
         // 玩家背包
         val invY = 18 + 6 * 18 + 14
@@ -76,29 +77,28 @@ class MarketMenuScreenHandler(
         for (col in 0 until 9) {
             addSlot(object : Slot(playerInventory, col, 8 + col * 18, hotbarY) {})
         }
-        // 初始显示首页
         showHome()
     }
 
     override fun canUse(player: PlayerEntity?): Boolean = true
 
-    private fun refreshEntries() {
-        entries = ServerMarket.instance.database.marketRepository.getAllListingsForMenu()
-        // 页码越界时回退
+    private fun refreshSellerEntries() {
+        sellerEntries = ServerMarket.instance.database.marketRepository.getAllSellersForMenu()
+        val totalPages = if (sellerEntries.isEmpty()) 1 else (sellerEntries.size - 1) / PAGE_SIZE + 1
+        if (page >= totalPages) page = totalPages - 1
+        if (page < 0) page = 0
+    }
+
+    private fun refreshShopEntries() {
+        val sellerId = selectedSellerId ?: return
+        entries = ServerMarket.instance.database.marketRepository.getAllListingsForSeller(sellerId)
         val totalPages = if (entries.isEmpty()) 1 else (entries.size - 1) / PAGE_SIZE + 1
         if (page >= totalPages) page = totalPages - 1
         if (page < 0) page = 0
     }
 
     private fun clearListingSlots() {
-        for (i in 0 until PAGE_SIZE) {
-            (slots[i] as? ReadOnlySlot)?.apply {
-                currentEntryIndex = -1
-                inventory.setStack(0, ItemStack.EMPTY)
-            }
-        }
-        // 清理导航行
-        for (i in PAGE_SIZE until 54) {
+        for (i in 0 until 54) {
             (slots[i] as? ReadOnlySlot)?.apply {
                 currentEntryIndex = -1
                 inventory.setStack(0, ItemStack.EMPTY)
@@ -107,78 +107,133 @@ class MarketMenuScreenHandler(
     }
 
     private fun showHome() {
-        onHomePage = true
+        mode = ViewMode.HOME
+        page = 0
         clearListingSlots()
-        // 余额展示放在槽位 4 (第一行中间)
         val balance = ServerMarket.instance.database.getBalance(playerInventory.player.uuid)
         val balStack = ItemStack(Items.GOLD_INGOT)
         balStack.set(
             DataComponentTypes.CUSTOM_NAME,
             Text.literal(Language.get("menu.balance", "%.2f".format(balance)))
         )
-        (slots[4] as ReadOnlySlot).apply {
-            currentEntryIndex = -1
-            inventory.setStack(0, balStack)
-        }
-        // 说明书 (帮助) 放在槽位 22 （居中位置）
+        (slots[4] as ReadOnlySlot).apply { inventory.setStack(0, balStack) }
         setHelpItem(
             22,
-            "市场使用说明",
+            Language.get("menu.home.help_title"),
             listOf(
-                "左键商品: 购买 1 个",
-                "右键商品: 购买一组 (64 或剩余/限购量)",
-                "箭头: 翻页",
-                "下界之星: 返回首页",
-                "屏障: 关闭菜单"
+                Language.get("menu.home.help1"),
+                Language.get("menu.home.help2"),
+                Language.get("menu.home.help3")
             )
         )
-        // 关闭按钮 (49)
-        setNavButton(49, Items.BARRIER, Language.get("menu.close"), true)
-        // 进入市场 (53)
-        setNavButton(53, Items.CHEST, Language.get("menu.enter_market"), true)
+        setNavButton(49, Items.BARRIER, Language.get("menu.close"))
+        setNavButton(53, Items.CHEST, Language.get("menu.enter_market_sellers"))
         sendContentUpdates()
     }
 
-    private fun refreshPage() {
-        onHomePage = false
-        refreshEntries()
+    private fun showSellerList(resetPage: Boolean = true) {
+        mode = ViewMode.SELLER_LIST
+        if (resetPage) page = 0
+        refreshSellerEntries()
+        clearListingSlots()
+        val start = page * PAGE_SIZE
+        val sub = if (start >= sellerEntries.size) emptyList() else sellerEntries.subList(start, min(sellerEntries.size, start + PAGE_SIZE))
+        sub.forEachIndexed { idx, seller ->
+            val slot = slots[idx] as ReadOnlySlot
+            slot.currentEntryIndex = idx // 本页内部索引
+            slot.inventory.setStack(0, buildSellerStack(seller))
+        }
+        buildSellerListNav()
+        sendContentUpdates()
+    }
+
+    private fun showSellerShop(sellerId: String, resetPage: Boolean = true) {
+        mode = ViewMode.SELLER_SHOP
+        selectedSellerId = sellerId
+        if (resetPage) page = 0
+        refreshShopEntries()
         clearListingSlots()
         val start = page * PAGE_SIZE
         val sub = if (start >= entries.size) emptyList() else entries.subList(start, min(entries.size, start + PAGE_SIZE))
-        // 填充当前页
         sub.forEachIndexed { idx, entry ->
             val slot = slots[idx] as ReadOnlySlot
             slot.currentEntryIndex = start + idx
             slot.inventory.setStack(0, buildDisplayStack(entry))
         }
-        buildNavButtons()
+        buildShopNav()
         sendContentUpdates()
     }
 
-    private fun buildNavButtons() {
-        // prev 45
-        setNavButton(45, Items.ARROW, Language.get("menu.prev"), page > 0)
-        // 帮助 46
-        setHelpItem(
-            46,
-            "操作提示",
-            listOf(
-                "左键: 购买 1",
-                "右键: 购买 64",
-                "下界之星返回首页",
-                "屏障关闭"
-            )
+    private fun buildSellerStack(entry: MarketRepository.SellerMenuEntry): ItemStack {
+        val item = if (entry.sellerId == "SERVER") Items.NETHER_STAR else Items.PLAYER_HEAD
+        val stack = ItemStack(item)
+        stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(entry.sellerName))
+        // 为玩家卖家设置皮肤
+        if (item == Items.PLAYER_HEAD) {
+            val profile = obtainSellerGameProfile(entry)
+            if (profile != null) {
+                try {
+                    stack.set(DataComponentTypes.PROFILE, ProfileComponent(profile))
+                } catch (_: Exception) { /* 忽略设置失败，继续使用默认头像 */ }
+            }
+        }
+        val loreLines = listOf(
+            Text.literal(Language.get("menu.seller.items", entry.itemCount)),
+            Text.literal(Language.get("menu.seller.open_shop"))
         )
-        // 返回首页 47
-        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back_home"), true)
-        // close 49
-        setNavButton(49, Items.BARRIER, Language.get("menu.close"), true)
-        val totalPages = if (entries.isEmpty()) 1 else (entries.size - 1) / PAGE_SIZE + 1
-        // next 53
-        setNavButton(53, Items.ARROW, Language.get("menu.next", "${page + 1}/$totalPages"), page + 1 < totalPages)
+        stack.set(DataComponentTypes.LORE, LoreComponent(loreLines))
+        return stack
     }
 
-    private fun setNavButton(slotIndex: Int, item: net.minecraft.item.Item, name: String, enabled: Boolean) {
+    // 获取卖家 GameProfile (优先在线，其次缓存)
+    private fun obtainSellerGameProfile(entry: MarketRepository.SellerMenuEntry): GameProfile? {
+        if (entry.sellerId.equals("SERVER", ignoreCase = true)) return null
+        val uuid = try { UUID.fromString(entry.sellerId) } catch (_: Exception) { return null }
+        val server = playerInventory.player.server ?: return null
+        server.playerManager.getPlayer(uuid)?.let { return it.gameProfile }
+        val cache = server.userCache
+        val cached = try { cache?.getByUuid(uuid)?.orElse(null) } catch (_: Exception) { null }
+        if (cached != null) return cached
+        return GameProfile(uuid, entry.sellerName)
+    }
+
+    private fun buildSellerListNav() {
+        val totalPages = if (sellerEntries.isEmpty()) 1 else (sellerEntries.size - 1) / PAGE_SIZE + 1
+        setNavButton(45, Items.ARROW, Language.get("menu.prev"))
+        setHelpItem(
+            46,
+            Language.get("menu.seller_list.title"),
+            listOf(
+                Language.get("menu.seller_list.tip1"),
+                Language.get("menu.seller_list.tip2"),
+                Language.get("menu.seller_list.tip3"),
+                Language.get("menu.seller_list.tip4")
+            )
+        )
+        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back_home"))
+        setNavButton(49, Items.BARRIER, Language.get("menu.close"))
+        setNavButton(53, Items.ARROW, Language.get("menu.next", "${page + 1}/$totalPages"))
+    }
+
+    private fun buildShopNav() {
+        val totalPages = if (entries.isEmpty()) 1 else (entries.size - 1) / PAGE_SIZE + 1
+        setNavButton(45, Items.ARROW, Language.get("menu.prev"))
+        setHelpItem(
+            46,
+            Language.get("menu.shop.title"),
+            listOf(
+                Language.get("menu.shop.tip_left"),
+                Language.get("menu.shop.tip_right"),
+                Language.get("menu.shop.tip_back"),
+                Language.get("menu.shop.tip_close")
+            )
+        )
+        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back_sellers"))
+        setNavButton(49, Items.BARRIER, Language.get("menu.close"))
+        setNavButton(53, Items.ARROW, Language.get("menu.next", "${page + 1}/$totalPages"))
+    }
+
+    private fun setNavButton(slotIndex: Int, item: net.minecraft.item.Item, name: String) {
         val stack = ItemStack(item)
         stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(name))
         val slot = slots[slotIndex] as ReadOnlySlot
@@ -186,7 +241,6 @@ class MarketMenuScreenHandler(
         slot.inventory.setStack(0, stack)
     }
 
-    // 新增：帮助物品（带多行 Lore）
     private fun setHelpItem(slotIndex: Int, title: String, lines: List<String>) {
         if (slotIndex !in 0 until 54) return
         val stack = ItemStack(Items.BOOK)
@@ -210,7 +264,7 @@ class MarketMenuScreenHandler(
             Text.literal(Language.get("ui.seller", entry.sellerName)),
             Text.literal(Language.get("ui.price", String.format(Locale.ROOT, "%.2f", entry.price))),
             Text.literal(Language.get("ui.quantity", stockStr)),
-            Text.literal("左键: +1  |  右键: +64")
+            Text.literal(Language.get("menu.shop.click_tip"))
         )
         stack.set(DataComponentTypes.LORE, LoreComponent(loreLines))
         return stack
@@ -220,32 +274,50 @@ class MarketMenuScreenHandler(
         if (player !is ServerPlayerEntity) return
         if (actionType != SlotActionType.PICKUP && actionType != SlotActionType.QUICK_MOVE) return
 
-        if (onHomePage) {
-            when (slotIndex) {
-                53 -> { // 进入市场
-                    page = 0
-                    refreshPage()
-                }
-                49 -> player.closeHandledScreen()
-            }
-            return
-        }
-
-        when (slotIndex) {
-            in 0 until PAGE_SIZE -> {
-                val slot = slots[slotIndex] as? ReadOnlySlot ?: return
-                val globalIndex = slot.currentEntryIndex
-                if (globalIndex >= 0 && globalIndex < entries.size) {
-                    val entry = entries[globalIndex]
-                    handlePurchase(player, entry, buyAll = (button == 1))
+        when (mode) {
+            ViewMode.HOME -> {
+                when (slotIndex) {
+                    53 -> showSellerList(true)
+                    49 -> player.closeHandledScreen()
                 }
             }
-            45 -> if (page > 0) { page--; refreshPage() }
-            47 -> { showHome() }
-            49 -> player.closeHandledScreen()
-            53 -> {
-                val totalPages = if (entries.isEmpty()) 1 else (entries.size - 1) / PAGE_SIZE + 1
-                if (page + 1 < totalPages) { page++; refreshPage() }
+            ViewMode.SELLER_LIST -> {
+                when (slotIndex) {
+                    in 0 until PAGE_SIZE -> {
+                        val start = page * PAGE_SIZE
+                        val globalIndex = start + (slotIndex % PAGE_SIZE)
+                        if (globalIndex < sellerEntries.size) {
+                            val sellerId = sellerEntries[globalIndex].sellerId
+                            showSellerShop(sellerId, true)
+                        }
+                    }
+                    45 -> if (page > 0) { page--; showSellerList(false) }
+                    47 -> showHome()
+                    49 -> player.closeHandledScreen()
+                    53 -> {
+                        val totalPages = if (sellerEntries.isEmpty()) 1 else (sellerEntries.size - 1) / PAGE_SIZE + 1
+                        if (page + 1 < totalPages) { page++; showSellerList(false) }
+                    }
+                }
+            }
+            ViewMode.SELLER_SHOP -> {
+                when (slotIndex) {
+                    in 0 until PAGE_SIZE -> {
+                        val slot = slots[slotIndex] as? ReadOnlySlot ?: return
+                        val globalIndex = slot.currentEntryIndex
+                        if (globalIndex >= 0 && globalIndex < entries.size) {
+                            val entry = entries[globalIndex]
+                            handlePurchase(player, entry, buyAll = (button == 1))
+                        }
+                    }
+                    45 -> if (page > 0) { page--; showSellerShop(selectedSellerId ?: return, false) }
+                    47 -> showSellerList(false)
+                    49 -> player.closeHandledScreen()
+                    53 -> {
+                        val totalPages = if (entries.isEmpty()) 1 else (entries.size - 1) / PAGE_SIZE + 1
+                        if (page + 1 < totalPages) { page++; showSellerShop(selectedSellerId ?: return, false) }
+                    }
+                }
             }
         }
     }
@@ -261,13 +333,12 @@ class MarketMenuScreenHandler(
                 (limit - purchased).coerceAtLeast(0)
             }
             if (remainLimit <= 0) { player.sendMessage(Text.literal(Language.get("menu.limit_reached")), false); return }
-            // 系统库存列若>=0也需限制
             val systemStock = entry.quantity
             if (systemStock >= 0) min(systemStock, remainLimit) else remainLimit
         } else {
             val singleList = repo.searchForTransaction(entry.itemId, entry.sellerId)
             val updated = singleList.firstOrNull { it.nbt == entry.nbt }
-            if (updated == null || updated.quantity <= 0) { player.sendMessage(Text.literal(Language.get("menu.out_of_stock")), false); refreshPage(); return }
+            if (updated == null || updated.quantity <= 0) { player.sendMessage(Text.literal(Language.get("menu.out_of_stock")), false); refreshShopAfterPurchase(); return }
             updated.quantity
         }
         val actual = min(desired, maxQty)
@@ -320,13 +391,24 @@ class MarketMenuScreenHandler(
         } catch (e: Exception) {
             ServerMarket.LOGGER.error("菜单购买失败", e)
             player.sendMessage(Text.literal(Language.get("menu.buy_error")), false)
-        } finally { refreshPage() }
+        } finally { refreshShopAfterPurchase() }
+    }
+
+    private fun refreshShopAfterPurchase() {
+        if (mode == ViewMode.SELLER_SHOP) {
+            val sid = selectedSellerId ?: return
+            val oldPage = page
+            refreshShopEntries()
+            // 保持当前页
+            showSellerShop(sid, resetPage = false)
+            page = oldPage.coerceAtMost((if (entries.isEmpty()) 1 else (entries.size - 1) / PAGE_SIZE + 1) - 1)
+        }
     }
 
     override fun quickMove(player: PlayerEntity?, index: Int): ItemStack = ItemStack.EMPTY
 
     /** 只读槽位，用于展示商品 */
-    private inner class ReadOnlySlot(inv: SimpleInventory, private val logicalIndex: Int, x: Int, y: Int) : Slot(inv, 0, x, y) {
+    private class ReadOnlySlot(inv: SimpleInventory, x: Int, y: Int) : Slot(inv, 0, x, y) {
         var currentEntryIndex: Int = -1
         override fun canInsert(stack: ItemStack): Boolean = false
         override fun canTakeItems(playerEntity: PlayerEntity): Boolean = false
