@@ -170,7 +170,7 @@ class Database {
                     to_name VARCHAR(64) NOT NULL,
                     price DOUBLE NOT NULL,
                     item VARCHAR(255) NOT NULL,
-                    "INDEX" idx_history_from (from_id),
+                    INDEX idx_history_from (from_id),
                     INDEX idx_history_to (to_id),
                     INDEX idx_history_dtg (dtg)
                 ) $suffix
@@ -201,7 +201,7 @@ class Database {
                     price DOUBLE NOT NULL,
                     quantity INT DEFAULT 0,
                     UNIQUE KEY uk_player_item (seller, item_id, nbt),
-                    "INDEX" idx_player_seller (seller)
+                    INDEX idx_player_seller (seller)
                 ) $suffix
                 """.trimIndent()
             )
