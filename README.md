@@ -3,7 +3,7 @@
 ## Introduction
 This mod adds a complete player economy and item trading market to Minecraft servers: player balances, transfers, player & system shops, global search, GUI, and optional physical currency items.
 
-## Player Commands (Concise)
+## Player Commands
 - **/money** – Show current balance.
 - **/mpay <player> <amount>** – Transfer balance to another player.
 - **/mprice <price>** – Set sale price for the held item (applies to future stock of that item+NBT in your shop).
@@ -11,12 +11,11 @@ This mod adds a complete player economy and item trading market to Minecraft ser
 - **/mpull** – Unlist the held item and return all remaining stock of that listing.
 - **/msearch <itemID>** – Search global market for an item ID.
 - **/mbuy <quantity> <itemID> [seller]** – Purchase items; auto‑matches lowest prices across sellers unless a seller (player name or `server`) is specified. Notes: system items may have per‑player daily limits; purchase may span multiple listings until quantity is satisfied.
-- **/mlist [player|server]** – View listings of a player or the system shop.
 - **/mcash <value> <quantity>** – Convert balance into configured physical currency items.
 - **/mexchange <quantity>** – Convert matching physical currency stacks (held + inventory) back into balance (signature = itemID + NBT if any).
 - **/mmenu** – Open interactive GUI (home, seller list, shop pages; left click = 1, right click = up to stack respecting limits).
 
-## Admin Commands (OP 4)
+## Admin Commands
 - **/mset <player> <amount>** – Set player balance exactly.
 - **/aprice <price> [limitPerDay]** – Set or update system shop price (optional per‑player daily limit, -1 = unlimited; stock is infinite regardless).
 - **/apull** – Remove the held item from the system shop.
