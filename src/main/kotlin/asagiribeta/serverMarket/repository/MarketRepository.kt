@@ -41,9 +41,7 @@ class MarketRepository(private val database: Database) {
 
     // 读取系统商品每日限购（-1 表示无限制；不存在则返回 -1）
     fun getSystemLimitPerDay(itemId: String, nbt: String): Int {
-        // 为避免静态分析误报，将列名拆分拼接
-        val col = "limit_" + "per_" + "day"
-        val sql = "SELECT $col FROM system_market WHERE item_id = ? AND nbt = ?"
+        val sql = "SELECT limit_per_day FROM system_market WHERE item_id = ? AND nbt = ?"
         return database.connection.prepareStatement(sql).use { ps ->
             ps.setString(1, itemId)
             ps.setString(2, nbt)
@@ -54,7 +52,7 @@ class MarketRepository(private val database: Database) {
 
     // 系统商品：查询指定日期某玩家已购买数量
     fun getSystemPurchasedOn(date: String, playerUuid: UUID, itemId: String, nbt: String): Int {
-        val table = "system_" + "daily_" + "purchase"
+        val table = "system_daily_purchase"
         val sql = """
             SELECT purchased FROM $table
             WHERE date = ? AND player_uuid = ? AND item_id = ? AND nbt = ?
@@ -72,7 +70,7 @@ class MarketRepository(private val database: Database) {
     // 系统商品：增加当日购买计数（UPSERT）
     fun incrementSystemPurchasedOn(date: String, playerUuid: UUID, itemId: String, nbt: String, amount: Int) {
         if (amount <= 0) return
-        val table = "system_" + "daily_" + "purchase"
+        val table = "system_daily_purchase"
         val sql = """
             INSERT INTO $table(date, player_uuid, item_id, nbt, purchased)
             VALUES(?, ?, ?, ?, ?)

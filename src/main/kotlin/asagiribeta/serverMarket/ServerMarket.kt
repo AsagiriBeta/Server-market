@@ -40,9 +40,13 @@ class ServerMarket : ModInitializer {
         ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
             val player = handler.player
             val uuid = player.uuid
+            val name = player.gameProfile.name // 获取玩家名
             if (!database.playerExists(uuid)) {
-                database.initializeBalance(uuid, Config.initialPlayerBalance) // 使用配置中的初始余额
-                LOGGER.info("初始化新玩家余额 UUID: $uuid")
+                database.initializeBalance(uuid, name, Config.initialPlayerBalance) // 使用配置中的初始余额并记录玩家名
+                LOGGER.info("初始化新玩家余额 UUID: $uuid Name: $name")
+            } else {
+                // 已存在则刷新玩家名（可能改名）
+                database.upsertPlayerName(uuid, name)
             }
         }
 

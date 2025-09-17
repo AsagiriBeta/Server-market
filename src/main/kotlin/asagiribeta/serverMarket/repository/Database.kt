@@ -12,11 +12,12 @@ class Database {
     val connection: Connection = DriverManager.getConnection("jdbc:sqlite:market.db")
     
     init {
-        // 基础表结构
+        // 基础表结构（新增 player 列）
         connection.createStatement().use {
             it.execute("""
                 CREATE TABLE IF NOT EXISTS balances (
                     uuid TEXT PRIMARY KEY,
+                    player TEXT,
                     amount REAL NOT NULL
                 )
             """)
@@ -99,9 +100,13 @@ class Database {
             connection.createStatement().use {
                 it.execute("ALTER TABLE system_market ADD COLUMN limit_per_day INTEGER NOT NULL DEFAULT -1")
             }
-        } catch (_: SQLException) {
-            // 列已存在，忽略
-        }
+        } catch (_: SQLException) { }
+        // 迁移：balances 添加 player 列（旧版本无该列）
+        try {
+            connection.createStatement().use {
+                it.execute("ALTER TABLE balances ADD COLUMN player TEXT")
+            }
+        } catch (_: SQLException) { }
     }
 
     fun getBalance(uuid: UUID): Double {
@@ -238,20 +243,21 @@ class Database {
         }
     }
 
-    // 专用初始化方法（避免使用冲突更新逻辑）
-    fun initializeBalance(uuid: UUID, initialAmount: Double) {
+    // 专用初始化方法（避免使用冲突更新逻辑），新增玩家名
+    fun initializeBalance(uuid: UUID, playerName: String, initialAmount: Double) {
         val originalAutoCommit = connection.autoCommit
         try {
             connection.autoCommit = false
             connection.prepareStatement(
                 """
-                INSERT INTO balances(uuid, amount)
-                VALUES(?, ?)
+                INSERT INTO balances(uuid, player, amount)
+                VALUES(?, ?, ?)
                 ON CONFLICT(uuid) DO NOTHING
             """
             ).use { ps ->
                 ps.setString(1, uuid.toString())
-                ps.setDouble(2, initialAmount)
+                ps.setString(2, playerName)
+                ps.setDouble(3, initialAmount)
                 ps.executeUpdate()
             }
             connection.commit()
@@ -260,6 +266,27 @@ class Database {
             throw e
         } finally {
             connection.autoCommit = originalAutoCommit
+        }
+    }
+    // 兼容旧调用（不提供玩家名）
+    fun initializeBalance(uuid: UUID, initialAmount: Double) = initializeBalance(uuid, "", initialAmount)
+
+    // 玩家名更新（UPsert 不改余额）
+    fun upsertPlayerName(uuid: UUID, playerName: String) {
+        try {
+            connection.prepareStatement(
+                """
+                INSERT INTO balances(uuid, player, amount)
+                VALUES(?, ?, 0)
+                ON CONFLICT(uuid) DO UPDATE SET player = excluded.player
+            """
+            ).use { ps ->
+                ps.setString(1, uuid.toString())
+                ps.setString(2, playerName)
+                ps.executeUpdate()
+            }
+        } catch (e: SQLException) {
+            ServerMarket.LOGGER.error("更新玩家名失败 UUID: $uuid Name: $playerName", e)
         }
     }
 
