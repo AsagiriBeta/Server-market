@@ -27,11 +27,11 @@
 ## 系统特性概览
 1. 双市场：玩家市场（有限库存，自主定价）+ 系统商店（无限库存，可限购）。
 2. 智能购买：自动最低价聚合，可指定卖家。
-3. GUI：`/mmenu` 便捷分���浏览与快速购买。
+3. GUI：`/mmenu` 便捷分类浏览与快速购买。
 4. 实物货币：管理员映射任意物品（可含 NBT）为面值；玩家自由兑换与回收。
 
 ## 实物货币说明
-- 唯一签名 = 物品ID + NBT（若无 NBT 则仅物品ID）。
+- 唯一签名 = 物品ID + NBT。
 - 推荐使用含自定义 NBT 的物品降低仿制风险。
 - 发放时自动按最大堆叠数分组。
 
@@ -53,7 +53,6 @@ mysql_jdbc_params = rewriteBatchedStatements=true&connectTimeout=10000
 要点：
 - 若文件不存在，会在首次启动自动生成默认配置。
 - 可随时将 `storage_type` 改回 `sqlite`（两种数据互不迁移，需自行处理迁移）。
-- 运行时通过 `com.mysql.cj.jdbc.Driver` ���接；若未打包驱动，请在服务端环境提供驱动。
 - `mysql_use_ssl` 设置为 true 可启用 SSL；额外参数使用 `mysql_jdbc_params` 追加。
 - 代码内部已自动附加：`useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true`，不需重复填写。
 
@@ -64,7 +63,7 @@ mysql_jdbc_params = rewriteBatchedStatements=true&connectTimeout=10000
 已包含主键、唯一约束与常用索引。若历史记录量非常大，可定期归档或清理（受配置 `max_history_records` 控制逻辑影响）。
 
 ## 关键配置项（核心）
-- `initial_player_balance` 新���家初始余额。
+- `initial_player_balance` 新玩家初始余额。
 - `max_transfer_amount` 单次转账上限。
 - `enable_transaction_history` 是否记录交易/转账历史。
 - `max_history_records` 历史记录软上限。

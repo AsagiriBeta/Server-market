@@ -31,7 +31,7 @@ This mod adds a complete player economy and item trading market to Minecraft ser
 4. Physical Currency: Admin maps arbitrary items (optionally with custom NBT) to face values; players cash in/out via `/mcash` & `/mexchange`.
 
 ## Physical Currency Notes
-- Unique signature = Item ID + NBT (CUSTOM_DATA). If no NBT, only Item ID.
+- Unique signature = Item ID + NBT.
 - Use distinctive NBT to reduce counterfeits.
 - Currency issuance respects max stack size automatically.
 
@@ -53,7 +53,6 @@ mysql_jdbc_params = rewriteBatchedStatements=true&connectTimeout=10000
 Key points:
 - If the file doesn’t exist it is generated with defaults on first run.
 - Switch `storage_type` back to `sqlite` anytime (databases are independent; manual migration not automatic).
-- MySQL driver (modern `com.mysql.cj.jdbc.Driver`) is loaded reflectively; ensure the driver is available in the modpack/server environment if not bundled.
 - SSL: set `mysql_use_ssl = true` if your server requires it; you can still supply additional params via `mysql_jdbc_params`.
 - Character set & timezone parameters are auto‑appended: `useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true` (do not duplicate them yourself).
 
