@@ -1,133 +1,86 @@
 # Server Market Mod Guide | [中文文档](./README_ZH.md)
 
 ## Introduction
-This mod adds a complete player economy and item trading market to Minecraft servers. It supports balance transfers, item listing, global market search, a system shop, and physical currency mapping between items and balance.
+This mod adds a complete player economy and item trading market to Minecraft servers: player balances, transfers, player & system shops, global search, GUI, and optional physical currency items.
 
-## Main Commands
+## Player Commands (Concise)
+- **/money** – Show current balance.
+- **/mpay <player> <amount>** – Transfer balance to another player.
+- **/mprice <price>** – Set sale price for the held item (applies to future stock of that item+NBT in your shop).
+- **/msell <quantity>** – Add (restock) held item into your personal shop.
+- **/mpull** – Unlist the held item and return all remaining stock of that listing.
+- **/msearch <itemID>** – Search global market for an item ID.
+- **/mbuy <quantity> <itemID> [seller]** – Purchase items; auto‑matches lowest prices across sellers unless a seller (player name or `server`) is specified. Notes: system items may have per‑player daily limits; purchase may span multiple listings until quantity is satisfied.
+- **/mlist [player|server]** – View listings of a player or the system shop.
+- **/mcash <value> <quantity>** – Convert balance into configured physical currency items.
+- **/mexchange <quantity>** – Convert matching physical currency stacks (held + inventory) back into balance (signature = itemID + NBT if any).
+- **/mmenu** – Open interactive GUI (home, seller list, shop pages; left click = 1, right click = up to stack respecting limits).
 
-### Player Commands
-- **/money**  
-  Check current balance.
+## Admin Commands (OP 4)
+- **/mset <player> <amount>** – Set player balance exactly.
+- **/aprice <price> [limitPerDay]** – Set or update system shop price (optional per‑player daily limit, -1 = unlimited; stock is infinite regardless).
+- **/apull** – Remove the held item from the system shop.
+- **/mlang <language>** – Switch system language (e.g. `en`, `zh`).
+- **/acash <value> | get | del | list [itemID]** – Manage physical currency mapping for the held item (set / query / delete / list).
+- **/mreload** – Reload configuration (including language if defined in config file).
 
-- **/mpay <player> <amount>**  
-  Transfer money to another player.  
-  Example: `/mpay Steve 100.5`
+## Market System Overview
+1. Dual Markets: Player Market (finite player stock, custom prices) + System Market (admin defined, infinite stock, optional per‑player daily caps).
+2. Smart Purchasing: Auto lowest-price aggregation across sellers; optional seller pin.
+3. GUI: `/mmenu` for browsing sellers & listings with pagination and quick purchases.
+4. Physical Currency: Admin maps arbitrary items (optionally with custom NBT) to face values; players cash in/out via `/mcash` & `/mexchange`.
 
-- **/mprice <price>**  
-  Set the sale price for the held item in your personal shop.  
-  Example: `/mprice 5.0`
+## Physical Currency Notes
+- Unique signature = Item ID + NBT (CUSTOM_DATA). If no NBT, only Item ID.
+- Use distinctive NBT to reduce counterfeits.
+- Currency issuance respects max stack size automatically.
 
-- **/msell <quantity>**  
-  Restock the held item to your personal shop.  
-  Example: `/msell 32`
+## Database Configuration (SQLite / MySQL)
+Default storage: embedded SQLite file `market.db` (created automatically). To use MySQL, edit (or let the mod generate then edit) `config/server-market/config.properties`:
 
-- **/mpull**  
-  Unlist the held item and retrieve its stock.
+Set:
+```
+storage_type = mysql
+mysql_host = <host>
+mysql_port = 3306
+mysql_database = server_market
+mysql_user = <user>
+mysql_password = <password>
+mysql_use_ssl = false
+# Optional extra JDBC parameters (append form):
+mysql_jdbc_params = rewriteBatchedStatements=true&connectTimeout=10000
+```
+Key points:
+- If the file doesn’t exist it is generated with defaults on first run.
+- Switch `storage_type` back to `sqlite` anytime (databases are independent; manual migration not automatic).
+- MySQL driver (modern `com.mysql.cj.jdbc.Driver`) is loaded reflectively; ensure the driver is available in the modpack/server environment if not bundled.
+- SSL: set `mysql_use_ssl = true` if your server requires it; you can still supply additional params via `mysql_jdbc_params`.
+- Character set & timezone parameters are auto‑appended: `useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true` (do not duplicate them yourself).
 
-- **/msearch <itemID>**  
-  Search the global market for an item.  
-  Example: `/msearch minecraft:diamond`
+### Migration / Schema
+Tables are auto-created if missing. SQLite only applies lightweight `ALTER` additions on load (ignored if already present). No destructive migrations are performed automatically.
 
-- **/mbuy <quantity> <itemID> [seller]**  
-  Buy items from the market. Without seller it auto-matches the lowest price across all sellers. If a seller is specified, only buys from that seller (use `server` for system shop, or a seller's name if required by your setup).  
-  Examples:  
-  - `/mbuy 3 minecraft:emerald` (auto match)  
-  - `/mbuy 5 minecraft:diamond server` (force system shop)  
-  - `/mbuy 2 minecraft:iron_ingot Steve` (specific seller)
-  Notes:  
-  - System items may have a per-player per-day purchase limit (see /aprice).  
-  - Purchase splits across multiple listings until quantity is satisfied.
+### Recommended MySQL Index / Tuning
+The schema already defines primary & unique keys plus basic indices. For very large history tables consider periodic archival or pruning if you disable or exceed `max_history_records` logic in configs (see below).
 
-- **/mlist [player|server]**  
-  View listed items for a player or the system shop.  
-  Example: `/mlist Steve` or `/mlist server`
+## Configuration Keys (Core)
+(Located in the same properties file; only essential keys listed here.)
+- `initial_player_balance` – Starting balance for new players.
+- `max_transfer_amount` – Transfer cap per operation.
+- `enable_transaction_history` – Enable recording trade / transfer events.
+- `max_history_records` – Soft cap for retained history rows.
+- `enable_tax` + `market_tax_rate` – Enable & set a tax on market transactions (0–1, e.g. 0.05 = 5%).
+- `enable_debug_logging` – Extra log noise for troubleshooting.
 
-- **/mcash <value> <quantity>**  
-  Redeem balance into physical currency items according to configured face value mappings.  
-  Example: `/mcash 10 5`  
-  Notes:
-  - The value must be configured by admins via `/acash`.
-  - Requires sufficient balance; items are given respecting max stack size.
-  - If the currency mapping has custom NBT, it will be applied to the issued items.
+## Daily Limits (System Shop)
+If a system listing has `limit_per_day >= 0`, each player’s purchases of that exact (itemID + NBT) are capped per real‑world server local day (resets at date change).
 
-- **/mexchange <quantity>**  
-  Exchange physical currency items held (and matching items in inventory) back into balance.  
-  Example: `/mexchange 16`  
-  Notes:  
-  - Hold the currency item in your main hand; quantity counts across inventory stacks that match the same signature (Item ID + CUSTOM_DATA).
+## Language
+`/mlang` changes active language at runtime; restarting or using `/mreload` re-reads config default if provided.
 
-- **/mmenu**  
-  Open an interactive Market GUI:  
-  Overview:  
-  - Home: shows your balance and entry button to seller list.  
-  - Seller List: all player sellers plus system shop (SERVER) with pagination; click head to enter shop (player heads show skin).  
-  - Shop: all listings of that seller; Left Click buys 1, Right Click attempts a stack (up to 64, limited by stock or daily cap).  
-  Navigation:  
-  - ARROW: page prev/next  
-  - BOOK: help tooltip  
-  - CHEST: enter seller list from home  
-  - NETHER_STAR: go back (home or seller list)  
-  - BARRIER: close menu  
-  Tip: For system items with daily limits, right-click bulk buys will auto-trim to remaining allowance.
+## Security Tips
+- Use custom NBT for currency items.
+- Restrict admin commands to trusted operators only.
 
-### Admin Commands (Requires OP Level 4)
-- **/mset <player> <amount>**  
-  Set a player's balance.  
-  Example: `/mset Steve 1000.0`
-
-- **/aprice <price> [limitPerDay]**  
-  Set system shop price for the held item. Adds optional per-player daily purchase limit. Omit or use -1 for unlimited daily purchases (stock itself is infinite).  
-  Examples:  
-  - `/aprice 8.5` (no daily limit)  
-  - `/aprice 12.0 32` (each player can buy at most 32 per day)  
-  Notes:  
-  - limitPerDay counts per player per real-world day (server local date).  
-  - Changing price or limit re-applies settings.  
-  - If the item was not previously in the system shop it is added automatically.
-
-- **/apull**  
-  Unlist the held item from the system shop.
-
-- **/mlang <language>**  
-  Switch system language.  
-  Example: `/mlang en` or `/mlang zh`
-
-- **/acash <value>**  
-  Mark the held item as a currency with the given face value (short form supported).  
-  Example: `/acash 10.0`
-
-- **/acash get**  
-  Show the face value configured for the held item.
-
-- **/acash del**  
-  Remove the currency mapping for the held item.
-
-- **/acash list [itemID]**  
-  List all currency mappings; optionally filter by item ID.  
-  Example: `/acash list minecraft:diamond`
-
-- **/mreload**  
-  Reload configuration (including language from config if present).
-
-## Market System Features
-1. **Dual Markets**
-   - Player Market: Player-set prices, limited stock.
-   - System Market: Admin-controlled, unlimited stock (with optional per-player daily caps).
-
-2. **Transactions & UI**
-   - Auto-match the lowest price.
-   - Merge across multiple sellers' inventories.
-   - Optional seller-specific purchase.
-   - Visual Market Menu (/mmenu) for browsing & quick purchase.
-
-## Advanced: Physical Currency (/acash) and Player Exchange
-- Identification: Distinguished by "Item ID + NBT (CUSTOM_DATA)"; if no NBT, item ID only.
-- Admin operations:
-  - Set: `/acash <value>` (hold target item)
-  - Check: `/acash get`
-  - Delete: `/acash del`
-  - List: `/acash list [itemID]`
-- Player operations:
-  - `/mcash` to convert balance to physical currency items.
-  - `/mexchange` to convert currency items back into balance.
-- Security tip: Prefer items with unique custom data to reduce counterfeiting risk.
+## License
+See `LICENSE.txt`.

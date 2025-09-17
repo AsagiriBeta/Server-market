@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory
 import org.slf4j.Logger
 
 class ServerMarket : ModInitializer {
-    internal val database = Database()
+    internal lateinit var database: Database
     private val command = Command()
     private val adminCommand = AdminCommand()
     // 新增：保存当前运行中的服务器引用（1.21+ 用于 ItemStack.CODEC 序列化组件）
@@ -27,12 +27,15 @@ class ServerMarket : ModInitializer {
 
     override fun onInitialize() {
         instance = this
+        // 先加载配置，确定存储类型
+        Config.reloadConfig()
+        // 初始化数据库（根据 storage_type 创建 SQLite 或 MySQL 连接）
+        database = Database()
+        LOGGER.info("Database initialized using storage_type={} (MySQL={})", Config.storageType, database.isMySQL)
+
         // 记录服务器引用
         ServerLifecycleEvents.SERVER_STARTING.register { srv -> server = srv }
         ServerLifecycleEvents.SERVER_STOPPED.register { srv -> if (server === srv) server = null }
-
-        // 初始化配置系统
-        Config.reloadConfig()
 
         // 初始化语言系统
         LOGGER.info("Initializing language system, current language: {}", Language.getCurrentLanguage())
@@ -43,7 +46,7 @@ class ServerMarket : ModInitializer {
             val name = player.gameProfile.name // 获取玩家名
             if (!database.playerExists(uuid)) {
                 database.initializeBalance(uuid, name, Config.initialPlayerBalance) // 使用配置中的初始余额并记录玩家名
-                LOGGER.info("初始化新玩家余额 UUID: $uuid Name: $name")
+                LOGGER.info("初始化新玩家余额 UUID: {} Name: {}", uuid, name)
             } else {
                 // 已存在则刷新玩家名（可能改名）
                 database.upsertPlayerName(uuid, name)

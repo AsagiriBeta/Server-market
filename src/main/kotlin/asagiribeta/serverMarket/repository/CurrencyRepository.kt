@@ -6,13 +6,20 @@ import java.sql.PreparedStatement
 class CurrencyRepository(private val database: Database) {
 
     fun upsertCurrency(itemId: String, nbtSnbt: String, value: Double) {
-        database.executeUpdate(
+        val sql = if (database.isMySQL) {
+            """
+            INSERT INTO currency_items(item_id, nbt, value)
+            VALUES(?, ?, ?)
+            ON DUPLICATE KEY UPDATE value = VALUES(value)
+            """.trimIndent()
+        } else {
             """
             INSERT INTO currency_items(item_id, nbt, value)
             VALUES(?, ?, ?)
             ON CONFLICT(item_id, nbt) DO UPDATE SET value = excluded.value
             """.trimIndent()
-        ) { ps: PreparedStatement ->
+        }
+        database.executeUpdate(sql) { ps: PreparedStatement ->
             ps.setString(1, itemId)
             ps.setString(2, nbtSnbt)
             ps.setDouble(3, value)

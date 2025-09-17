@@ -7,15 +7,24 @@ class MarketRepository(private val database: Database) {
     
     // 新增重载：支持限购（-1 为无限制）
     fun addSystemItem(itemId: String, nbt: String, price: Double, limitPerDay: Int) {
-        database.executeUpdate(
+        val sql = if (database.isMySQL) {
+            """
+            INSERT INTO system_market(item_id, nbt, price, limit_per_day)
+            VALUES(?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE 
+              price = VALUES(price),
+              limit_per_day = VALUES(limit_per_day)
+            """.trimIndent()
+        } else {
             """
             INSERT INTO system_market(item_id, nbt, price, limit_per_day)
             VALUES(?, ?, ?, ?)
             ON CONFLICT(item_id, nbt) DO UPDATE SET 
                 price = excluded.price,
                 limit_per_day = excluded.limit_per_day
-            """
-        ) { ps ->
+            """.trimIndent()
+        }
+        database.executeUpdate(sql) { ps ->
             ps.setString(1, itemId)
             ps.setString(2, nbt)
             ps.setDouble(3, price)
@@ -71,12 +80,20 @@ class MarketRepository(private val database: Database) {
     fun incrementSystemPurchasedOn(date: String, playerUuid: UUID, itemId: String, nbt: String, amount: Int) {
         if (amount <= 0) return
         val table = "system_daily_purchase"
-        val sql = """
+        val sql = if (database.isMySQL) {
+            """
+            INSERT INTO $table(date, player_uuid, item_id, nbt, purchased)
+            VALUES(?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE purchased = purchased + VALUES(purchased)
+            """.trimIndent()
+        } else {
+            """
             INSERT INTO $table(date, player_uuid, item_id, nbt, purchased)
             VALUES(?, ?, ?, ?, ?)
             ON CONFLICT(date, player_uuid, item_id, nbt) DO UPDATE SET
                 purchased = purchased + excluded.purchased
-        """.trimIndent()
+            """.trimIndent()
+        }
         database.executeUpdate(sql) { ps ->
             ps.setString(1, date)
             ps.setString(2, playerUuid.toString())
@@ -100,11 +117,20 @@ class MarketRepository(private val database: Database) {
 
     // 玩家市场操作方法
     fun addPlayerItem(sellerUuid: UUID, sellerName: String, itemId: String, nbt: String, price: Double) {
-        database.executeUpdate("""
+        val sql = if (database.isMySQL) {
+            """
+            INSERT INTO player_market(seller, seller_name, item_id, nbt, price, quantity)
+            VALUES(?, ?, ?, ?, ?, 0)
+            ON DUPLICATE KEY UPDATE price = VALUES(price)
+            """.trimIndent()
+        } else {
+            """
             INSERT INTO player_market(seller, seller_name, item_id, nbt, price, quantity)
             VALUES(?, ?, ?, ?, ?, 0)
             ON CONFLICT(seller, item_id, nbt) DO UPDATE SET price = excluded.price
-        """) { ps ->
+            """.trimIndent()
+        }
+        database.executeUpdate(sql) { ps ->
             ps.setString(1, sellerUuid.toString())
             ps.setString(2, sellerName)
             ps.setString(3, itemId)

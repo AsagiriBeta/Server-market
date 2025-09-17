@@ -1,6 +1,7 @@
 package asagiribeta.serverMarket.repository
 
 import asagiribeta.serverMarket.ServerMarket
+import asagiribeta.serverMarket.util.Config
 import java.sql.*
 import java.util.*
 
@@ -9,20 +10,67 @@ class Database {
     internal val historyRepository = HistoryRepository(this)
     internal val currencyRepository = CurrencyRepository(this)
 
-    val connection: Connection = DriverManager.getConnection("jdbc:sqlite:market.db")
-    
+    internal val isMySQL: Boolean
+    val connection: Connection
+
     init {
-        // 基础表结构（新增 player 列）
+        val storage = Config.storageType.lowercase()
+        isMySQL = storage == "mysql"
+        connection = if (isMySQL) {
+            // 构建 MySQL JDBC URL
+            try { Class.forName("com.mysql.cj.jdbc.Driver") } catch (_: Throwable) {}
+            val ssl = if (Config.mysqlUseSSL) "true" else "false"
+            val baseParams = mutableListOf(
+                "useSSL=$ssl",
+                "useUnicode=true",
+                "characterEncoding=UTF-8",
+                "serverTimezone=UTC",
+                "allowPublicKeyRetrieval=true"
+            )
+            if (Config.mysqlJdbcParams.isNotBlank()) {
+                baseParams.add(Config.mysqlJdbcParams.trim('&', '?'))
+            }
+            val paramStr = baseParams.joinToString("&")
+            val url = "jdbc:mysql://${Config.mysqlHost}:${Config.mysqlPort}/${Config.mysqlDatabase}?$paramStr"
+            DriverManager.getConnection(url, Config.mysqlUser, Config.mysqlPassword)
+        } else {
+            try { Class.forName("org.sqlite.JDBC") } catch (_: Throwable) {}
+            DriverManager.getConnection("jdbc:sqlite:market.db")
+        }
+
+        createTables()
+        applyMigrations()
+
+        if (!isMySQL) {
+            // SQLite 专属 PRAGMA
+            connection.createStatement().use {
+                it.execute("PRAGMA foreign_keys = ON")
+                it.execute("PRAGMA journal_mode = WAL")
+                it.execute("PRAGMA synchronous = NORMAL")
+                it.execute("PRAGMA busy_timeout = 5000")
+            }
+        }
+    }
+
+    private fun createTables() {
+        if (isMySQL) createTablesMySQL() else createTablesSQLite()
+    }
+
+    private fun createTablesSQLite() {
         connection.createStatement().use {
-            it.execute("""
+            // balances
+            it.execute(
+                """
                 CREATE TABLE IF NOT EXISTS balances (
                     uuid TEXT PRIMARY KEY,
                     player TEXT,
                     amount REAL NOT NULL
                 )
-            """)
-            // 交易历史表
-            it.execute("""
+                """.trimIndent()
+            )
+            // history
+            it.execute(
+                """
                 CREATE TABLE IF NOT EXISTS history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     dtg BIGINT NOT NULL,
@@ -35,9 +83,11 @@ class Database {
                     price REAL NOT NULL,
                     item TEXT NOT NULL
                 )
-            """)
-            // 系统市场表（含 nbt，唯一键为 item_id + nbt）
-            it.execute("""
+                """.trimIndent()
+            )
+            // system_market
+            it.execute(
+                """
                 CREATE TABLE IF NOT EXISTS system_market (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     item_id TEXT NOT NULL,
@@ -48,9 +98,11 @@ class Database {
                     limit_per_day INTEGER NOT NULL DEFAULT -1,
                     UNIQUE(item_id, nbt)
                 )
-            """)
-            // 玩家市场表（含 nbt）
-            it.execute("""
+                """.trimIndent()
+            )
+            // player_market
+            it.execute(
+                """
                 CREATE TABLE IF NOT EXISTS player_market (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     seller TEXT NOT NULL,
@@ -61,13 +113,12 @@ class Database {
                     quantity INTEGER DEFAULT 0,
                     FOREIGN KEY(seller) REFERENCES balances(uuid)
                 )
-            """)
-            // 为玩家市场建立唯一索引 (seller, item_id, nbt)
-            it.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_player_market_unique_v2 ON player_market(seller, item_id, nbt)"
+                """.trimIndent()
             )
-            // 实体货币映射表（支持同一物品不同 NBT 多种面值）
-            it.execute("""
+            it.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_player_market_unique_v2 ON player_market(seller, item_id, nbt)")
+            // currency_items
+            it.execute(
+                """
                 CREATE TABLE IF NOT EXISTS currency_items (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     item_id TEXT NOT NULL,
@@ -75,9 +126,11 @@ class Database {
                     value REAL NOT NULL,
                     UNIQUE(item_id, nbt)
                 )
-            """)
-            // 系统商店每日购买量表（每玩家、每日、每物品+NBT 累计）
-            it.execute("""
+                """.trimIndent()
+            )
+            // system_daily_purchase
+            it.execute(
+                """
                 CREATE TABLE IF NOT EXISTS system_daily_purchase (
                     date TEXT NOT NULL,
                     player_uuid TEXT NOT NULL,
@@ -86,29 +139,110 @@ class Database {
                     purchased INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY(date, player_uuid, item_id, nbt)
                 )
-            """)
+                """.trimIndent()
+            )
         }
-        // SQLite 运行参数（提升并发与一致性）
-        connection.createStatement().use {
-            it.execute("PRAGMA foreign_keys = ON")
-            it.execute("PRAGMA journal_mode = WAL")
-            it.execute("PRAGMA synchronous = NORMAL")
-            it.execute("PRAGMA busy_timeout = 5000")
-        }
-        // 迁移：向既有 system_market 添加 limit_per_day 列（若已存在则忽略错误）
-        try {
-            connection.createStatement().use {
-                it.execute("ALTER TABLE system_market ADD COLUMN limit_per_day INTEGER NOT NULL DEFAULT -1")
-            }
-        } catch (_: SQLException) { }
-        // 迁移：balances 添加 player 列（旧版本无该列）
-        try {
-            connection.createStatement().use {
-                it.execute("ALTER TABLE balances ADD COLUMN player TEXT")
-            }
-        } catch (_: SQLException) { }
     }
 
+    private fun createTablesMySQL() {
+        connection.createStatement().use { st ->
+            // 统一字符集
+            val suffix = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS balances (
+                    uuid CHAR(36) PRIMARY KEY,
+                    player VARCHAR(64),
+                    amount DOUBLE NOT NULL
+                ) $suffix
+                """.trimIndent()
+            )
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS history (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    dtg BIGINT NOT NULL,
+                    from_id CHAR(36) NOT NULL,
+                    from_type VARCHAR(32) NOT NULL,
+                    from_name VARCHAR(64) NOT NULL,
+                    to_id CHAR(36) NOT NULL,
+                    to_type VARCHAR(32) NOT NULL,
+                    to_name VARCHAR(64) NOT NULL,
+                    price DOUBLE NOT NULL,
+                    item VARCHAR(255) NOT NULL,
+                    "INDEX" idx_history_from (from_id),
+                    INDEX idx_history_to (to_id),
+                    INDEX idx_history_dtg (dtg)
+                ) $suffix
+                """.trimIndent()
+            )
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS system_market (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    item_id VARCHAR(100) NOT NULL,
+                    nbt VARCHAR(512) NOT NULL DEFAULT '',
+                    price DOUBLE NOT NULL,
+                    quantity INT DEFAULT -1,
+                    seller VARCHAR(32) DEFAULT 'SERVER',
+                    limit_per_day INT NOT NULL DEFAULT -1,
+                    UNIQUE KEY uk_system_item (item_id, nbt)
+                ) $suffix
+                """.trimIndent()
+            )
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS player_market (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    seller CHAR(36) NOT NULL,
+                    seller_name VARCHAR(64) NOT NULL,
+                    item_id VARCHAR(100) NOT NULL,
+                    nbt VARCHAR(512) NOT NULL DEFAULT '',
+                    price DOUBLE NOT NULL,
+                    quantity INT DEFAULT 0,
+                    UNIQUE KEY uk_player_item (seller, item_id, nbt),
+                    "INDEX" idx_player_seller (seller)
+                ) $suffix
+                """.trimIndent()
+            )
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS currency_items (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    item_id VARCHAR(100) NOT NULL,
+                    nbt VARCHAR(512) NOT NULL DEFAULT '',
+                    value DOUBLE NOT NULL,
+                    UNIQUE KEY uk_currency_item (item_id, nbt)
+                ) $suffix
+                """.trimIndent()
+            )
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS system_daily_purchase (
+                    date CHAR(10) NOT NULL,
+                    player_uuid CHAR(36) NOT NULL,
+                    item_id VARCHAR(100) NOT NULL,
+                    nbt VARCHAR(512) NOT NULL DEFAULT '',
+                    purchased INT NOT NULL DEFAULT 0,
+                    PRIMARY KEY(date, player_uuid, item_id, nbt)
+                ) $suffix
+                """.trimIndent()
+            )
+        }
+    }
+
+    private fun applyMigrations() {
+        if (isMySQL) return // 目前仅 SQLite 需要简单 ALTER 忽略
+        // SQLite 迁移
+        try {
+            connection.createStatement().use { it.execute("ALTER TABLE system_market ADD COLUMN limit_per_day INTEGER NOT NULL DEFAULT -1") }
+        } catch (_: SQLException) {}
+        try {
+            connection.createStatement().use { it.execute("ALTER TABLE balances ADD COLUMN player TEXT") }
+        } catch (_: SQLException) {}
+    }
+
+    // ============== 余额相关 ==============
     fun getBalance(uuid: UUID): Double {
         return try {
             connection.prepareStatement("SELECT amount FROM balances WHERE uuid = ?").use { ps ->
@@ -121,16 +255,19 @@ class Database {
             0.0
         }
     }
-    
+
     private fun addBalance(uuid: UUID, amount: Double) {
         try {
-            connection.prepareStatement(
+            val sql = if (isMySQL) {
+                "INSERT INTO balances(uuid, amount) VALUES(?, ?) ON DUPLICATE KEY UPDATE amount = amount + VALUES(amount)"
+            } else {
                 """
-                INSERT INTO balances(uuid, amount) 
-                VALUES(?, ?) 
+                INSERT INTO balances(uuid, amount)
+                VALUES(?, ?)
                 ON CONFLICT(uuid) DO UPDATE SET amount = amount + excluded.amount
-            """
-            ).use { ps ->
+                """.trimIndent()
+            }
+            connection.prepareStatement(sql).use { ps ->
                 ps.setString(1, uuid.toString())
                 ps.setDouble(2, amount)
                 ps.executeUpdate()
@@ -141,13 +278,11 @@ class Database {
         }
     }
 
-    // 对外：入账（正数），使用 upsert 叠加
     fun deposit(uuid: UUID, amount: Double) {
         if (amount.isNaN() || amount.isInfinite() || amount <= 0.0) return
         addBalance(uuid, amount)
     }
 
-    // 对外：原子扣款，余额不足返回 false
     fun tryWithdraw(uuid: UUID, amount: Double): Boolean {
         if (amount.isNaN() || amount.isInfinite() || amount <= 0.0) return false
         return try {
@@ -165,16 +300,18 @@ class Database {
         }
     }
 
-    // 余额设置方法
     fun setBalance(uuid: UUID, amount: Double) {
         try {
-            connection.prepareStatement(
+            val sql = if (isMySQL) {
+                "INSERT INTO balances(uuid, amount) VALUES(?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount)"
+            } else {
                 """
-                INSERT INTO balances(uuid, amount) 
-                VALUES(?, ?) 
+                INSERT INTO balances(uuid, amount)
+                VALUES(?, ?)
                 ON CONFLICT(uuid) DO UPDATE SET amount = excluded.amount
-            """
-            ).use { ps ->
+                """.trimIndent()
+            }
+            connection.prepareStatement(sql).use { ps ->
                 ps.setString(1, uuid.toString())
                 ps.setDouble(2, amount)
                 ps.executeUpdate()
@@ -185,7 +322,6 @@ class Database {
         }
     }
 
-    // 转账：使用原子扣款避免竞态；完整事务并恢复原 autoCommit
     fun transfer(fromUuid: UUID, toUuid: UUID, amount: Double) {
         if (amount.isNaN() || amount.isInfinite() || amount <= 0.0) {
             throw SQLException("非法金额: $amount")
@@ -193,7 +329,6 @@ class Database {
         val originalAutoCommit = connection.autoCommit
         connection.autoCommit = false
         try {
-            // 原子扣款：仅当余额足够才扣减
             connection.prepareStatement(
                 "UPDATE balances SET amount = amount - ? WHERE uuid = ? AND amount >= ?"
             ).use { ps ->
@@ -205,7 +340,6 @@ class Database {
                     throw SQLException("余额不足 UUID: $fromUuid 金额: $amount")
                 }
             }
-            // 入账（UPSERT）
             addBalance(toUuid, amount)
             connection.commit()
         } catch (e: SQLException) {
@@ -217,7 +351,6 @@ class Database {
         }
     }
 
-    // 同步保存方法
     fun syncSave(uuid: UUID) {
         try {
             if (!connection.autoCommit) {
@@ -229,7 +362,6 @@ class Database {
         }
     }
 
-    // 玩家存在性检查方法
     fun playerExists(uuid: UUID): Boolean {
         return try {
             connection.prepareStatement("SELECT 1 FROM balances WHERE uuid = ?").use { ps ->
@@ -243,18 +375,20 @@ class Database {
         }
     }
 
-    // 专用初始化方法（避免使用冲突更新逻辑），新增玩家名
     fun initializeBalance(uuid: UUID, playerName: String, initialAmount: Double) {
         val originalAutoCommit = connection.autoCommit
         try {
             connection.autoCommit = false
-            connection.prepareStatement(
+            val sql = if (isMySQL) {
+                "INSERT IGNORE INTO balances(uuid, player, amount) VALUES(?, ?, ?)"
+            } else {
                 """
                 INSERT INTO balances(uuid, player, amount)
                 VALUES(?, ?, ?)
                 ON CONFLICT(uuid) DO NOTHING
-            """
-            ).use { ps ->
+                """.trimIndent()
+            }
+            connection.prepareStatement(sql).use { ps ->
                 ps.setString(1, uuid.toString())
                 ps.setString(2, playerName)
                 ps.setDouble(3, initialAmount)
@@ -268,19 +402,20 @@ class Database {
             connection.autoCommit = originalAutoCommit
         }
     }
-    // 兼容旧调用（不提供玩家名）
     fun initializeBalance(uuid: UUID, initialAmount: Double) = initializeBalance(uuid, "", initialAmount)
 
-    // 玩家名更新（UPsert 不改余额）
     fun upsertPlayerName(uuid: UUID, playerName: String) {
         try {
-            connection.prepareStatement(
+            val sql = if (isMySQL) {
+                "INSERT INTO balances(uuid, player, amount) VALUES(?, ?, 0) ON DUPLICATE KEY UPDATE player = VALUES(player)"
+            } else {
                 """
                 INSERT INTO balances(uuid, player, amount)
                 VALUES(?, ?, 0)
                 ON CONFLICT(uuid) DO UPDATE SET player = excluded.player
-            """
-            ).use { ps ->
+                """.trimIndent()
+            }
+            connection.prepareStatement(sql).use { ps ->
                 ps.setString(1, uuid.toString())
                 ps.setString(2, playerName)
                 ps.executeUpdate()
@@ -290,7 +425,6 @@ class Database {
         }
     }
 
-    // 查询执行方法
     private fun <T> executeQuery(sql: String, block: (PreparedStatement) -> Unit, resultBlock: (ResultSet) -> T): T? {
         return try {
             connection.prepareStatement(sql).use { ps ->
@@ -305,16 +439,12 @@ class Database {
         }
     }
 
-    internal fun executeQuery(
-        sql: String, 
-        parameterSetter: (PreparedStatement) -> Unit
-    ): String? {
+    internal fun executeQuery(sql: String, parameterSetter: (PreparedStatement) -> Unit): String? {
         return executeQuery(sql, parameterSetter) { rs ->
             if (rs.next()) rs.getString("uuid") else null
         }
     }
 
-    // 通用执行方法
     @Suppress("SqlSourceToSinkFlow")
     internal fun executeUpdate(sql: String, block: (PreparedStatement) -> Unit) {
         try {
@@ -327,7 +457,6 @@ class Database {
             throw e
         }
     }
-
 
     fun close() {
         try {

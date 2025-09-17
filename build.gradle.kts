@@ -16,9 +16,6 @@ group = project.property("maven_group") as String
 val targetJavaVersion = 21
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
-    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-    // if it is present.
-    // If you remove this line, sources will not be generated.
     withSourcesJar()
 }
 
@@ -52,11 +49,8 @@ base {
     archivesName.set("${project.property("archives_base_name")}_${minecraftVersion}")
 }
 repositories {
-    // Add repositories to retrieve artifacts from in here.
-    // You should only use this when depending on other mods because
-    // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-    // See https://docs.gradle.org/current/userguide/declaring_repositories.html
-    // for more information about repositories.
+    // 默认仓库由 loom 添加，这里保持空即可，必要时可添加自定义仓库
+    mavenCentral()
 }
 
 dependencies {
@@ -66,8 +60,14 @@ dependencies {
     modImplementation("net.fabricmc:fabric-loader:$loaderVersion")
     modImplementation("net.fabricmc:fabric-language-kotlin:$kotlinLoaderVersion")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${prop(mcVersion, "fabric_version")}")
+
+    // SQLite 驱动
     modImplementation("org.xerial:sqlite-jdbc:3.45.1.0")
     include("org.xerial:sqlite-jdbc:3.45.1.0")
+
+    // MySQL 驱动（可选，根据配置是否使用）。打包进 jar 以便服务器无需额外放置
+    implementation("com.mysql:mysql-connector-j:9.4.0")
+    include("com.mysql:mysql-connector-j:9.4.0")
 }
 
 tasks.withType<JavaCompile>().configureEach {
