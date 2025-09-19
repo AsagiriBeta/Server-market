@@ -60,16 +60,17 @@ class MPay {
         val fromUuid = sender.uuid
         val toUuid = targetPlayer.uuid
 
-        return try {
-            database.transfer(fromUuid, toUuid, amount)
-            context.source.sendMessage(Text.literal(Language.get("command.mpay.success", targetPlayer.name.string, "%.2f".format(amount))))
-            targetPlayer.sendMessage(Text.literal(Language.get("command.mpay.received", sender.name.string, "%.2f".format(amount))))
-            1
-        } catch (e: Exception) {
-            context.source.sendError(Text.literal(Language.get("command.mpay.transfer_failed")))
-            ServerMarket.LOGGER.error("mpay命令执行失败", e)
-            0
+        database.transferAsync(fromUuid, toUuid, amount).whenComplete { _, ex ->
+            context.source.server.execute {
+                if (ex != null) {
+                    context.source.sendError(Text.literal(Language.get("command.mpay.transfer_failed")))
+                    ServerMarket.LOGGER.error("mpay命令执行失败", ex)
+                } else {
+                    context.source.sendMessage(Text.literal(Language.get("command.mpay.success", targetPlayer.name.string, "%.2f".format(amount))))
+                    targetPlayer.sendMessage(Text.literal(Language.get("command.mpay.received", sender.name.string, "%.2f".format(amount))))
+                }
+            }
         }
+        return 1
     }
 }
-

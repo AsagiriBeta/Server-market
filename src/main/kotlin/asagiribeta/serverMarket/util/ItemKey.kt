@@ -12,6 +12,7 @@ import net.minecraft.registry.Registries
 import net.minecraft.nbt.NbtElement
 import net.minecraft.component.type.ItemEnchantmentsComponent
 import com.mojang.serialization.Codec
+import net.minecraft.nbt.NbtList
 import java.lang.reflect.Modifier
 
 @Suppress("unused")
@@ -33,6 +34,7 @@ object ItemKey {
         try {
             val viaCodec = NbtCompound()
             if (encodeViaCodec(stack, viaCodec)) {
+                sanitizeItemCompound(viaCodec)
                 if (viaCodec.contains("Count")) viaCodec.putByte("Count", 1)
                 if (viaCodec.contains("count")) viaCodec.putByte("count", 1)
                 return viaCodec.toString()
@@ -43,12 +45,25 @@ object ItemKey {
             if (!tryWriteFull(stack, full)) {
                 return customDataOnly(stack)
             }
+            sanitizeItemCompound(full)
             if (full.contains("Count")) full.putByte("Count", 1)
             if (full.contains("count")) full.putByte("count", 1)
             full.toString()
         } catch (_: Exception) {
             customDataOnly(stack)
         }
+    }
+
+    // 对外暴露：将任意物品 SNBT 进行标准化清洗（移除无意义 custom_data 等）
+    fun normalizeSnbt(snbt: String): String {
+        if (snbt.isEmpty()) return snbt
+        return try {
+            val el = NbtHelper.fromNbtProviderString(snbt)
+            if (el is NbtCompound) {
+                sanitizeItemCompound(el)
+                el.toString()
+            } else snbt
+        } catch (_: Exception) { snbt }
     }
 
     private fun customDataOnly(stack: ItemStack): String {
@@ -59,7 +74,10 @@ object ItemKey {
             val custom: NbtComponent? = stack.get(DataComponentTypes.CUSTOM_DATA)
             if (custom != null) {
                 val tag = try { custom.copyNbt() } catch (_: Exception) { null }
-                if (tag != null && !tag.isEmpty) base.put("_customData", tag)
+                if (tag != null) {
+                    sanitizeCustomData(tag, id)
+                    if (!tag.isEmpty) base.put("_customData", tag)
+                }
             }
             try {
                 val ench: ItemEnchantmentsComponent? = stack.get(DataComponentTypes.ENCHANTMENTS)
@@ -70,6 +88,39 @@ object ItemKey {
             } catch (_: Exception) { }
             base.toString()
         } catch (_: Exception) { "" }
+    }
+
+    // 移除无意义的自定义数据（仅包含 id/count/空 palette 等）
+    private fun sanitizeItemCompound(tag: NbtCompound) {
+        try {
+            if (tag.contains("components", 10)) {
+                val comps = tag.getCompound("components")
+                if (comps.contains("minecraft:custom_data", 10)) {
+                    val cd = comps.getCompound("minecraft:custom_data")
+                    val itemId = if (tag.contains("id", 8)) tag.getString("id") else null
+                    sanitizeCustomData(cd, itemId)
+                    if (cd.isEmpty) {
+                        comps.remove("minecraft:custom_data")
+                    }
+                }
+                if (comps.isEmpty) tag.remove("components")
+            }
+        } catch (_: Exception) { }
+    }
+
+    private fun sanitizeCustomData(cd: NbtCompound, itemId: String?) {
+        try {
+            // 移除空 palette
+            val pel = cd.get("palette")
+            if (pel is NbtList && pel.isEmpty()) cd.remove("palette")
+            // 移除计数字段
+            if (cd.contains("count")) cd.remove("count")
+            if (cd.contains("Count")) cd.remove("Count")
+            // 如果 id 与物品 id 一致则移除
+            if (itemId != null && cd.contains("id", 8)) {
+                if (cd.getString("id") == itemId) cd.remove("id")
+            }
+        } catch (_: Exception) { }
     }
 
     private fun tryWriteFull(stack: ItemStack, into: NbtCompound): Boolean {

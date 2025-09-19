@@ -31,32 +31,31 @@ class MPull {
             return 0
         }
 
-        try {
-            val itemId = Registries.ITEM.getId(itemStack.item).toString()
-            val nbt = ItemKey.snbtOf(itemStack)
-            val marketRepo = ServerMarket.instance.database.marketRepository
-            
-            ServerMarket.LOGGER.debug("尝试下架物品ID: {} NBT:{} 玩家UUID: {}", itemId, nbt, player.uuid)
+        val itemId = Registries.ITEM.getId(itemStack.item).toString()
+        val nbt = ItemKey.snbtOf(itemStack)
+        val db = ServerMarket.instance.database
+        val repo = db.marketRepository
 
-            if (marketRepo.hasPlayerItem(player.uuid, itemId, nbt)) {
-                // 获取下架前的库存数量并删除记录
-                val returnedQuantity = marketRepo.removePlayerItem(player.uuid, itemId, nbt)
-
-                // 返还物品给玩家
+        db.supplyAsync {
+            if (repo.hasPlayerItem(player.uuid, itemId, nbt)) repo.removePlayerItem(player.uuid, itemId, nbt) else -1
+        }.whenComplete { returnedQuantity, ex ->
+            source.server.execute {
+                if (ex != null) {
+                    source.sendError(Text.literal(Language.get("command.mpull.operation_failed")))
+                    ServerMarket.LOGGER.error("mpull命令执行失败", ex)
+                    return@execute
+                }
+                if (returnedQuantity == null || returnedQuantity < 0) {
+                    source.sendError(Text.literal(Language.get("command.mpull.not_listed")))
+                    return@execute
+                }
                 if (returnedQuantity > 0) {
                     val returnStack = itemStack.copy().apply { count = returnedQuantity }
                     player.giveItemStack(returnStack)
                 }
-                
                 source.sendMessage(Text.literal(Language.get("command.mpull.success", itemStack.name.string, returnedQuantity)))
-                return 1
             }
-            source.sendError(Text.literal(Language.get("command.mpull.not_listed")))
-            return 0
-        } catch (e: Exception) {
-            source.sendError(Text.literal(Language.get("command.mpull.operation_failed")))
-            ServerMarket.LOGGER.error("mpull命令执行失败", e)
-            return 0
         }
+        return 1
     }
 }

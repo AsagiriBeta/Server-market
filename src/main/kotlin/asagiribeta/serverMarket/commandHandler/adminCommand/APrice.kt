@@ -28,67 +28,74 @@ class APrice {
         )
     }
 
-    private fun execute(context: CommandContext<ServerCommandSource>): Int {
+    // 提取公共准备逻辑：校验玩家、手持物品，解析价格，生成 itemId 与 nbt
+    private data class Prepared(
+        val source: ServerCommandSource,
+        val itemName: String,
+        val itemId: String,
+        val nbt: String,
+        val price: Double
+    )
+
+    private fun prepare(context: CommandContext<ServerCommandSource>): Prepared? {
         val source = context.source
         val player = source.player ?: run {
             source.sendError(Text.literal(Language.get("command.aprice.player_only")))
-            return 0
+            return null
         }
 
         val itemStack = player.mainHandStack
         if (itemStack.isEmpty) {
             source.sendError(Text.literal(Language.get("command.aprice.hold_item")))
-            return 0
+            return null
         }
 
         val price = DoubleArgumentType.getDouble(context, "price")
         val itemId = Registries.ITEM.getId(itemStack.item).toString()
         val nbt = ItemKey.snbtOf(itemStack)
-        val marketRepo = ServerMarket.instance.database.marketRepository
-        return try {
-            // 使用无限制（-1）作为默认每日限购
-            if (!marketRepo.hasSystemItem(itemId, nbt)) {
-                marketRepo.addSystemItem(itemId, nbt, price, -1)
-                source.sendMessage(Text.literal(Language.get("command.aprice.add_success", itemStack.name.string, price)))
+        val itemName = itemStack.name.string
+        return Prepared(source, itemName, itemId, nbt, price)
+    }
+
+    // 提取公共完成回调，统一在主线程反馈结果
+    private fun handleCompletion(prepared: Prepared, ex: Throwable?) {
+        prepared.source.server.execute {
+            if (ex != null) {
+                prepared.source.sendError(Text.literal(Language.get("command.aprice.operation_failed")))
+                ServerMarket.LOGGER.error("aprice命令执行失败", ex)
             } else {
-                marketRepo.addSystemItem(itemId, nbt, price, -1)
-                source.sendMessage(Text.literal(Language.get("command.aprice.update_success", itemStack.name.string, price)))
+                prepared.source.sendMessage(
+                    Text.literal(
+                        Language.get("command.aprice.update_success", prepared.itemName, prepared.price)
+                    )
+                )
             }
-            1
-        } catch (e: Exception) {
-            source.sendError(Text.literal(Language.get("command.aprice.operation_failed")))
-            ServerMarket.LOGGER.error("aprice命令执行失败", e)
-            0
         }
     }
 
+    private fun execute(context: CommandContext<ServerCommandSource>): Int {
+        val prepared = prepare(context) ?: return 0
+
+        val repo = ServerMarket.instance.database.marketRepository
+        // 直接 UPSERT，避免多一次 has 查询
+        ServerMarket.instance.database.runAsync {
+            repo.addSystemItem(prepared.itemId, prepared.nbt, prepared.price, -1)
+        }.whenComplete { _, ex ->
+            handleCompletion(prepared, ex)
+        }
+        return 1
+    }
+
     private fun executeWithLimit(context: CommandContext<ServerCommandSource>): Int {
-        val source = context.source
-        val player = source.player ?: run {
-            source.sendError(Text.literal(Language.get("command.aprice.player_only")))
-            return 0
-        }
+        val prepared = prepare(context) ?: return 0
 
-        val itemStack = player.mainHandStack
-        if (itemStack.isEmpty) {
-            source.sendError(Text.literal(Language.get("command.aprice.hold_item")))
-            return 0
-        }
-
-        val price = DoubleArgumentType.getDouble(context, "price")
         val limitPerDay = IntegerArgumentType.getInteger(context, "limitPerDay")
-        val itemId = Registries.ITEM.getId(itemStack.item).toString()
-        val nbt = ItemKey.snbtOf(itemStack)
-        val marketRepo = ServerMarket.instance.database.marketRepository
-        return try {
-            marketRepo.addSystemItem(itemId, nbt, price, limitPerDay)
-            val msgKey = if (limitPerDay < 0) "command.aprice.update_success" else "command.aprice.update_success"
-            source.sendMessage(Text.literal(Language.get(msgKey, itemStack.name.string, price)))
-            1
-        } catch (e: Exception) {
-            source.sendError(Text.literal(Language.get("command.aprice.operation_failed")))
-            ServerMarket.LOGGER.error("aprice命令执行失败", e)
-            0
+        val repo = ServerMarket.instance.database.marketRepository
+        ServerMarket.instance.database.runAsync {
+            repo.addSystemItem(prepared.itemId, prepared.nbt, prepared.price, limitPerDay)
+        }.whenComplete { _, ex ->
+            handleCompletion(prepared, ex)
         }
+        return 1
     }
 }

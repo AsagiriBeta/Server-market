@@ -34,20 +34,33 @@ class APull {
 
         val itemId = Registries.ITEM.getId(itemStack.item).toString()
         val nbt = ItemKey.snbtOf(itemStack)
-        val marketRepo = ServerMarket.instance.database.marketRepository
-        return try {
-            if (!marketRepo.hasSystemItem(itemId, nbt)) {
-                source.sendError(Text.literal(Language.get("command.apull.not_listed")))
-                0
-            } else {
-                marketRepo.removeSystemItem(itemId, nbt)
-                source.sendMessage(Text.literal(Language.get("command.apull.success", itemStack.name.string)))
-                1
+        val db = ServerMarket.instance.database
+        val repo = db.marketRepository
+
+        db.supplyAsync { repo.hasSystemItem(itemId, nbt) }
+            .whenComplete { exists, ex ->
+                source.server.execute {
+                    if (ex != null) {
+                        source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
+                        ServerMarket.LOGGER.error("apull命令执行失败", ex)
+                        return@execute
+                    }
+                    if (exists != true) {
+                        source.sendError(Text.literal(Language.get("command.apull.not_listed")))
+                        return@execute
+                    }
+                    db.runAsync { repo.removeSystemItem(itemId, nbt) }.whenComplete { _, ex2 ->
+                        source.server.execute {
+                            if (ex2 != null) {
+                                source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
+                                ServerMarket.LOGGER.error("apull命令删除失败", ex2)
+                            } else {
+                                source.sendMessage(Text.literal(Language.get("command.apull.success", itemStack.name.string)))
+                            }
+                        }
+                    }
+                }
             }
-        } catch (e: Exception) {
-            source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
-            ServerMarket.LOGGER.error("apull命令执行失败", e)
-            0
-        }
+        return 1
     }
 }

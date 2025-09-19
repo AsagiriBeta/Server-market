@@ -52,11 +52,14 @@ class Command {
             return 0
         }
         val uuid = player.uuid
-        val balance = ServerMarket.instance.database.getBalance(uuid)
-
-        context.source.sendMessage(
-            Text.literal(Language.get("command.money.balance", "%.2f".format(balance)))
-        )
+        // 改为异步查询余额，完成后切回主线程反馈
+        ServerMarket.instance.database.getBalanceAsync(uuid).whenComplete { balance, _ ->
+            context.source.server.execute {
+                context.source.sendMessage(
+                    Text.literal(Language.get("command.money.balance", "%.2f".format(balance)))
+                )
+            }
+        }
         return 1
     }
 }

@@ -45,17 +45,18 @@ class MSet {
             return 0
         }
 
-        return try {
-            ServerMarket.instance.database.setBalance(targetPlayer.uuid, amount)
-            context.source.sendMessage(
-                Text.literal(Language.get("command.mset.success", targetPlayer.name.string, "%.2f".format(amount)))
-            )
-            1
-        } catch (e: Exception) {
-            context.source.sendError(Text.literal(Language.get("command.mset.failed")))
-            ServerMarket.LOGGER.error("mset命令执行失败", e)
-            0
+        ServerMarket.instance.database.setBalanceAsync(targetPlayer.uuid, amount).whenComplete { _, ex ->
+            server.execute {
+                if (ex != null) {
+                    context.source.sendError(Text.literal(Language.get("command.mset.failed")))
+                    ServerMarket.LOGGER.error("mset命令执行失败", ex)
+                } else {
+                    context.source.sendMessage(
+                        Text.literal(Language.get("command.mset.success", targetPlayer.name.string, "%.2f".format(amount)))
+                    )
+                }
+            }
         }
+        return 1
     }
 }
-

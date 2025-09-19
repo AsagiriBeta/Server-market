@@ -65,96 +65,105 @@ class ACash {
             return 0
         }
         val stack = requireHeldItem(source) ?: return 0
-        return try {
-            val (itemId, snbt) = getItemSignature(stack)
-            ServerMarket.instance.database.currencyRepository.upsertCurrency(itemId, snbt, value)
-            source.sendMessage(Text.literal(Language.get("command.acash.success", stack.name.string, value)))
-            1
-        } catch (e: Exception) {
-            ServerMarket.LOGGER.error("acash 命令设置面值失败", e)
-            source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
-            0
+        val (itemId, snbt) = getItemSignature(stack)
+        // 异步写库（使用仓库异步API）
+        val repo = ServerMarket.instance.database.currencyRepository
+        repo.upsertCurrencyAsync(itemId, snbt, value).whenComplete { _, ex ->
+            source.server.execute {
+                if (ex != null) {
+                    ServerMarket.LOGGER.error("acash 命令设置面值失败", ex)
+                    source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
+                } else {
+                    source.sendMessage(Text.literal(Language.get("command.acash.success", stack.name.string, value)))
+                }
+            }
         }
+        return 1
     }
 
     private fun executeGet(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
         val stack = requireHeldItem(source) ?: return 0
-        return try {
-            val (itemId, snbt) = getItemSignature(stack)
-            val value = ServerMarket.instance.database.currencyRepository.getCurrencyValue(itemId, snbt)
-            if (value != null) {
-                source.sendMessage(Text.literal(Language.get("command.acash.get.success", value)))
-                1
-            } else {
-                source.sendError(Text.literal(Language.get("command.acash.get.not_set")))
-                0
+        val (itemId, snbt) = getItemSignature(stack)
+        // 异步读库（使用仓库异步API）
+        val repo = ServerMarket.instance.database.currencyRepository
+        repo.getCurrencyValueAsync(itemId, snbt).whenComplete { value, ex ->
+            source.server.execute {
+                if (ex != null) {
+                    ServerMarket.LOGGER.error("acash get 执行失败", ex)
+                    source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
+                } else if (value != null) {
+                    source.sendMessage(Text.literal(Language.get("command.acash.get.success", value)))
+                } else {
+                    source.sendError(Text.literal(Language.get("command.acash.get.not_set")))
+                }
             }
-        } catch (e: Exception) {
-            ServerMarket.LOGGER.error("acash get 执行失败", e)
-            source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
-            0
         }
+        return 1
     }
 
     private fun executeDel(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
         val stack = requireHeldItem(source) ?: return 0
-        return try {
-            val (itemId, snbt) = getItemSignature(stack)
-            val deleted = ServerMarket.instance.database.currencyRepository.deleteCurrency(itemId, snbt)
-            if (deleted) {
-                source.sendMessage(Text.literal(Language.get("command.acash.del.success", stack.name.string)))
-                1
-            } else {
-                source.sendError(Text.literal(Language.get("command.acash.del.not_set")))
-                0
+        val (itemId, snbt) = getItemSignature(stack)
+        val repo = ServerMarket.instance.database.currencyRepository
+        repo.deleteCurrencyAsync(itemId, snbt).whenComplete { deleted, ex ->
+            source.server.execute {
+                if (ex != null) {
+                    ServerMarket.LOGGER.error("acash del 执行失败", ex)
+                    source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
+                } else if (deleted == true) {
+                    source.sendMessage(Text.literal(Language.get("command.acash.del.success", stack.name.string)))
+                } else {
+                    source.sendError(Text.literal(Language.get("command.acash.del.not_set")))
+                }
             }
-        } catch (e: Exception) {
-            ServerMarket.LOGGER.error("acash del 执行失败", e)
-            source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
-            0
         }
+        return 1
     }
 
     private fun executeList(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
         val player = context.source.player // 允许控制台
-        val db = ServerMarket.instance.database
-        val repo = db.currencyRepository
-        return try {
-            val itemArg = try { StringArgumentType.getString(context, "item") } catch (_: Exception) { null }
-            val items = when {
-                itemArg != null -> repo.listByItemId(itemArg, 100, 0)
-                player != null && !player.mainHandStack.isEmpty -> {
-                    val itemId = Registries.ITEM.getId(player.mainHandStack.item).toString()
-                    repo.listByItemId(itemId, 100, 0)
+        val repo = ServerMarket.instance.database.currencyRepository
+        val itemArg = try { StringArgumentType.getString(context, "item") } catch (_: Exception) { null }
+        // 异步查询列表（使用仓库异步API）
+        val future = when {
+            itemArg != null -> repo.listByItemIdAsync(itemArg, 100, 0)
+            player != null && !player.mainHandStack.isEmpty -> {
+                val itemId = Registries.ITEM.getId(player.mainHandStack.item).toString()
+                repo.listByItemIdAsync(itemId, 100, 0)
+            }
+            else -> repo.listAllAsync(20, 0)
+        }
+        future.whenComplete { items, ex ->
+            source.server.execute {
+                if (ex != null) {
+                    ServerMarket.LOGGER.error("acash list 执行失败", ex)
+                    source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
+                    return@execute
                 }
-                else -> repo.listAll(20, 0)
-            }
-            if (items.isEmpty()) {
-                source.sendError(Text.literal(Language.get("command.acash.list.empty")))
-                return 0
-            }
-            source.sendMessage(Text.literal(Language.get("command.acash.list.title", items.size)))
-            items.forEach { ci ->
-                source.sendMessage(
-                    Text.literal(
-                        Language.get(
-                            "command.acash.list.entry",
-                            ci.itemId,
-                            ci.nbt.ifEmpty { "<none>" },
-                            ci.value
+                val list = items ?: emptyList()
+                if (list.isEmpty()) {
+                    source.sendError(Text.literal(Language.get("command.acash.list.empty")))
+                    return@execute
+                }
+                source.sendMessage(Text.literal(Language.get("command.acash.list.title", list.size)))
+                list.forEach { ci ->
+                    source.sendMessage(
+                        Text.literal(
+                            Language.get(
+                                "command.acash.list.entry",
+                                ci.itemId,
+                                ci.nbt.ifEmpty { "<none>" },
+                                ci.value
+                            )
                         )
                     )
-                )
+                }
             }
-            1
-        } catch (e: Exception) {
-            ServerMarket.LOGGER.error("acash list 执行失败", e)
-            source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
-            0
         }
+        return 1
     }
 
     private fun getItemSignature(stack: ItemStack): Pair<String, String> {

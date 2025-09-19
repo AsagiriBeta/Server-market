@@ -309,6 +309,23 @@ class MarketRepository(private val database: Database) {
         }
     }
 
+    // 新增：通用结果集映射方法（菜单用）：要求查询结果包含列 item_id, nbt, price, quantity, seller_id, seller_name, is_system
+    private fun mapResultSetToMarketMenuEntries(rs: ResultSet): List<MarketMenuEntry> = buildList {
+        while (rs.next()) {
+            add(
+                MarketMenuEntry(
+                    itemId = rs.getString("item_id"),
+                    nbt = rs.getString("nbt"),
+                    price = rs.getDouble("price"),
+                    quantity = rs.getInt("quantity"),
+                    sellerId = rs.getString("seller_id"),
+                    sellerName = rs.getString("seller_name"),
+                    isSystem = rs.getInt("is_system") == 1
+                )
+            )
+        }
+    }
+
     // 新增：获取去重的卖家名称列表（用于补全）
     fun getDistinctSellerNames(): List<String> {
         return database.connection.prepareStatement(
@@ -365,21 +382,7 @@ class MarketRepository(private val database: Database) {
                 """.trimIndent()
             ).use { ps ->
                 val rs = ps.executeQuery()
-                val list = mutableListOf<MarketMenuEntry>()
-                while (rs.next()) {
-                    list.add(
-                        MarketMenuEntry(
-                            itemId = rs.getString("item_id"),
-                            nbt = rs.getString("nbt"),
-                            price = rs.getDouble("price"),
-                            quantity = rs.getInt("quantity"),
-                            sellerId = rs.getString("seller_id"),
-                            sellerName = rs.getString("seller_name"),
-                            isSystem = rs.getInt("is_system") == 1
-                        )
-                    )
-                }
-                list
+                mapResultSetToMarketMenuEntries(rs)
             }
         } else {
             database.connection.prepareStatement(
@@ -392,22 +395,24 @@ class MarketRepository(private val database: Database) {
             ).use { ps ->
                 ps.setString(1, sellerId)
                 val rs = ps.executeQuery()
-                val list = mutableListOf<MarketMenuEntry>()
-                while (rs.next()) {
-                    list.add(
-                        MarketMenuEntry(
-                            itemId = rs.getString("item_id"),
-                            nbt = rs.getString("nbt"),
-                            price = rs.getDouble("price"),
-                            quantity = rs.getInt("quantity"),
-                            sellerId = rs.getString("seller_id"),
-                            sellerName = rs.getString("seller_name"),
-                            isSystem = rs.getInt("is_system") == 1
-                        )
-                    )
-                }
-                list
+                mapResultSetToMarketMenuEntries(rs)
             }
+        }
+    }
+
+    // 新增：根据卖家名称或UUID解析成卖家UUID（优先直接 UUID，回退到按名称在 player_market 中查）
+    fun findSellerUuidByName(input: String): String? {
+        // 直接是 UUID 则返回
+        runCatching { UUID.fromString(input) }.onSuccess { return it.toString() }
+        val sql = """
+            SELECT uuid FROM balances WHERE uuid = ?
+            UNION ALL
+            SELECT seller AS uuid FROM player_market WHERE seller_name = ?
+            LIMIT 1
+        """.trimIndent()
+        return database.executeQuery(sql) { ps ->
+            ps.setString(1, input)
+            ps.setString(2, input)
         }
     }
 }

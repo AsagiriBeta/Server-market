@@ -39,60 +39,67 @@ class MExchange {
 
         val main = player.mainHandStack
         if (main.isEmpty) {
-            // 使用专门的 mexchange 持物提示文案
             source.sendError(Text.literal(Language.get("command.mexchange.hold_item")))
             return 0
         }
 
-        // 在扣除物品数量前缓存物品名称，避免被清空后显示为 Air
         val itemName = main.name.string
-
         val itemId = Registries.ITEM.getId(main.item).toString()
         val nbt = ItemKey.snbtOf(main)
 
-        val value = repo.getCurrencyValue(itemId, nbt) ?: run {
-            source.sendError(Text.literal(Language.get("command.mexchange.not_currency")))
-            return 0
-        }
-
-        // 统计背包中与主手相同签名的数量
-        val inv = player.inventory
-        val matchingStacks = (0 until inv.size()).map { inv.getStack(it) }.filter {
-            !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == nbt
-        }
-        val totalAvailable = matchingStacks.sumOf { it.count }
-        if (totalAvailable < quantity) {
-            source.sendError(Text.literal(Language.get("command.mexchange.insufficient_items", quantity)))
-            return 0
-        }
-
-        // 扣除对应数量物品
-        var remaining = quantity
-        for (stack in matchingStacks) {
-            if (remaining <= 0) break
-            val deduct = kotlin.math.min(remaining, stack.count)
-            stack.count -= deduct
-            remaining -= deduct
-        }
-
-        val totalGain = value * quantity
-        return try {
-            db.deposit(player.uuid, totalGain)
-            source.sendMessage(
-                Text.literal(
-                    Language.get(
-                        "command.mexchange.success",
-                        quantity,
-                        itemName,
-                        String.format("%.2f", totalGain)
-                    )
-                )
-            )
-            1
-        } catch (e: Exception) {
-            ServerMarket.LOGGER.error("/mexchange 执行失败", e)
-            source.sendError(Text.literal(Language.get("command.mexchange.failed")))
-            0
-        }
+        // 先后台查询面值
+        db.supplyAsync { repo.getCurrencyValue(itemId, nbt) }
+            .whenComplete { value, ex ->
+                source.server.execute {
+                    if (ex != null) {
+                        ServerMarket.LOGGER.error("/mexchange 查询失败", ex)
+                        source.sendError(Text.literal(Language.get("command.mexchange.failed")))
+                        return@execute
+                    }
+                    val v = value ?: run {
+                        source.sendError(Text.literal(Language.get("command.mexchange.not_currency")))
+                        return@execute
+                    }
+                    // 统计并扣除物品（主线程）
+                    val inv = player.inventory
+                    val matchingStacks = (0 until inv.size()).map { inv.getStack(it) }.filter {
+                        !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == nbt
+                    }
+                    val totalAvailable = matchingStacks.sumOf { it.count }
+                    if (totalAvailable < quantity) {
+                        source.sendError(Text.literal(Language.get("command.mexchange.insufficient_items", quantity)))
+                        return@execute
+                    }
+                    var remaining = quantity
+                    for (stack in matchingStacks) {
+                        if (remaining <= 0) break
+                        val deduct = kotlin.math.min(remaining, stack.count)
+                        stack.count -= deduct
+                        remaining -= deduct
+                    }
+                    val totalGain = v * quantity
+                    // 后台入账
+                    db.depositAsync(player.uuid, totalGain).whenComplete { _, ex2 ->
+                        source.server.execute {
+                            if (ex2 != null) {
+                                ServerMarket.LOGGER.error("/mexchange 入账失败", ex2)
+                                source.sendError(Text.literal(Language.get("command.mexchange.failed")))
+                            } else {
+                                source.sendMessage(
+                                    Text.literal(
+                                        Language.get(
+                                            "command.mexchange.success",
+                                            quantity,
+                                            itemName,
+                                            String.format("%.2f", totalGain)
+                                        )
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        return 1
     }
 }

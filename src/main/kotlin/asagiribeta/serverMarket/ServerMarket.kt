@@ -44,13 +44,19 @@ class ServerMarket : ModInitializer {
             val player = handler.player
             val uuid = player.uuid
             val name = player.gameProfile.name // 获取玩家名
-            if (!database.playerExists(uuid)) {
-                database.initializeBalance(uuid, name, Config.initialPlayerBalance) // 使用配置中的初始余额并记录玩家名
-                LOGGER.info("初始化新玩家余额 UUID: {} Name: {}", uuid, name)
-            } else {
-                // 已存在则刷新玩家名（可能改名）
-                database.upsertPlayerName(uuid, name)
-            }
+            // 切换为异步：避免在主线程做阻塞 IO
+            database.playerExistsAsync(uuid)
+                .thenCompose { exists ->
+                    if (!exists) {
+                        database.initializeBalanceAsync(uuid, name, Config.initialPlayerBalance)
+                    } else {
+                        database.upsertPlayerNameAsync(uuid, name)
+                    }
+                }
+                .exceptionally { e ->
+                    LOGGER.error("玩家进服时数据库初始化失败 UUID: {} Name: {}", uuid, name, e)
+                    null
+                }
         }
 
         // 注册服务器停止事件关闭数据库连接
@@ -59,10 +65,13 @@ class ServerMarket : ModInitializer {
             LOGGER.info("Database connection closed")
         }
 
-        // 注册玩家离线事件保存数据
+        // 注册玩家离线事件保存数据（异步）
         ServerPlayConnectionEvents.DISCONNECT.register { handler, _ ->
             val uuid = handler.player.uuid
-            database.syncSave(uuid)
+            database.syncSaveAsync(uuid).exceptionally { e ->
+                LOGGER.warn("玩家离线时保存数据失败 UUID: {}", uuid, e)
+                null
+            }
         }
 
         // 注册命令

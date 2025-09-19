@@ -4,6 +4,10 @@ import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Config
 import java.sql.*
 import java.util.*
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class Database {
     internal val marketRepository = MarketRepository(this)
@@ -12,6 +16,11 @@ class Database {
 
     internal val isMySQL: Boolean
     val connection: Connection
+
+    // 新增：数据库单线程执行器，串行化所有 DB 交互，避免阻塞主线程且规避 Connection 并发问题
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "ServerMarket-DB").apply { isDaemon = true }
+    }
 
     init {
         val storage = Config.storageType.lowercase()
@@ -242,18 +251,54 @@ class Database {
         } catch (_: SQLException) {}
     }
 
-    // ============== 余额相关 ==============
+    // ============== 异步执行器封装 ==============
+    fun <T> supplyAsync(block: (Connection) -> T): CompletableFuture<T> {
+        return CompletableFuture.supplyAsync({
+            try {
+                block(connection)
+            } catch (e: Exception) {
+                ServerMarket.LOGGER.error("异步数据库任务执行失败", e)
+                throw e
+            }
+        }, executor)
+    }
+
+    fun runAsync(block: (Connection) -> Unit): CompletableFuture<Void> {
+        return CompletableFuture.runAsync({
+            try {
+                block(connection)
+            } catch (e: Exception) {
+                ServerMarket.LOGGER.error("异步数据库任务执行失败", e)
+                throw e
+            }
+        }, executor)
+    }
+
+    // ============== 余额相关（同步版本保留） ==============
+    // 抽取：查询余额的公用方法
+    private fun queryBalance(uuid: UUID): Double {
+        val sql = "SELECT amount FROM balances WHERE uuid = ?"
+        return executeQuery(sql, { ps ->
+            ps.setString(1, uuid.toString())
+        }) { rs ->
+            if (rs.next()) rs.getDouble("amount") else 0.0
+        } ?: 0.0
+    }
+
     fun getBalance(uuid: UUID): Double {
         return try {
-            connection.prepareStatement("SELECT amount FROM balances WHERE uuid = ?").use { ps ->
-                ps.setString(1, uuid.toString())
-                val rs = ps.executeQuery()
-                if (rs.next()) rs.getDouble("amount") else 0.0
-            }
+            // 复用公用方法
+            queryBalance(uuid)
         } catch (e: SQLException) {
             ServerMarket.LOGGER.error("查询余额失败 UUID: $uuid", e)
             0.0
         }
+    }
+
+    // 新增：异步版本
+    fun getBalanceAsync(uuid: UUID): CompletableFuture<Double> = supplyAsync {
+        // 复用公用方法（已处理异常并兜底 0.0）
+        queryBalance(uuid)
     }
 
     private fun addBalance(uuid: UUID, amount: Double) {
@@ -278,22 +323,32 @@ class Database {
         }
     }
 
-    fun deposit(uuid: UUID, amount: Double) {
-        if (amount.isNaN() || amount.isInfinite() || amount <= 0.0) return
+    // 新增：异步 addBalance 内部使用
+    private fun addBalanceAsync(uuid: UUID, amount: Double): CompletableFuture<Void> = runAsync {
         addBalance(uuid, amount)
     }
 
-    fun tryWithdraw(uuid: UUID, amount: Double): Boolean {
-        if (amount.isNaN() || amount.isInfinite() || amount <= 0.0) return false
-        return try {
-            connection.prepareStatement(
-                "UPDATE balances SET amount = amount - ? WHERE uuid = ? AND amount >= ?"
-            ).use { ps ->
-                ps.setDouble(1, amount)
-                ps.setString(2, uuid.toString())
-                ps.setDouble(3, amount)
-                ps.executeUpdate() > 0
-            }
+    fun depositAsync(uuid: UUID, amount: Double): CompletableFuture<Void> {
+        if (amount.isNaN() || amount.isInfinite() || amount <= 0.0) return CompletableFuture.completedFuture(null)
+        return addBalanceAsync(uuid, amount)
+    }
+
+    // 抽取：扣款且需余额足够的公用方法
+    private fun withdrawIfEnough(conn: Connection, uuid: UUID, amount: Double): Boolean {
+        conn.prepareStatement(
+            "UPDATE balances SET amount = amount - ? WHERE uuid = ? AND amount >= ?"
+        ).use { ps ->
+            ps.setDouble(1, amount)
+            ps.setString(2, uuid.toString())
+            ps.setDouble(3, amount)
+            return ps.executeUpdate() > 0
+        }
+    }
+
+    fun tryWithdrawAsync(uuid: UUID, amount: Double): CompletableFuture<Boolean> = supplyAsync {
+        if (amount.isNaN() || amount.isInfinite() || amount <= 0.0) return@supplyAsync false
+        try {
+            withdrawIfEnough(it, uuid, amount)
         } catch (e: SQLException) {
             ServerMarket.LOGGER.error("扣款失败 UUID: $uuid 金额: $amount", e)
             false
@@ -322,6 +377,10 @@ class Database {
         }
     }
 
+    fun setBalanceAsync(uuid: UUID, amount: Double): CompletableFuture<Void> = runAsync {
+        setBalance(uuid, amount)
+    }
+
     fun transfer(fromUuid: UUID, toUuid: UUID, amount: Double) {
         if (amount.isNaN() || amount.isInfinite() || amount <= 0.0) {
             throw SQLException("非法金额: $amount")
@@ -329,16 +388,9 @@ class Database {
         val originalAutoCommit = connection.autoCommit
         connection.autoCommit = false
         try {
-            connection.prepareStatement(
-                "UPDATE balances SET amount = amount - ? WHERE uuid = ? AND amount >= ?"
-            ).use { ps ->
-                ps.setDouble(1, amount)
-                ps.setString(2, fromUuid.toString())
-                ps.setDouble(3, amount)
-                val updated = ps.executeUpdate()
-                if (updated == 0) {
-                    throw SQLException("余额不足 UUID: $fromUuid 金额: $amount")
-                }
+            // 先尝试扣款，不足则抛出异常
+            if (!withdrawIfEnough(connection, fromUuid, amount)) {
+                throw SQLException("余额不足 UUID: $fromUuid 金额: $amount")
             }
             addBalance(toUuid, amount)
             connection.commit()
@@ -349,6 +401,10 @@ class Database {
         } finally {
             try { connection.autoCommit = originalAutoCommit } catch (_: SQLException) {}
         }
+    }
+
+    fun transferAsync(fromUuid: UUID, toUuid: UUID, amount: Double): CompletableFuture<Void> = runAsync {
+        transfer(fromUuid, toUuid, amount)
     }
 
     fun syncSave(uuid: UUID) {
@@ -362,9 +418,13 @@ class Database {
         }
     }
 
-    fun playerExists(uuid: UUID): Boolean {
-        return try {
-            connection.prepareStatement("SELECT 1 FROM balances WHERE uuid = ?").use { ps ->
+    fun syncSaveAsync(uuid: UUID): CompletableFuture<Void> = runAsync {
+        syncSave(uuid)
+    }
+
+    fun playerExistsAsync(uuid: UUID): CompletableFuture<Boolean> = supplyAsync {
+        try {
+            it.prepareStatement("SELECT 1 FROM balances WHERE uuid = ?").use { ps ->
                 ps.setString(1, uuid.toString())
                 val rs = ps.executeQuery()
                 rs.next()
@@ -402,7 +462,10 @@ class Database {
             connection.autoCommit = originalAutoCommit
         }
     }
-    fun initializeBalance(uuid: UUID, initialAmount: Double) = initializeBalance(uuid, "", initialAmount)
+
+    fun initializeBalanceAsync(uuid: UUID, playerName: String, initialAmount: Double): CompletableFuture<Void> = runAsync {
+        initializeBalance(uuid, playerName, initialAmount)
+    }
 
     fun upsertPlayerName(uuid: UUID, playerName: String) {
         try {
@@ -425,6 +488,10 @@ class Database {
         }
     }
 
+    fun upsertPlayerNameAsync(uuid: UUID, playerName: String): CompletableFuture<Void> = runAsync {
+        upsertPlayerName(uuid, playerName)
+    }
+
     private fun <T> executeQuery(sql: String, block: (PreparedStatement) -> Unit, resultBlock: (ResultSet) -> T): T? {
         return try {
             connection.prepareStatement(sql).use { ps ->
@@ -445,6 +512,21 @@ class Database {
         }
     }
 
+    // 新增：异步查询封装
+    internal fun <T> executeQueryAsync(sql: String, binder: (PreparedStatement) -> Unit, mapper: (ResultSet) -> T): CompletableFuture<T?> = supplyAsync {
+        try {
+            it.prepareStatement(sql).use { ps ->
+                binder(ps)
+                ps.executeQuery().use { rs ->
+                    mapper(rs)
+                }
+            }
+        } catch (e: SQLException) {
+            ServerMarket.LOGGER.error("执行SQL查询失败: $sql", e)
+            null
+        }
+    }
+
     @Suppress("SqlSourceToSinkFlow")
     internal fun executeUpdate(sql: String, block: (PreparedStatement) -> Unit) {
         try {
@@ -458,12 +540,44 @@ class Database {
         }
     }
 
-    fun close() {
+    // 新增：异步更新封装
+    @Suppress("SqlSourceToSinkFlow")
+    internal fun executeUpdateAsync(sql: String, block: (PreparedStatement) -> Unit): CompletableFuture<Void> = runAsync {
         try {
-            connection.close()
-            ServerMarket.LOGGER.info("数据库连接已释放")
+            it.prepareStatement(sql).use { ps ->
+                block(ps)
+                ps.executeUpdate()
+            }
         } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("关闭连接时发生错误", e)
+            ServerMarket.LOGGER.error("执行SQL更新失败: $sql", e)
+            throw e
+        }
+    }
+
+    fun close() {
+        // 将关闭连接动作也调度到 DB 线程，确保没有并发使用
+        try {
+            val future = CompletableFuture.runAsync({
+                try {
+                    connection.close()
+                    ServerMarket.LOGGER.info("数据库连接已释放")
+                } catch (e: SQLException) {
+                    ServerMarket.LOGGER.error("关闭连接时发生错误", e)
+                }
+            }, executor)
+            future.get(5, TimeUnit.SECONDS)
+        } catch (e: Exception) {
+            ServerMarket.LOGGER.warn("等待数据库线程关闭连接超时，尝试强制关闭", e)
+        } finally {
+            executor.shutdown()
+            try {
+                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    executor.shutdownNow()
+                }
+            } catch (_: InterruptedException) {
+                executor.shutdownNow()
+                Thread.currentThread().interrupt()
+            }
         }
     }
 }
