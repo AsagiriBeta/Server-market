@@ -46,7 +46,7 @@ class ServerMarket : ModInitializer {
             val name = player.gameProfile.name // 获取玩家名
             // 切换为异步：避免在主线程做阻塞 IO
             database.playerExistsAsync(uuid)
-                .thenCompose { exists ->
+                .thenCompose { exists: Boolean ->
                     if (!exists) {
                         database.initializeBalanceAsync(uuid, name, Config.initialPlayerBalance)
                     } else {

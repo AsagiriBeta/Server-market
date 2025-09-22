@@ -2,6 +2,8 @@ package asagiribeta.serverMarket.repository
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Config
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.sql.*
 import java.util.*
 import java.util.concurrent.CompletableFuture
@@ -162,7 +164,7 @@ class Database {
                 CREATE TABLE IF NOT EXISTS balances (
                     uuid CHAR(36) PRIMARY KEY,
                     player VARCHAR(64),
-                    amount DOUBLE NOT NULL
+                    amount DECIMAL(20,2) NOT NULL
                 ) $suffix
                 """.trimIndent()
             )
@@ -241,7 +243,37 @@ class Database {
     }
 
     private fun applyMigrations() {
-        if (isMySQL) return // 目前仅 SQLite 需要简单 ALTER 忽略
+        if (isMySQL) {
+            // MySQL 迁移：将 balances.amount 从 DOUBLE 调整为 DECIMAL(20,2)
+            try {
+                connection.createStatement().use { st ->
+                    val show = "SHOW " + "COLUMNS FROM balances LIKE 'amount'"
+                    st.executeQuery(show).use { rs ->
+                        if (rs.next()) {
+                            val typeStr = rs.getString("Type").lowercase(Locale.ROOT)
+                            val needAlter = if (typeStr.startsWith("decimal")) {
+                                val m = Regex("decimal\\((\\d+),\\s*(\\d+)\\)").find(typeStr)
+                                val p = m?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+                                val s = m?.groupValues?.getOrNull(2)?.toIntOrNull() ?: 0
+                                !(p >= 20 && s >= 2)
+                            } else {
+                                // 非 decimal 类型需要迁移
+                                true
+                            }
+                            if (needAlter) {
+                                // 使用 CHANGE 语法适配更多 MySQL 解析器
+                                val alter = "ALTER " + "TABLE balances " + "CHANGE amount amount DECIMAL(20,2) NOT NULL"
+                                st.execute(alter)
+                                ServerMarket.LOGGER.info("已将 MySQL 表 balances.amount 迁移为 DECIMAL(20,2) (原类型: {})", typeStr)
+                            }
+                        }
+                    }
+                }
+            } catch (e: SQLException) {
+                ServerMarket.LOGGER.warn("MySQL 迁移失败：尝试将 balances.amount 修改为 DECIMAL(20,2)", e)
+            }
+            return
+        }
         // SQLite 迁移
         try {
             connection.createStatement().use { it.execute("ALTER TABLE system_market ADD COLUMN limit_per_day INTEGER NOT NULL DEFAULT -1") }
@@ -275,13 +307,29 @@ class Database {
     }
 
     // ============== 余额相关（同步版本保留） ==============
+    private fun toMoney(amount: Double): BigDecimal {
+        return BigDecimal.valueOf(amount).setScale(2, RoundingMode.HALF_UP)
+    }
+
+    private fun getMoney(rs: ResultSet, column: String): Double {
+        return if (isMySQL) {
+            rs.getBigDecimal(column)?.setScale(2, RoundingMode.HALF_UP)?.toDouble() ?: 0.0
+        } else {
+            rs.getDouble(column)
+        }
+    }
+
+    private fun bindMoney(ps: PreparedStatement, index: Int, amount: Double) {
+        if (isMySQL) ps.setBigDecimal(index, toMoney(amount)) else ps.setDouble(index, amount)
+    }
+
     // 抽取：查询余额的公用方法
     private fun queryBalance(uuid: UUID): Double {
         val sql = "SELECT amount FROM balances WHERE uuid = ?"
         return executeQuery(sql, { ps ->
             ps.setString(1, uuid.toString())
         }) { rs ->
-            if (rs.next()) rs.getDouble("amount") else 0.0
+            if (rs.next()) getMoney(rs, "amount") else 0.0
         } ?: 0.0
     }
 
@@ -314,7 +362,7 @@ class Database {
             }
             connection.prepareStatement(sql).use { ps ->
                 ps.setString(1, uuid.toString())
-                ps.setDouble(2, amount)
+                bindMoney(ps, 2, amount)
                 ps.executeUpdate()
             }
         } catch (e: SQLException) {
@@ -338,9 +386,9 @@ class Database {
         conn.prepareStatement(
             "UPDATE balances SET amount = amount - ? WHERE uuid = ? AND amount >= ?"
         ).use { ps ->
-            ps.setDouble(1, amount)
+            bindMoney(ps, 1, amount)
             ps.setString(2, uuid.toString())
-            ps.setDouble(3, amount)
+            bindMoney(ps, 3, amount)
             return ps.executeUpdate() > 0
         }
     }
@@ -368,7 +416,7 @@ class Database {
             }
             connection.prepareStatement(sql).use { ps ->
                 ps.setString(1, uuid.toString())
-                ps.setDouble(2, amount)
+                bindMoney(ps, 2, amount)
                 ps.executeUpdate()
             }
         } catch (e: SQLException) {
@@ -451,7 +499,7 @@ class Database {
             connection.prepareStatement(sql).use { ps ->
                 ps.setString(1, uuid.toString())
                 ps.setString(2, playerName)
-                ps.setDouble(3, initialAmount)
+                bindMoney(ps, 3, initialAmount)
                 ps.executeUpdate()
             }
             connection.commit()
@@ -492,6 +540,7 @@ class Database {
         upsertPlayerName(uuid, playerName)
     }
 
+    // ============== SQL 执行封装 ==============
     private fun <T> executeQuery(sql: String, block: (PreparedStatement) -> Unit, resultBlock: (ResultSet) -> T): T? {
         return try {
             connection.prepareStatement(sql).use { ps ->
