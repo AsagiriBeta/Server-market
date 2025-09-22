@@ -90,20 +90,82 @@ object ItemKey {
         } catch (_: Exception) { "" }
     }
 
+    // 兼容不同版本 NBT API 的辅助方法
+    private fun getElement(tag: NbtCompound, key: String): NbtElement? {
+        try {
+            // 尝试调用 get(String)
+            val m = tag.javaClass.methods.firstOrNull { it.name == "get" && it.parameterCount == 1 && it.parameterTypes[0] == String::class.java }
+            if (m != null) {
+                val ret = m.invoke(tag, key)
+                // 可能返回 Optional 或 NbtElement
+                if (ret is java.util.Optional<*>) return ret.orElse(null) as? NbtElement
+                return ret as? NbtElement
+            }
+        } catch (_: Exception) { }
+        try {
+            // 尝试 getCompound(String)
+            val m2 = tag.javaClass.methods.firstOrNull { it.name.equals("getCompound", true) && it.parameterCount == 1 && it.parameterTypes[0] == String::class.java }
+            if (m2 != null) {
+                val ret = m2.invoke(tag, key)
+                return when (ret) {
+                    is NbtCompound -> ret
+                    is java.util.Optional<*> -> ret.orElse(null) as? NbtCompound
+                    else -> null
+                }
+            }
+        } catch (_: Exception) { }
+        return null
+    }
+
+    private fun getStringCompat(tag: NbtCompound, key: String): String? {
+        try {
+            val m = tag.javaClass.methods.firstOrNull { it.name == "getString" && it.parameterCount == 1 && it.parameterTypes[0] == String::class.java }
+            if (m != null) {
+                val ret = m.invoke(tag, key)
+                return when (ret) {
+                    is String -> ret
+                    is java.util.Optional<*> -> ret.orElse(null) as? String
+                    else -> ret?.toString()
+                }
+            }
+        } catch (_: Exception) { }
+        try {
+            val el = getElement(tag, key) ?: return null
+            val asStr = el.javaClass.methods.firstOrNull { it.name == "asString" && it.parameterCount == 0 }
+            if (asStr != null) return asStr.invoke(el) as? String
+        } catch (_: Exception) { }
+        return null
+    }
+
+    private fun removeKey(tag: NbtCompound, key: String) {
+        try {
+            val m = tag.javaClass.methods.firstOrNull { it.name == "remove" && it.parameterCount == 1 && it.parameterTypes[0] == String::class.java }
+            if (m != null) {
+                m.invoke(tag, key)
+                return
+            }
+        } catch (_: Exception) { }
+        // 尝试放置一个空值覆盖（通常不可行），忽略失败
+        try { tag.put(key, null) } catch (_: Exception) { }
+    }
+
     // 移除无意义的自定义数据（仅包含 id/count/空 palette 等）
     private fun sanitizeItemCompound(tag: NbtCompound) {
         try {
-            if (tag.contains("components", 10)) {
-                val comps = tag.getCompound("components")
-                if (comps.contains("minecraft:custom_data", 10)) {
-                    val cd = comps.getCompound("minecraft:custom_data")
-                    val itemId = if (tag.contains("id", 8)) tag.getString("id") else null
-                    sanitizeCustomData(cd, itemId)
-                    if (cd.isEmpty) {
-                        comps.remove("minecraft:custom_data")
+            // 仅检查键是否存在，忽略类型参数以兼容新版 API
+            if (tag.contains("components")) {
+                val comps = getElement(tag, "components") as? NbtCompound
+                if (comps != null) {
+                    val cd = getElement(comps, "minecraft:custom_data") as? NbtCompound
+                    val itemId = getStringCompat(tag, "id")
+                    if (cd != null) {
+                        sanitizeCustomData(cd, itemId)
+                        if (cd.isEmpty) {
+                            removeKey(comps, "minecraft:custom_data")
+                        }
                     }
+                    if (comps.isEmpty) removeKey(tag, "components")
                 }
-                if (comps.isEmpty) tag.remove("components")
             }
         } catch (_: Exception) { }
     }
@@ -111,14 +173,15 @@ object ItemKey {
     private fun sanitizeCustomData(cd: NbtCompound, itemId: String?) {
         try {
             // 移除空 palette
-            val pel = cd.get("palette")
-            if (pel is NbtList && pel.isEmpty()) cd.remove("palette")
+            val pel = getElement(cd, "palette")
+            if (pel is NbtList && pel.isEmpty()) removeKey(cd, "palette")
             // 移除计数字段
-            if (cd.contains("count")) cd.remove("count")
-            if (cd.contains("Count")) cd.remove("Count")
+            if (cd.contains("count")) removeKey(cd, "count")
+            if (cd.contains("Count")) removeKey(cd, "Count")
             // 如果 id 与物品 id 一致则移除
-            if (itemId != null && cd.contains("id", 8)) {
-                if (cd.getString("id") == itemId) cd.remove("id")
+            if (itemId != null) {
+                val selfId = getStringCompat(cd, "id")
+                if (selfId != null && selfId == itemId) removeKey(cd, "id")
             }
         } catch (_: Exception) { }
     }
