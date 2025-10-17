@@ -1,5 +1,6 @@
 package asagiribeta.serverMarket.repository
 
+import asagiribeta.serverMarket.util.Config
 import java.util.*
 import java.sql.ResultSet
 
@@ -400,12 +401,14 @@ class MarketRepository(private val database: Database) {
         }
     }
 
-    // 新增：根据卖家名称或UUID解析成卖家UUID（优先直接 UUID，回退到按名称在 player_market 中查）
+    // 新增：根据卖家名称或UUID解析成卖家UUID（优先直接 UUID，回退到按名称在 xconomy / player_market 中查）
     fun findSellerUuidByName(input: String): String? {
         // 直接是 UUID 则返回
         runCatching { UUID.fromString(input) }.onSuccess { return it.toString() }
+        // 在 XConomy 表按名字/UID 查，再回退到 player_market 的卖家名
+        val table = Config.xconomyPlayerTable
         val sql = """
-            SELECT uuid FROM balances WHERE uuid = ?
+            SELECT UID AS uuid FROM $table WHERE UID = ? OR player = ?
             UNION ALL
             SELECT seller AS uuid FROM player_market WHERE seller_name = ?
             LIMIT 1
@@ -413,6 +416,7 @@ class MarketRepository(private val database: Database) {
         return database.executeQuery(sql) { ps ->
             ps.setString(1, input)
             ps.setString(2, input)
+            ps.setString(3, input)
         }
     }
 }

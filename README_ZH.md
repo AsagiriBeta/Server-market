@@ -35,10 +35,10 @@
 - 推荐使用含自定义 NBT 的物品降低仿制风险。
 - 发放时自动按最大堆叠数分组。
 
-## 数据库配置（SQLite / MySQL）
-默认使用嵌入式 SQLite 文件 `market.db`。要启用 MySQL，编辑（首次运行后自动生成）`config/server-market/config.properties`：
+## 数据库配置（仅 MySQL）
+本模组现仅支持 MySQL，且直接使用 XConomy 的表结构。配置文件 `config/server-market/config.properties`：
 
-设置：
+必要项：
 ```
 storage_type = mysql
 mysql_host = <主机>
@@ -50,17 +50,32 @@ mysql_use_ssl = false
 # 附加 JDBC 参数（使用 & 连接）：
 mysql_jdbc_params = rewriteBatchedStatements=true&connectTimeout=10000
 ```
-要点：
-- 若文件不存在，会在首次启动自动生成默认配置。
-- 可随时将 `storage_type` 改回 `sqlite`（两种数据互不迁移，需自行处理迁移）。
-- `mysql_use_ssl` 设置为 true 可启用 SSL；额外参数使用 `mysql_jdbc_params` 追加。
-- 代码内部已自动附加：`useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true`，不需重复填写。
+说明：
+- 首次运行会自动生成默认配置。
+- 代码内部会自动附加：`useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true`。
 
-### 表结构与迁移
-启动时自动建表；SQLite 会尝试轻量 `ALTER`（已存在则忽略），不会执行破坏性迁移。
+### XConomy（Paper）兼容
+兼容已内置。将 Fabric 与 Paper 指向同一 MySQL 数据库；若缺表会自动创建。
 
-### MySQL 优化建议
-已包含主键、唯一约束与常用索引。若历史记录量非常大，可定期归档或清理（受配置 `max_history_records` 控制逻辑影响）。
+关键键值：
+```
+xconomy_player_table = xconomy
+xconomy_nonplayer_table = xconomynon
+xconomy_record_table = xconomyrecord
+xconomy_login_table = xconomylogin
+xconomy_system_account = SERVER
+xconomy_write_record = false
+```
+行为：
+- 玩家余额直连 XConomy 玩家表（`UID`, `player`, `balance`, `hidden`）。
+- 系统账户（UUID 全 0）映射为 XConomy 非玩家表 `account = xconomy_system_account`（默认 `SERVER`）。
+- 转账（如购买）在 XConomy 表内完成：玩家 → 系统 → 卖家。
+- `xconomy_write_record = true` 时，会将交易镜像到 `xconomyrecord`（尽力而为，不匹配会忽略且不影响交易）。
+
+注意：
+- Fabric 与 Paper 必须连接同一个 MySQL 库。
+- 表名需与 Paper/XConomy 实际创建一致（若自定义了后缀/前缀，请同步修改）。
+- 本模组不介入 XConomy 的缓存/Redis，请避免与其他插件产生同时写入冲突。
 
 ## 关键配置项（核心）
 - `initial_player_balance` 新玩家初始余额。

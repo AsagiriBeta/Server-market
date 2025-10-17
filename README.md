@@ -34,10 +34,10 @@ This mod adds a complete player economy and item trading market to Minecraft ser
 - Use distinctive NBT to reduce counterfeits.
 - Currency issuance respects max stack size automatically.
 
-## Database Configuration (SQLite / MySQL)
-Default storage: embedded SQLite file `market.db` (created automatically). To use MySQL, edit (or let the mod generate then edit) `config/server-market/config.properties`:
+## Database Configuration (MySQL only)
+This mod now requires MySQL and directly uses XConomy’s table format. Configure `config/server-market/config.properties`:
 
-Set:
+Required:
 ```
 storage_type = mysql
 mysql_host = <host>
@@ -49,20 +49,34 @@ mysql_use_ssl = false
 # Optional extra JDBC parameters (append form):
 mysql_jdbc_params = rewriteBatchedStatements=true&connectTimeout=10000
 ```
-Key points:
-- If the file doesn’t exist it is generated with defaults on first run.
-- Switch `storage_type` back to `sqlite` anytime (databases are independent; manual migration not automatic).
-- SSL: set `mysql_use_ssl = true` if your server requires it; you can still supply additional params via `mysql_jdbc_params`.
-- Character set & timezone parameters are auto‑appended: `useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true` (do not duplicate them yourself).
+Notes:
+- On first run, the file is generated with defaults.
+- Character set & timezone parameters are auto‑appended: `useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true`.
 
-### Migration / Schema
-Tables are auto-created if missing. SQLite only applies lightweight `ALTER` additions on load (ignored if already present). No destructive migrations are performed automatically.
+### XConomy (Paper) Compatibility
+Compatibility is built‑in. Point Fabric and Paper to the same MySQL database. XConomy tables are created automatically if missing.
 
-### Recommended MySQL Index / Tuning
-The schema already defines primary & unique keys plus basic indices. For very large history tables consider periodic archival or pruning if you disable or exceed `max_history_records` logic in configs (see below).
+Keys:
+```
+xconomy_player_table = xconomy
+xconomy_nonplayer_table = xconomynon
+xconomy_record_table = xconomyrecord
+xconomy_login_table = xconomylogin
+xconomy_system_account = SERVER
+xconomy_write_record = false
+```
+Behavior:
+- Player balances read/write XConomy’s player table (`UID`, `player`, `balance`, `hidden`).
+- System account (UUID all zeros) maps to the non‑player table account = `xconomy_system_account` (default `SERVER`).
+- Transfers (e.g., purchases) perform player → system and system → seller entirely in XConomy tables.
+- If `xconomy_write_record = true`, trade events are mirrored to `xconomyrecord` (best‑effort; mismatches are ignored non‑fatally).
+
+Caveats:
+- Fabric and Paper must use the same MySQL DB.
+- Use the exact XConomy table names created by your Paper server (edit if you customized suffixes).
+- We don’t touch XConomy’s cache/Redis; avoid concurrent conflicting writes from other plugins.
 
 ## Configuration Keys (Core)
-(Located in the same properties file; only essential keys listed here.)
 - `initial_player_balance` – Starting balance for new players.
 - `max_transfer_amount` – Transfer cap per operation.
 - `enable_transaction_history` – Enable recording trade / transfer events.
@@ -74,7 +88,7 @@ The schema already defines primary & unique keys plus basic indices. For very la
 If a system listing has `limit_per_day >= 0`, each player’s purchases of that exact (itemID + NBT) are capped per real‑world server local day (resets at date change).
 
 ## Language
-`/mlang` changes active language at runtime; restarting or using `/mreload` re-reads config default if provided.
+`/mlang` changes active language at runtime; restarting or using `/mreload` re‑reads config default if provided.
 
 ## Security Tips
 - Use custom NBT for currency items.

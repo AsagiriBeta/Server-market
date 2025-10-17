@@ -24,11 +24,11 @@ object Config {
     var enableTax: Boolean = false
         private set
 
-    // 新增：存储类型（sqlite / mysql）
-    var storageType: String = "sqlite"
+    // 数据库类型（仅支持 mysql）
+    var storageType: String = "mysql"
         private set
 
-    // 新增：MySQL 连接配置
+    // MySQL 连接配置
     var mysqlHost: String = "localhost"
         private set
     var mysqlPort: Int = 3306
@@ -42,6 +42,20 @@ object Config {
     var mysqlUseSSL: Boolean = false
         private set
     var mysqlJdbcParams: String = ""
+        private set
+
+    // XConomy 表与系统账户配置
+    var xconomyPlayerTable: String = "xconomy"
+        private set
+    var xconomyNonPlayerTable: String = "xconomynon"
+        private set
+    var xconomyRecordTable: String = "xconomyrecord"
+        private set
+    var xconomyLoginTable: String = "xconomylogin"
+        private set
+    var xconomySystemAccount: String = "SERVER"
+        private set
+    var xconomyWriteRecord: Boolean = false
         private set
 
     init {
@@ -128,9 +142,17 @@ object Config {
                 mysqlUseSSL = boolKey("mysql_use_ssl", mysqlUseSSL)
                 mysqlJdbcParams = stringKey("mysql_jdbc_params", mysqlJdbcParams)
 
-                // 如果发现缺失或非��的键，写回文件补全
+                // XConomy 相关配置
+                xconomyPlayerTable = stringKey("xconomy_player_table", xconomyPlayerTable)
+                xconomyNonPlayerTable = stringKey("xconomy_nonplayer_table", xconomyNonPlayerTable)
+                xconomyRecordTable = stringKey("xconomy_record_table", xconomyRecordTable)
+                xconomyLoginTable = stringKey("xconomy_login_table", xconomyLoginTable)
+                xconomySystemAccount = stringKey("xconomy_system_account", xconomySystemAccount)
+                xconomyWriteRecord = boolKey("xconomy_write_record", xconomyWriteRecord)
+
+                // 如果发现缺失或非法的键，写回文件补全
                 if (changed) {
-                    saveConfig() // saveConfig 会基于当前字段重新写入全量键值
+                    saveConfig()
                     ServerMarket.LOGGER.info("配置文件已补全缺失/修复非法项并保存")
                 } else {
                     ServerMarket.LOGGER.info("Configuration loaded successfully (storage: {})", storageType)
@@ -168,6 +190,14 @@ object Config {
             properties.setProperty("mysql_password", mysqlPassword)
             properties.setProperty("mysql_use_ssl", mysqlUseSSL.toString())
             properties.setProperty("mysql_jdbc_params", mysqlJdbcParams)
+
+            // XConomy 相关
+            properties.setProperty("xconomy_player_table", xconomyPlayerTable)
+            properties.setProperty("xconomy_nonplayer_table", xconomyNonPlayerTable)
+            properties.setProperty("xconomy_record_table", xconomyRecordTable)
+            properties.setProperty("xconomy_login_table", xconomyLoginTable)
+            properties.setProperty("xconomy_system_account", xconomySystemAccount)
+            properties.setProperty("xconomy_write_record", xconomyWriteRecord.toString())
 
             configFile.outputStream().use {
                 properties.store(it, "ServerMarket Configuration File")
