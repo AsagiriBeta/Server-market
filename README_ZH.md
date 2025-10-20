@@ -134,9 +134,5 @@ LuckPerms 示例
 - `/lp group admin permission set servermarket.admin.* true`
 - `/lp user <玩家> permission set servermarket.command.mmenu true`
 
-备注
-- 如需可使用 LuckPerms 上下文（world/server）。
-- 若后装入权限提供方，请记得授予上述节点，否则玩家将失去先前基于回退获得的访问权限。
-
 ## 许可证
 参见 `LICENSE.txt`。

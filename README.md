@@ -134,9 +134,5 @@ LuckPerms examples
 - `/lp group admin permission set servermarket.admin.* true`
 - `/lp user <player> permission set servermarket.command.mmenu true`
 
-Notes
-- LuckPerms contexts (world/server) are supported if desired.
-- If you add a provider later, remember to grant the nodes above; otherwise players will lose access they previously had via fallback.
-
 ## License
 See `LICENSE.txt`.
