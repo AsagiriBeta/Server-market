@@ -405,18 +405,31 @@ class MarketRepository(private val database: Database) {
     fun findSellerUuidByName(input: String): String? {
         // 直接是 UUID 则返回
         runCatching { UUID.fromString(input) }.onSuccess { return it.toString() }
-        // 在 XConomy 表按名字/UID 查，再回退到 player_market 的卖家名
-        val table = Config.xconomyPlayerTable
-        val sql = """
-            SELECT UID AS uuid FROM $table WHERE UID = ? OR player = ?
-            UNION ALL
-            SELECT seller AS uuid FROM player_market WHERE seller_name = ?
-            LIMIT 1
-        """.trimIndent()
-        return database.executeQuery(sql) { ps ->
-            ps.setString(1, input)
-            ps.setString(2, input)
-            ps.setString(3, input)
+        // MySQL 使用 XConomy 表；SQLite 无 XConomy 表，改为仅从 player_market 解析
+        return if (database.isMySQL) {
+            val table = Config.xconomyPlayerTable
+            val sql = """
+                SELECT UID AS uuid FROM $table WHERE UID = ? OR player = ? OR LOWER(player) = LOWER(?)
+                UNION ALL
+                SELECT seller AS uuid FROM player_market WHERE seller_name = ? OR LOWER(seller_name) = LOWER(?)
+                LIMIT 1
+            """.trimIndent()
+            database.executeQuery(sql) { ps ->
+                ps.setString(1, input)
+                ps.setString(2, input)
+                ps.setString(3, input)
+                ps.setString(4, input)
+                ps.setString(5, input)
+            }
+        } else {
+            val sql = """
+                SELECT seller AS uuid FROM player_market WHERE seller_name = ? OR LOWER(seller_name) = LOWER(?)
+                LIMIT 1
+            """.trimIndent()
+            database.executeQuery(sql) { ps ->
+                ps.setString(1, input)
+                ps.setString(2, input)
+            }
         }
     }
 }

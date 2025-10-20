@@ -37,7 +37,13 @@ fabricApi {
     }
 }
 
-val mcVersion = project.findProperty("mc_version") as String? ?: "1_21"
+// Prefer the latest supported MC version by default to avoid dependency mismatches
+val defaultMcVersion: String = (project.findProperty("supported_mc_versions") as String?)
+    ?.split(",")
+    ?.last()
+    ?.trim()
+    ?: "1_21_6"
+val mcVersion = project.findProperty("mc_version") as String? ?: defaultMcVersion
 val minecraftVersion = findProperty("minecraft_version_$mcVersion")?.toString()
     ?: throw GradleException("Minecraft version property for $mcVersion not found")
 fun prop(ver: String, key: String) = project.property("${key}_$ver") as String
@@ -51,6 +57,10 @@ base {
 repositories {
     // 默认仓库由 loom 添加，这里保持空即可，必要时可添加自定义仓库
     mavenCentral()
+    // Lucko 仓库（发布 fabric-permissions-api）
+    maven("https://repo.lucko.me/")
+    // Sonatype snapshots（如果使用快照版本时需要）
+    maven("https://oss.sonatype.org/content/repositories/snapshots/")
 }
 
 dependencies {
@@ -60,6 +70,11 @@ dependencies {
     modImplementation("net.fabricmc:fabric-loader:$loaderVersion")
     modImplementation("net.fabricmc:fabric-language-kotlin:$kotlinLoaderVersion")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${prop(mcVersion, "fabric_version")}")
+
+    // 引入并打包 fabric-permissions-api 到本模组内（无需服务器单独安装）
+    val fpaVersion = prop(mcVersion, "fpa_version")
+    modImplementation("me.lucko:fabric-permissions-api:$fpaVersion")
+    include("me.lucko:fabric-permissions-api:$fpaVersion")
 
     // SQLite 驱动
     modImplementation("org.xerial:sqlite-jdbc:3.45.1.0")
