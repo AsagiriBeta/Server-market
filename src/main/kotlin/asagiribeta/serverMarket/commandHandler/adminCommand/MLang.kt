@@ -1,6 +1,7 @@
 package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.PermissionUtil
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
@@ -13,7 +14,7 @@ class MLang {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             CommandManager.literal("mlang")
-                .requires { it.hasPermissionLevel(4) }
+                .requires(PermissionUtil.require("servermarket.admin.mlang", 4))
                 .then(
                     CommandManager.argument("lang", StringArgumentType.word())
                         .suggests { _, builder ->
@@ -35,4 +36,3 @@ class MLang {
         }
     }
 }
-

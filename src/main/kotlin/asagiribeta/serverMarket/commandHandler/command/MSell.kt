@@ -11,11 +11,13 @@ import net.minecraft.registry.Registries
 import asagiribeta.serverMarket.ServerMarket
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class MSell {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("msell")
+                .requires(PermissionUtil.requirePlayer("servermarket.command.msell", 0))
                 .then(argument("quantity", IntegerArgumentType.integer(1))
                     .executes(this::execute)
                 )

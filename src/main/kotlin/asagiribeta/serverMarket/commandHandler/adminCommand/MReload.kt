@@ -7,12 +7,13 @@ import com.mojang.brigadier.context.CommandContext
 import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class MReload {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             CommandManager.literal("mreload")
-                .requires { it.hasPermissionLevel(4) }
+                .requires(PermissionUtil.require("servermarket.admin.mreload", 4))
                 .executes(this::execute)
         )
     }

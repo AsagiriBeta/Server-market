@@ -21,11 +21,13 @@ import asagiribeta.serverMarket.util.CommandSuggestions
 import java.time.LocalDate
 import net.minecraft.command.argument.IdentifierArgumentType
 import java.util.concurrent.CompletableFuture
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class MBuy {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("mbuy")
+                .requires(PermissionUtil.requirePlayer("servermarket.command.mbuy", 0))
                 .then(argument("quantity", DoubleArgumentType.doubleArg(1.0))
                     .then(argument("item", IdentifierArgumentType.identifier())
                         .suggests(CommandSuggestions.ITEM_ID_SUGGESTIONS)

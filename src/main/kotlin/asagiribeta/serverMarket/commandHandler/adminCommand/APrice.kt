@@ -11,12 +11,13 @@ import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class APrice {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             CommandManager.literal("aprice")
-                .requires { it.hasPermissionLevel(4) }
+                .requires(PermissionUtil.require("servermarket.admin.aprice", 4))
                 .then(
                     CommandManager.argument("price", DoubleArgumentType.doubleArg(0.0))
                         .executes(this::execute)

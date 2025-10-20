@@ -11,11 +11,13 @@ import asagiribeta.serverMarket.ServerMarket
 import net.minecraft.registry.Registries
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class MPrice {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("mprice")
+                .requires(PermissionUtil.requirePlayer("servermarket.command.mprice", 0))
                 .then(argument("price", DoubleArgumentType.doubleArg(0.0))
                     .executes(this::execute)
                 )

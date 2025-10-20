@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.PermissionUtil
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
 import net.minecraft.server.command.ServerCommandSource
@@ -12,6 +13,7 @@ class Command {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("money")
+                .requires(PermissionUtil.requirePlayer("servermarket.command.money", 0))
                 .executes(this::executeMoneyCommand)
         )
         

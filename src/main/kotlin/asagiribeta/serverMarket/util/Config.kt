@@ -24,8 +24,12 @@ object Config {
     var enableTax: Boolean = false
         private set
 
-    // 数据库类型（仅支持 mysql）
-    var storageType: String = "mysql"
+    // 数据库类型（支持 sqlite 或 mysql）
+    var storageType: String = "sqlite"
+        private set
+
+    // SQLite 配置
+    var sqlitePath: String = "market.db"
         private set
 
     // MySQL 连接配置
@@ -134,6 +138,10 @@ object Config {
                 enableTax = boolKey("enable_tax", enableTax)
                 storageType = stringKey("storage_type", storageType)
 
+                // SQLite
+                sqlitePath = stringKey("sqlite_path", sqlitePath)
+
+                // MySQL
                 mysqlHost = stringKey("mysql_host", mysqlHost)
                 mysqlPort = intKey("mysql_port", mysqlPort)
                 mysqlDatabase = stringKey("mysql_database", mysqlDatabase)
@@ -181,6 +189,9 @@ object Config {
             properties.setProperty("market_tax_rate", marketTaxRate.toString())
             properties.setProperty("enable_tax", enableTax.toString())
             properties.setProperty("storage_type", storageType)
+
+            // SQLite 相关
+            properties.setProperty("sqlite_path", sqlitePath)
 
             // MySQL 相关
             properties.setProperty("mysql_host", mysqlHost)

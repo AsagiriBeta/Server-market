@@ -13,12 +13,13 @@ import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class MPay {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("mpay")
-                .requires { it.player != null }
+                .requires(PermissionUtil.requirePlayer("servermarket.command.mpay", 0))
                 .then(argument("player", StringArgumentType.string())
                     .suggests { context, builder ->
                         val names = context.source.server.playerManager.playerNames

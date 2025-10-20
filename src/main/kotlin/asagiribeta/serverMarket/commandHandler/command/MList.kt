@@ -10,11 +10,13 @@ import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class MList {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("mlist")
+                .requires(PermissionUtil.require("servermarket.command.mlist", 0))
                 .then(argument("target", StringArgumentType.string())
                     .suggests { context, builder ->
                         val server = context.source.server

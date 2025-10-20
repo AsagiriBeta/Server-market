@@ -9,11 +9,13 @@ import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.text.Text
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class MMenu {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("mmenu")
+                .requires(PermissionUtil.requirePlayer("servermarket.command.mmenu", 0))
                 .executes(this::openMenu)
         )
     }

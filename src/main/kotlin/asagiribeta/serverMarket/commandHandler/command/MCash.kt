@@ -15,11 +15,13 @@ import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class MCash {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("mcash")
+                .requires(PermissionUtil.requirePlayer("servermarket.command.mcash", 0))
                 .then(argument("value", DoubleArgumentType.doubleArg(0.0))
                     .then(argument("quantity", IntegerArgumentType.integer(1))
                         .executes(this::execute)

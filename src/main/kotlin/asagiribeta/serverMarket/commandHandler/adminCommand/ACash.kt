@@ -13,11 +13,12 @@ import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class ACash {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         val root = CommandManager.literal("acash")
-            .requires { it.hasPermissionLevel(4) }
+            .requires(PermissionUtil.require("servermarket.admin.acash", 4))
             // /acash get
             .then(CommandManager.literal("get").executes(this::executeGet))
             // /acash del

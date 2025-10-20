@@ -35,10 +35,17 @@
 - 推荐使用含自定义 NBT 的物品降低仿制风险。
 - 发放时自动按最大堆叠数分组。
 
-## 数据库配置（仅 MySQL）
-本模组现仅支持 MySQL，且直接使用 XConomy 的表结构。配置文件 `config/server-market/config.properties`：
+## 数据库配置
+默认使用 SQLite（无需外部数据库）。若需要与 Paper 服务器通过 XConomy 共享余额，可切换至 MySQL。
 
-必要项：
+默认（SQLite）：
+```
+storage_type = sqlite
+# 数据库文件路径（自动创建）
+sqlite_path = run/market.db
+```
+
+切换到 MySQL（兼容 XConomy）：
 ```
 storage_type = mysql
 mysql_host = <主机>
@@ -47,15 +54,16 @@ mysql_database = server_market
 mysql_user = <用户>
 mysql_password = <密码>
 mysql_use_ssl = false
-# 附加 JDBC 参数（使用 & 连接）：
+# 附加 JDBC 参数（使用 & 连接）
 mysql_jdbc_params = rewriteBatchedStatements=true&connectTimeout=10000
 ```
 说明：
-- 首次运行会自动生成默认配置。
-- 代码内部会自动附加：`useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true`。
+- 首次运行会在 `config/server-market/config.properties` 生成默认配置（SQLite）。
+- MySQL 模式会自动附加字符集与时区参数：`useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true`。
 
 ### XConomy（Paper）兼容
-兼容已内置。将 Fabric 与 Paper 指向同一 MySQL 数据库；若缺表会自动创建。
+- 仅在 MySQL 模式启用。本模组直接读写 XConomy 表，且可选镜像交易记录。
+- 请将 Fabric 与 Paper 指向同一个 MySQL 数据库；如缺表会自动创建（表名可配置）。
 
 关键键值：
 ```
@@ -66,16 +74,14 @@ xconomy_login_table = xconomylogin
 xconomy_system_account = SERVER
 xconomy_write_record = false
 ```
-行为：
-- 玩家余额直连 XConomy 玩家表（`UID`, `player`, `balance`, `hidden`）。
-- 系统账户（UUID 全 0）映射为 XConomy 非玩家表 `account = xconomy_system_account`（默认 `SERVER`）。
-- 转账（如购买）在 XConomy 表内完成：玩家 → 系统 → 卖家。
-- `xconomy_write_record = true` 时，会将交易镜像到 `xconomyrecord`（尽力而为，不匹配会忽略且不影响交易）。
+MySQL 模式行为：
+- 玩家余额使用 XConomy 玩家表（`UID`, `player`, `balance`, `hidden`）。
+- 系统账户映射到非玩家表 `account = xconomy_system_account`。
+- 购买/转账在 XConomy 表中流转；若 `xconomy_write_record = true` 则将交易镜像到 `xconomyrecord`（尽力而为）。
 
-注意：
-- Fabric 与 Paper 必须连接同一个 MySQL 库。
-- 表名需与 Paper/XConomy 实际创建一致（若自定义了后缀/前缀，请同步修改）。
-- 本模组不介入 XConomy 的缓存/Redis，请避免与其他插件产生同时写入冲突。
+SQLite 模式行为：
+- 余额保存在本地 SQLite 库的 `balances` 表内；系统账户使用全 0 UUID。
+- SQLite 模式不与 XConomy 交互（仅 Fabric 侧经济）。
 
 ## 关键配置项（核心）
 - `initial_player_balance` 新玩家初始余额。
@@ -94,6 +100,43 @@ xconomy_write_record = false
 ## 安全提示
 - 优先选择带独特 NBT 的物品作为货币。
 - 管理指令仅授予可信任管理员。
+
+## 权限（LuckPerms / Fabric Permissions API）
+- 通过 Fabric Permissions API 集成；若安装了权限提供方（如 LuckPerms Fabric），权限检查将委托给它。
+- 无提供方时的回退：玩家指令全部允许；管理员指令需 OP 等级 4。
+- 建议安装：LuckPerms（Fabric）与 `fabric-permissions-api-v0`（可选，本模组声明为建议依赖）。
+
+权限节点
+
+玩家指令
+- `servermarket.command.money`
+- `servermarket.command.mpay`
+- `servermarket.command.mprice`
+- `servermarket.command.mpull`
+- `servermarket.command.mlist`
+- `servermarket.command.msell`
+- `servermarket.command.msearch`
+- `servermarket.command.mbuy`
+- `servermarket.command.mcash`
+- `servermarket.command.mexchange`
+- `servermarket.command.mmenu`
+
+管理员指令（回退为 OP 等级 4）
+- `servermarket.admin.mset`
+- `servermarket.admin.aprice`
+- `servermarket.admin.apull`
+- `servermarket.admin.mlang`
+- `servermarket.admin.mreload`
+- `servermarket.admin.acash`
+
+LuckPerms 示例
+- `/lp group default permission set servermarket.command.* true`
+- `/lp group admin permission set servermarket.admin.* true`
+- `/lp user <玩家> permission set servermarket.command.mmenu true`
+
+备注
+- 如需可使用 LuckPerms 上下文（world/server）。
+- 若后装入权限提供方，请记得授予上述节点，否则玩家将失去先前基于回退获得的访问权限。
 
 ## 许可证
 参见 `LICENSE.txt`。

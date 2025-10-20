@@ -9,12 +9,13 @@ import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class APull {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             CommandManager.literal("apull")
-                .requires { it.hasPermissionLevel(4) }
+                .requires(PermissionUtil.require("servermarket.admin.apull", 4))
                 .executes(this::execute)
         )
     }

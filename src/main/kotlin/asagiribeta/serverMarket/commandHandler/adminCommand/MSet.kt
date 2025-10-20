@@ -10,12 +10,13 @@ import net.minecraft.command.CommandSource
 import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class MSet {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             CommandManager.literal("mset")
-                .requires { it.hasPermissionLevel(4) }
+                .requires(PermissionUtil.require("servermarket.admin.mset", 4))
                 .then(
                     CommandManager.argument("player", StringArgumentType.string())
                         .suggests { context, builder ->

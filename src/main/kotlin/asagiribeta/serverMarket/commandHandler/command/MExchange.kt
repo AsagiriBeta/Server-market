@@ -11,11 +11,13 @@ import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class MExchange {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("mexchange")
+                .requires(PermissionUtil.requirePlayer("servermarket.command.mexchange", 0))
                 .then(argument("quantity", IntegerArgumentType.integer(1))
                     .executes(this::execute)
                 )

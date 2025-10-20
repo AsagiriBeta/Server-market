@@ -10,11 +10,13 @@ import net.minecraft.text.Text
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.CommandSuggestions
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class MSearch {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("msearch")
+                .requires(PermissionUtil.require("servermarket.command.msearch", 0))
                 .then(argument("item_id", StringArgumentType.greedyString())
                     .suggests(CommandSuggestions.ITEM_ID_SUGGESTIONS)
                     .executes(this::execute)

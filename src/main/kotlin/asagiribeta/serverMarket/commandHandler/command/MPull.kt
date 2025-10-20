@@ -9,11 +9,13 @@ import asagiribeta.serverMarket.ServerMarket
 import net.minecraft.registry.Registries
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.PermissionUtil
 
 class MPull {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
             literal("mpull")
+                .requires(PermissionUtil.requirePlayer("servermarket.command.mpull", 0))
                 .executes(this::execute)
         )
     }

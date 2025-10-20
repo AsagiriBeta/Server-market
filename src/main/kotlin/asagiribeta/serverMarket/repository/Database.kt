@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.repository
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Config
+import java.io.File
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.sql.*
@@ -19,11 +20,14 @@ class Database {
     internal val isMySQL: Boolean
     val connection: Connection
 
-    // XConomy 兼容：表名与系统账户
+    // XConomy 兼容：表名与系统账户（仅 MySQL 模式使用）
     private val xcoPlayerTable = Config.xconomyPlayerTable
     private val xcoNonPlayerTable = Config.xconomyNonPlayerTable
     private val xcoRecordTable = Config.xconomyRecordTable
     private val xcoSystemAccount = Config.xconomySystemAccount
+
+    // SQLite 模式自有余额表名
+    private val sqliteBalanceTable = "balances"
 
     // 数据库单线程执行器，串行化所有 DB 交互
     private val executor: ExecutorService = Executors.newSingleThreadExecutor { r ->
@@ -33,29 +37,34 @@ class Database {
     init {
         val storage = Config.storageType.lowercase()
         isMySQL = storage == "mysql"
-        if (!isMySQL) {
-            // 放弃 SQLite 与自有 balances 表，强制使用 MySQL + XConomy 表结构
-            ServerMarket.LOGGER.error("XConomy 兼容模式仅支持 MySQL，当前 storage_type={}", storage)
-            throw IllegalStateException("XConomy compatibility requires MySQL (storage_type=mysql)")
+        if (isMySQL) {
+            // 构建 MySQL JDBC URL（XConomy 兼容表）
+            try { Class.forName("com.mysql.cj.jdbc.Driver") } catch (_: Throwable) {}
+            val ssl = if (Config.mysqlUseSSL) "true" else "false"
+            val baseParams = mutableListOf(
+                "useSSL=$ssl",
+                "useUnicode=true",
+                "characterEncoding=UTF-8",
+                "serverTimezone=UTC",
+                "allowPublicKeyRetrieval=true"
+            )
+            if (Config.mysqlJdbcParams.isNotBlank()) baseParams.add(Config.mysqlJdbcParams.trim('&', '?'))
+            val url = "jdbc:mysql://${Config.mysqlHost}:${Config.mysqlPort}/${Config.mysqlDatabase}?${baseParams.joinToString("&")}"
+            connection = DriverManager.getConnection(url, Config.mysqlUser, Config.mysqlPassword)
+            createTablesMySQL()
+        } else {
+            // SQLite 模式
+            try { Class.forName("org.sqlite.JDBC") } catch (_: Throwable) {}
+            val dbFile = File(Config.sqlitePath)
+            dbFile.parentFile?.let { if (!it.exists()) it.mkdirs() }
+            val url = "jdbc:sqlite:${dbFile.path}"
+            connection = DriverManager.getConnection(url)
+            // 推荐的性能/一致性设置
+            connection.createStatement().use { st ->
+                st.execute("PRAGMA foreign_keys = ON")
+            }
+            createTablesSQLite()
         }
-        // 构建 MySQL JDBC URL
-        try { Class.forName("com.mysql.cj.jdbc.Driver") } catch (_: Throwable) {}
-        val ssl = if (Config.mysqlUseSSL) "true" else "false"
-        val baseParams = mutableListOf(
-            "useSSL=$ssl",
-            "useUnicode=true",
-            "characterEncoding=UTF-8",
-            "serverTimezone=UTC",
-            "allowPublicKeyRetrieval=true"
-        )
-        if (Config.mysqlJdbcParams.isNotBlank()) {
-            baseParams.add(Config.mysqlJdbcParams.trim('&', '?'))
-        }
-        val paramStr = baseParams.joinToString("&")
-        val url = "jdbc:mysql://${Config.mysqlHost}:${Config.mysqlPort}/${Config.mysqlDatabase}?$paramStr"
-        connection = DriverManager.getConnection(url, Config.mysqlUser, Config.mysqlPassword)
-
-        createTablesMySQL()
     }
 
     private fun createTablesMySQL() {
@@ -186,6 +195,103 @@ class Database {
         }
     }
 
+    private fun createTablesSQLite() {
+        connection.createStatement().use { st ->
+            // 自有余额表（玩家与系统同表，uid=全0代表系统）
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS $sqliteBalanceTable (
+                    uid TEXT PRIMARY KEY,
+                    player TEXT NOT NULL DEFAULT '',
+                    balance REAL NOT NULL
+                )
+                """.trimIndent()
+            )
+            // 初始化系统账户（全 0 UUID）
+            val systemUuid = UUID(0L, 0L).toString()
+            connection.prepareStatement("INSERT OR IGNORE INTO $sqliteBalanceTable(uid, player, balance) VALUES(?, 'SERVER', 0)").use { ps ->
+                ps.setString(1, systemUuid)
+                ps.executeUpdate()
+            }
+
+            // 业务表
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    dtg INTEGER NOT NULL,
+                    from_id TEXT NOT NULL,
+                    from_type TEXT NOT NULL,
+                    from_name TEXT NOT NULL,
+                    to_id TEXT NOT NULL,
+                    to_type TEXT NOT NULL,
+                    to_name TEXT NOT NULL,
+                    price REAL NOT NULL,
+                    item TEXT NOT NULL
+                )
+                """.trimIndent()
+            )
+            st.execute("CREATE INDEX IF NOT EXISTS idx_history_from ON history(from_id)")
+            st.execute("CREATE INDEX IF NOT EXISTS idx_history_to ON history(to_id)")
+            st.execute("CREATE INDEX IF NOT EXISTS idx_history_dtg ON history(dtg)")
+
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS system_market (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    item_id TEXT NOT NULL,
+                    nbt TEXT NOT NULL DEFAULT '',
+                    price REAL NOT NULL,
+                    quantity INTEGER DEFAULT -1,
+                    seller TEXT DEFAULT 'SERVER',
+                    limit_per_day INTEGER NOT NULL DEFAULT -1,
+                    UNIQUE(item_id, nbt)
+                )
+                """.trimIndent()
+            )
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS player_market (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    seller TEXT NOT NULL,
+                    seller_name TEXT NOT NULL,
+                    item_id TEXT NOT NULL,
+                    nbt TEXT NOT NULL DEFAULT '',
+                    price REAL NOT NULL,
+                    quantity INTEGER DEFAULT 0,
+                    UNIQUE(seller, item_id, nbt)
+                )
+                """.trimIndent()
+            )
+            st.execute("CREATE INDEX IF NOT EXISTS idx_player_seller ON player_market(seller)")
+
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS currency_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    item_id TEXT NOT NULL,
+                    nbt TEXT NOT NULL DEFAULT '',
+                    value REAL NOT NULL,
+                    UNIQUE(item_id, nbt)
+                )
+                """.trimIndent()
+            )
+
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS system_daily_purchase (
+                    date TEXT NOT NULL,
+                    player_uuid TEXT NOT NULL,
+                    item_id TEXT NOT NULL,
+                    nbt TEXT NOT NULL DEFAULT '',
+                    purchased INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY(date, player_uuid, item_id, nbt)
+                )
+                """.trimIndent()
+            )
+        }
+    }
+
     // ============== 异步执行器封装 ==============
     fun <T> supplyAsync(block: (Connection) -> T): CompletableFuture<T> {
         return CompletableFuture.supplyAsync({
@@ -203,30 +309,36 @@ class Database {
         }, executor)
     }
 
-    // ============== 余额相关（XConomy 专用实现） ==============
+    // ============== 余额相关（MySQL 使用 XConomy；SQLite 使用自有表） ==============
     private fun toMoney(amount: Double): BigDecimal =
         BigDecimal.valueOf(amount).setScale(2, RoundingMode.HALF_UP)
 
-    private fun getMoney(rs: ResultSet, column: String): Double =
-        rs.getDouble(column)
+    private fun getMoney(rs: ResultSet, column: String): Double = rs.getDouble(column)
 
-    // XConomy 表为 DOUBLE(20,2)，显式用 setDouble，先四舍五入到两位
     private fun bindMoneyXco(ps: PreparedStatement, index: Int, amount: Double) {
+        // XConomy 表为 DOUBLE(20,2)，显式用 setDouble，先四舍五入到两位
         ps.setDouble(index, toMoney(amount).toDouble())
     }
 
     private fun isSystem(uuid: UUID): Boolean = uuid.mostSignificantBits == 0L && uuid.leastSignificantBits == 0L
 
     private fun queryBalance(uuid: UUID): Double {
-        return if (isSystem(uuid)) {
-            val sql = "SELECT balance FROM $xcoNonPlayerTable WHERE account = ?"
-            executeQuery(sql, { ps -> ps.setString(1, xcoSystemAccount) }) { rs ->
-                if (rs.next()) getMoney(rs, "balance") else 0.0
-            } ?: 0.0
+        return if (isMySQL) {
+            if (isSystem(uuid)) {
+                val sql = "SELECT balance FROM $xcoNonPlayerTable WHERE account = ?"
+                executeQuery(sql, { ps -> ps.setString(1, xcoSystemAccount) }) { rs ->
+                    if (rs.next()) getMoney(rs, "balance") else 0.0
+                } ?: 0.0
+            } else {
+                val sql = "SELECT balance FROM $xcoPlayerTable WHERE UID = ?"
+                executeQuery(sql, { ps -> ps.setString(1, uuid.toString()) }) { rs ->
+                    if (rs.next()) getMoney(rs, "balance") else 0.0
+                } ?: 0.0
+            }
         } else {
-            val sql = "SELECT balance FROM $xcoPlayerTable WHERE UID = ?"
+            val sql = "SELECT balance FROM $sqliteBalanceTable WHERE uid = ?"
             executeQuery(sql, { ps -> ps.setString(1, uuid.toString()) }) { rs ->
-                if (rs.next()) getMoney(rs, "balance") else 0.0
+                if (rs.next()) rs.getDouble(1) else 0.0
             } ?: 0.0
         }
     }
@@ -239,31 +351,47 @@ class Database {
 
     private fun addBalance(uuid: UUID, amount: Double) {
         try {
-            if (isSystem(uuid)) {
-                connection.prepareStatement(
-                    "UPDATE $xcoNonPlayerTable SET balance = balance + ? WHERE account = ?"
-                ).use { ps ->
-                    bindMoneyXco(ps, 1, amount); ps.setString(2, xcoSystemAccount)
-                    val updated = ps.executeUpdate()
-                    if (updated == 0) {
-                        connection.prepareStatement(
-                            "INSERT INTO $xcoNonPlayerTable(account, balance) VALUES(?, ?)"
-                        ).use { ins ->
-                            ins.setString(1, xcoSystemAccount); bindMoneyXco(ins, 2, amount); ins.executeUpdate()
+            if (isMySQL) {
+                if (isSystem(uuid)) {
+                    connection.prepareStatement(
+                        "UPDATE $xcoNonPlayerTable SET balance = balance + ? WHERE account = ?"
+                    ).use { ps ->
+                        bindMoneyXco(ps, 1, amount); ps.setString(2, xcoSystemAccount)
+                        val updated = ps.executeUpdate()
+                        if (updated == 0) {
+                            connection.prepareStatement(
+                                "INSERT INTO $xcoNonPlayerTable(account, balance) VALUES(?, ?)"
+                            ).use { ins ->
+                                ins.setString(1, xcoSystemAccount); bindMoneyXco(ins, 2, amount); ins.executeUpdate()
+                            }
+                        }
+                    }
+                } else {
+                    connection.prepareStatement(
+                        "UPDATE $xcoPlayerTable SET balance = balance + ? WHERE UID = ?"
+                    ).use { ps ->
+                        bindMoneyXco(ps, 1, amount); ps.setString(2, uuid.toString())
+                        val updated = ps.executeUpdate()
+                        if (updated == 0) {
+                            connection.prepareStatement(
+                                "INSERT INTO $xcoPlayerTable(UID, player, balance, hidden) VALUES(?, ?, ?, 0)"
+                            ).use { ins ->
+                                ins.setString(1, uuid.toString()); ins.setString(2, ""); bindMoneyXco(ins, 3, amount); ins.executeUpdate()
+                            }
                         }
                     }
                 }
             } else {
                 connection.prepareStatement(
-                    "UPDATE $xcoPlayerTable SET balance = balance + ? WHERE UID = ?"
+                    "UPDATE $sqliteBalanceTable SET balance = balance + ? WHERE uid = ?"
                 ).use { ps ->
-                    bindMoneyXco(ps, 1, amount); ps.setString(2, uuid.toString())
+                    ps.setDouble(1, toMoney(amount).toDouble()); ps.setString(2, uuid.toString())
                     val updated = ps.executeUpdate()
                     if (updated == 0) {
                         connection.prepareStatement(
-                            "INSERT INTO $xcoPlayerTable(UID, player, balance, hidden) VALUES(?, ?, ?, 0)"
+                            "INSERT INTO $sqliteBalanceTable(uid, player, balance) VALUES(?, ?, ?)"
                         ).use { ins ->
-                            ins.setString(1, uuid.toString()); ins.setString(2, ""); bindMoneyXco(ins, 3, amount); ins.executeUpdate()
+                            ins.setString(1, uuid.toString()); ins.setString(2, if (isSystem(uuid)) "SERVER" else ""); ins.setDouble(3, toMoney(amount).toDouble()); ins.executeUpdate()
                         }
                     }
                 }
@@ -282,18 +410,28 @@ class Database {
     }
 
     private fun withdrawIfEnough(conn: Connection, uuid: UUID, amount: Double): Boolean {
-        return if (isSystem(uuid)) {
-            conn.prepareStatement(
-                "UPDATE $xcoNonPlayerTable SET balance = balance - ? WHERE account = ? AND balance >= ?"
-            ).use { ps ->
-                bindMoneyXco(ps, 1, amount); ps.setString(2, xcoSystemAccount); bindMoneyXco(ps, 3, amount)
-                ps.executeUpdate() > 0
+        return if (isMySQL) {
+            if (isSystem(uuid)) {
+                conn.prepareStatement(
+                    "UPDATE $xcoNonPlayerTable SET balance = balance - ? WHERE account = ? AND balance >= ?"
+                ).use { ps ->
+                    bindMoneyXco(ps, 1, amount); ps.setString(2, xcoSystemAccount); bindMoneyXco(ps, 3, amount)
+                    ps.executeUpdate() > 0
+                }
+            } else {
+                conn.prepareStatement(
+                    "UPDATE $xcoPlayerTable SET balance = balance - ? WHERE UID = ? AND balance >= ?"
+                ).use { ps ->
+                    bindMoneyXco(ps, 1, amount); ps.setString(2, uuid.toString()); bindMoneyXco(ps, 3, amount)
+                    ps.executeUpdate() > 0
+                }
             }
         } else {
             conn.prepareStatement(
-                "UPDATE $xcoPlayerTable SET balance = balance - ? WHERE UID = ? AND balance >= ?"
+                "UPDATE $sqliteBalanceTable SET balance = balance - ? WHERE uid = ? AND balance >= ?"
             ).use { ps ->
-                bindMoneyXco(ps, 1, amount); ps.setString(2, uuid.toString()); bindMoneyXco(ps, 3, amount)
+                val amt = toMoney(amount).toDouble()
+                ps.setDouble(1, amt); ps.setString(2, uuid.toString()); ps.setDouble(3, amt)
                 ps.executeUpdate() > 0
             }
         }
@@ -308,25 +446,37 @@ class Database {
 
     fun setBalance(uuid: UUID, amount: Double) {
         try {
-            if (isSystem(uuid)) {
-                connection.prepareStatement("UPDATE $xcoNonPlayerTable SET balance = ? WHERE account = ?").use { ps ->
-                    bindMoneyXco(ps, 1, amount); ps.setString(2, xcoSystemAccount)
-                    val updated = ps.executeUpdate()
-                    if (updated == 0) {
-                        connection.prepareStatement("INSERT INTO $xcoNonPlayerTable(account, balance) VALUES(?, ?)").use { ins ->
-                            ins.setString(1, xcoSystemAccount); bindMoneyXco(ins, 2, amount); ins.executeUpdate()
+            if (isMySQL) {
+                if (isSystem(uuid)) {
+                    connection.prepareStatement("UPDATE $xcoNonPlayerTable SET balance = ? WHERE account = ?").use { ps ->
+                        bindMoneyXco(ps, 1, amount); ps.setString(2, xcoSystemAccount)
+                        val updated = ps.executeUpdate()
+                        if (updated == 0) {
+                            connection.prepareStatement("INSERT INTO $xcoNonPlayerTable(account, balance) VALUES(?, ?)").use { ins ->
+                                ins.setString(1, xcoSystemAccount); bindMoneyXco(ins, 2, amount); ins.executeUpdate()
+                            }
+                        }
+                    }
+                } else {
+                    connection.prepareStatement("UPDATE $xcoPlayerTable SET balance = ? WHERE UID = ?").use { ps ->
+                        bindMoneyXco(ps, 1, amount); ps.setString(2, uuid.toString())
+                        val updated = ps.executeUpdate()
+                        if (updated == 0) {
+                            connection.prepareStatement(
+                                "INSERT INTO $xcoPlayerTable(UID, player, balance, hidden) VALUES(?, ?, ?, 0)"
+                            ).use { ins ->
+                                ins.setString(1, uuid.toString()); ins.setString(2, ""); bindMoneyXco(ins, 3, amount); ins.executeUpdate()
+                            }
                         }
                     }
                 }
             } else {
-                connection.prepareStatement("UPDATE $xcoPlayerTable SET balance = ? WHERE UID = ?").use { ps ->
-                    bindMoneyXco(ps, 1, amount); ps.setString(2, uuid.toString())
+                connection.prepareStatement("UPDATE $sqliteBalanceTable SET balance = ? WHERE uid = ?").use { ps ->
+                    ps.setDouble(1, toMoney(amount).toDouble()); ps.setString(2, uuid.toString())
                     val updated = ps.executeUpdate()
                     if (updated == 0) {
-                        connection.prepareStatement(
-                            "INSERT INTO $xcoPlayerTable(UID, player, balance, hidden) VALUES(?, ?, ?, 0)"
-                        ).use { ins ->
-                            ins.setString(1, uuid.toString()); ins.setString(2, ""); bindMoneyXco(ins, 3, amount); ins.executeUpdate()
+                        connection.prepareStatement("INSERT INTO $sqliteBalanceTable(uid, player, balance) VALUES(?, ?, ?)").use { ins ->
+                            ins.setString(1, uuid.toString()); ins.setString(2, if (isSystem(uuid)) "SERVER" else ""); ins.setDouble(3, toMoney(amount).toDouble()); ins.executeUpdate()
                         }
                     }
                 }
@@ -371,8 +521,14 @@ class Database {
 
     fun playerExistsAsync(uuid: UUID): CompletableFuture<Boolean> = supplyAsync {
         try {
-            it.prepareStatement("SELECT 1 FROM $xcoPlayerTable WHERE UID = ?").use { ps ->
-                ps.setString(1, uuid.toString()); val rs = ps.executeQuery(); rs.next()
+            if (isMySQL) {
+                it.prepareStatement("SELECT 1 FROM $xcoPlayerTable WHERE UID = ?").use { ps ->
+                    ps.setString(1, uuid.toString()); val rs = ps.executeQuery(); rs.next()
+                }
+            } else {
+                it.prepareStatement("SELECT 1 FROM $sqliteBalanceTable WHERE uid = ?").use { ps ->
+                    ps.setString(1, uuid.toString()); val rs = ps.executeQuery(); rs.next()
+                }
             }
         } catch (e: SQLException) {
             ServerMarket.LOGGER.error("检查玩家存在性失败 UUID: $uuid", e); false
@@ -383,10 +539,18 @@ class Database {
         val originalAutoCommit = connection.autoCommit
         try {
             connection.autoCommit = false
-            connection.prepareStatement(
-                "INSERT IGNORE INTO $xcoPlayerTable(UID, player, balance, hidden) VALUES(?, ?, ?, 0)"
-            ).use { ps ->
-                ps.setString(1, uuid.toString()); ps.setString(2, playerName); bindMoneyXco(ps, 3, initialAmount); ps.executeUpdate()
+            if (isMySQL) {
+                connection.prepareStatement(
+                    "INSERT IGNORE INTO $xcoPlayerTable(UID, player, balance, hidden) VALUES(?, ?, ?, 0)"
+                ).use { ps ->
+                    ps.setString(1, uuid.toString()); ps.setString(2, playerName); bindMoneyXco(ps, 3, initialAmount); ps.executeUpdate()
+                }
+            } else {
+                connection.prepareStatement(
+                    "INSERT OR IGNORE INTO $sqliteBalanceTable(uid, player, balance) VALUES(?, ?, ?)"
+                ).use { ps ->
+                    ps.setString(1, uuid.toString()); ps.setString(2, playerName); ps.setDouble(3, toMoney(initialAmount).toDouble()); ps.executeUpdate()
+                }
             }
             connection.commit()
         } catch (e: SQLException) {
@@ -400,10 +564,18 @@ class Database {
 
     fun upsertPlayerName(uuid: UUID, playerName: String) {
         try {
-            connection.prepareStatement(
-                "INSERT INTO $xcoPlayerTable(UID, player, balance, hidden) VALUES(?, ?, 0, 0) ON DUPLICATE KEY UPDATE player = VALUES(player)"
-            ).use { ps ->
-                ps.setString(1, uuid.toString()); ps.setString(2, playerName); ps.executeUpdate()
+            if (isMySQL) {
+                connection.prepareStatement(
+                    "INSERT INTO $xcoPlayerTable(UID, player, balance, hidden) VALUES(?, ?, 0, 0) ON DUPLICATE KEY UPDATE player = VALUES(player)"
+                ).use { ps ->
+                    ps.setString(1, uuid.toString()); ps.setString(2, playerName); ps.executeUpdate()
+                }
+            } else {
+                connection.prepareStatement(
+                    "INSERT INTO $sqliteBalanceTable(uid, player, balance) VALUES(?, ?, 0) ON CONFLICT(uid) DO UPDATE SET player = excluded.player"
+                ).use { ps ->
+                    ps.setString(1, uuid.toString()); ps.setString(2, playerName); ps.executeUpdate()
+                }
             }
         } catch (e: SQLException) { ServerMarket.LOGGER.error("更新玩家名失败 UUID: $uuid Name: $playerName", e) }
     }
