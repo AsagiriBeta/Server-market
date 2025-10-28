@@ -20,7 +20,7 @@ class Database {
     internal val isMySQL: Boolean
     val connection: Connection
 
-    // XConomy 兼容：表名与系统账户（仅 MySQL 模式使用）
+    // XConomy 兼容（MySQL模式）
     private val xcoPlayerTable = Config.xconomyPlayerTable
     private val xcoNonPlayerTable = Config.xconomyNonPlayerTable
     private val xcoRecordTable = Config.xconomyRecordTable
