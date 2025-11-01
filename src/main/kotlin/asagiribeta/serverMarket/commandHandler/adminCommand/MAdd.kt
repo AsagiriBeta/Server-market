@@ -12,11 +12,11 @@ import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.PermissionUtil
 
-class MSet {
+class MAdd {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(
-            CommandManager.literal("mset")
-                .requires(PermissionUtil.require("servermarket.admin.mset", 4))
+            CommandManager.literal("madd")
+                .requires(PermissionUtil.require("servermarket.admin.madd", 4))
                 .then(
                     CommandManager.argument("player", StringArgumentType.string())
                         .suggests { context, builder ->
@@ -25,7 +25,7 @@ class MSet {
                             CommandSource.suggestMatching(names, builder)
                         }
                         .then(
-                            CommandManager.argument("amount", DoubleArgumentType.doubleArg(0.0))
+                            CommandManager.argument("amount", DoubleArgumentType.doubleArg())
                                 .executes(this::execute)
                         )
                 )
@@ -37,30 +37,31 @@ class MSet {
         val amount = DoubleArgumentType.getDouble(context, "amount")
         val server = context.source.server
         val targetPlayer = server.playerManager.getPlayer(targetName) ?: run {
-            context.source.sendError(Text.literal(Language.get("command.mset.player_offline")))
+            context.source.sendError(Text.literal(Language.get("command.madd.player_offline")))
             return 0
         }
 
-        if (amount < 0) {
-            context.source.sendError(Text.literal(Language.get("command.mset.negative_amount")))
-            return 0
-        }
-
-        // 使用 TransferService 设置余额
-        ServerMarket.instance.transferService.setBalance(targetPlayer.uuid, amount).whenComplete { success, ex ->
+        // 使用 TransferService 增加余额
+        ServerMarket.instance.transferService.addBalance(targetPlayer.uuid, amount).whenComplete { success, ex ->
             server.execute {
                 if (ex != null) {
-                    context.source.sendError(Text.literal(Language.get("command.mset.failed")))
-                    ServerMarket.LOGGER.error("mset命令执行失败", ex)
+                    context.source.sendError(Text.literal(Language.get("command.madd.failed")))
+                    ServerMarket.LOGGER.error("madd命令执行失败", ex)
                 } else if (success) {
+                    val sign = if (amount >= 0) "+" else ""
                     context.source.sendMessage(
-                        Text.literal(Language.get("command.mset.success", targetPlayer.name.string, "%.2f".format(amount)))
+                        Text.literal(Language.get("command.madd.success", targetPlayer.name.string, "$sign%.2f".format(amount)))
+                    )
+                    // 通知目标玩家
+                    targetPlayer.sendMessage(
+                        Text.literal(Language.get("command.madd.received", "$sign%.2f".format(amount)))
                     )
                 } else {
-                    context.source.sendError(Text.literal(Language.get("command.mset.failed")))
+                    context.source.sendError(Text.literal(Language.get("command.madd.failed")))
                 }
             }
         }
         return 1
     }
 }
+

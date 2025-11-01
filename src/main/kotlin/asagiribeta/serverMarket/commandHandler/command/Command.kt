@@ -54,8 +54,8 @@ class Command {
             return 0
         }
         val uuid = player.uuid
-        // 改为异步查询余额，完成后切回主线程反馈
-        ServerMarket.instance.database.getBalanceAsync(uuid).whenComplete { balance, _ ->
+        // 使用 TransferService 查询余额
+        ServerMarket.instance.transferService.getBalance(uuid).whenComplete { balance, _ ->
             context.source.server.execute {
                 context.source.sendMessage(
                     Text.literal(Language.get("command.money.balance", "%.2f".format(balance)))

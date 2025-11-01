@@ -1,10 +1,21 @@
 package asagiribeta.serverMarket.repository
 
 import asagiribeta.serverMarket.ServerMarket
+import asagiribeta.serverMarket.model.CurrencyItem
 import asagiribeta.serverMarket.util.ItemKey
 import java.sql.PreparedStatement
 import java.util.concurrent.CompletableFuture
 
+/**
+ * 货币配置数据访问层
+ *
+ * 设计说明：
+ * - 查询操作（get, list, find）：提供 *Async 方法，可以被命令直接调用
+ * - 修改操作（upsert, delete）：提供同步方法 + *Async 包装，通过 CurrencyService 调用
+ *
+ * 原因：查询操作较简单，允许直接调用以简化代码；
+ *       修改操作需要通过 Service 层确保业务逻辑控制
+ */
 class CurrencyRepository(private val database: Database) {
 
     // 新增：异步 Upsert
@@ -50,11 +61,13 @@ class CurrencyRepository(private val database: Database) {
     }
 
     private fun findValueByNormalizedMatch(itemId: String, normalized: String): Double? {
+        // 优化：避免在应用层循环所有记录，改为在查询时使用 LIMIT
         return try {
             database.connection.prepareStatement(
-                "SELECT nbt, value FROM currency_items WHERE item_id = ?"
+                "SELECT nbt, value FROM currency_items WHERE item_id = ? ORDER BY CASE WHEN nbt = ? THEN 0 ELSE 1 END LIMIT 20"
             ).use { ps ->
                 ps.setString(1, itemId)
+                ps.setString(2, normalized)
                 val rs = ps.executeQuery()
                 var candidate: Double? = null
                 while (rs.next()) {
@@ -101,18 +114,6 @@ class CurrencyRepository(private val database: Database) {
         }
     }
 
-    // 新增：异步删除（使用 supplyAsync 包装以获取受影响行数）
-    fun deleteCurrencyAsync(itemId: String, nbtSnbt: String): CompletableFuture<Boolean> {
-        return database.supplyAsync {
-            deleteCurrency(itemId, nbtSnbt)
-        }
-    }
-
-    data class CurrencyItem(
-        val itemId: String,
-        val nbt: String,
-        val value: Double
-    )
 
     // 新增：异步 listAll
     fun listAllAsync(limit: Int = 100, offset: Int = 0): CompletableFuture<List<CurrencyItem>> {

@@ -20,6 +20,7 @@ object PermissionUtil {
      * @return true if the source has permission
      */
     @JvmStatic
+    @Suppress("unused") // Public API for runtime permission checks
     fun check(source: ServerCommandSource, node: String, defaultOpLevel: Int = 0): Boolean {
         return Permissions.check(source, node, defaultOpLevel)
     }

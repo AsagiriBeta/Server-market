@@ -35,27 +35,36 @@ class MPull {
 
         val itemId = Registries.ITEM.getId(itemStack.item).toString()
         val nbt = ItemKey.snbtOf(itemStack)
-        val db = ServerMarket.instance.database
-        val repo = db.marketRepository
+        val itemName = itemStack.name.string
 
-        db.supplyAsync {
-            if (repo.hasPlayerItem(player.uuid, itemId, nbt)) repo.removePlayerItem(player.uuid, itemId, nbt) else -1
-        }.whenComplete { returnedQuantity, ex ->
+        // Use MarketService to remove item from sale
+        ServerMarket.instance.marketService.removeItemFromSale(
+            playerUuid = player.uuid,
+            itemId = itemId,
+            nbt = nbt,
+            quantity = Int.MAX_VALUE  // Remove all
+        ).whenComplete { returnedQuantity, ex ->
             source.server.execute {
                 if (ex != null) {
                     source.sendError(Text.literal(Language.get("command.mpull.operation_failed")))
                     ServerMarket.LOGGER.error("mpull命令执行失败", ex)
                     return@execute
                 }
-                if (returnedQuantity == null || returnedQuantity < 0) {
+
+                if (returnedQuantity <= 0) {
                     source.sendError(Text.literal(Language.get("command.mpull.not_listed")))
                     return@execute
                 }
-                if (returnedQuantity > 0) {
-                    val returnStack = itemStack.copy().apply { count = returnedQuantity }
-                    player.giveItemStack(returnStack)
-                }
-                source.sendMessage(Text.literal(Language.get("command.mpull.success", itemStack.name.string, returnedQuantity)))
+
+                // Return items to player
+                val returnStack = itemStack.copy().apply { count = returnedQuantity }
+                player.giveItemStack(returnStack)
+
+                source.sendMessage(
+                    Text.literal(
+                        Language.get("command.mpull.success", itemName, returnedQuantity)
+                    )
+                )
             }
         }
         return 1

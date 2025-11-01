@@ -14,6 +14,7 @@ import net.minecraft.component.type.ItemEnchantmentsComponent
 import com.mojang.serialization.Codec
 import net.minecraft.nbt.NbtList
 import java.lang.reflect.Modifier
+import java.util.*
 
 @Suppress("unused")
 object ItemKey {
@@ -30,7 +31,22 @@ object ItemKey {
         }
     }
 
+    // NBT 缓存：LRU 缓存，最多 200 条记录
+    private val snbtCache = Collections.synchronizedMap(
+        object : LinkedHashMap<Int, String>(200, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, String>?) = size > 200
+        }
+    )
+
     fun snbtOf(stack: ItemStack): String {
+        // 使用 components hashCode 作为缓存键
+        val cacheKey = stack.components.hashCode()
+        return snbtCache.getOrPut(cacheKey) {
+            computeSnbtInternal(stack)
+        }
+    }
+
+    private fun computeSnbtInternal(stack: ItemStack): String {
         try {
             val viaCodec = NbtCompound()
             if (encodeViaCodec(stack, viaCodec)) {
@@ -117,6 +133,7 @@ object ItemKey {
         return null
     }
 
+    @Suppress("SameParameterValue")
     private fun getStringCompat(tag: NbtCompound, key: String): String? {
         try {
             val m = tag.javaClass.methods.firstOrNull { it.name == "getString" && it.parameterCount == 1 && it.parameterTypes[0] == String::class.java }

@@ -36,9 +36,6 @@ class MExchange {
             return 0
         }
 
-        val db = ServerMarket.instance.database
-        val repo = db.currencyRepository
-
         val main = player.mainHandStack
         if (main.isEmpty) {
             source.sendError(Text.literal(Language.get("command.mexchange.hold_item")))
@@ -49,59 +46,54 @@ class MExchange {
         val itemId = Registries.ITEM.getId(main.item).toString()
         val nbt = ItemKey.snbtOf(main)
 
-        // 先后台查询面值
-        db.supplyAsync { repo.getCurrencyValue(itemId, nbt) }
-            .whenComplete { value, ex ->
-                source.server.execute {
-                    if (ex != null) {
-                        ServerMarket.LOGGER.error("/mexchange 查询失败", ex)
-                        source.sendError(Text.literal(Language.get("command.mexchange.failed")))
-                        return@execute
-                    }
-                    val v = value ?: run {
-                        source.sendError(Text.literal(Language.get("command.mexchange.not_currency")))
-                        return@execute
-                    }
-                    // 统计并扣除物品（主线程）
-                    val inv = player.inventory
-                    val matchingStacks = (0 until inv.size()).map { inv.getStack(it) }.filter {
-                        !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == nbt
-                    }
-                    val totalAvailable = matchingStacks.sumOf { it.count }
-                    if (totalAvailable < quantity) {
-                        source.sendError(Text.literal(Language.get("command.mexchange.insufficient_items", quantity)))
-                        return@execute
-                    }
-                    var remaining = quantity
-                    for (stack in matchingStacks) {
-                        if (remaining <= 0) break
-                        val deduct = kotlin.math.min(remaining, stack.count)
-                        stack.count -= deduct
-                        remaining -= deduct
-                    }
-                    val totalGain = v * quantity
-                    // 后台入账
-                    db.depositAsync(player.uuid, totalGain).whenComplete { _, ex2 ->
-                        source.server.execute {
-                            if (ex2 != null) {
-                                ServerMarket.LOGGER.error("/mexchange 入账失败", ex2)
-                                source.sendError(Text.literal(Language.get("command.mexchange.failed")))
-                            } else {
-                                source.sendMessage(
-                                    Text.literal(
-                                        Language.get(
-                                            "command.mexchange.success",
-                                            quantity,
-                                            itemName,
-                                            String.format("%.2f", totalGain)
-                                        )
-                                    )
-                                )
-                            }
-                        }
-                    }
+        // First check inventory for sufficient items
+        val inv = player.inventory
+        val matchingStacks = (0 until inv.size()).map { inv.getStack(it) }.filter {
+            !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == nbt
+        }
+        val totalAvailable = matchingStacks.sumOf { it.count }
+        if (totalAvailable < quantity) {
+            source.sendError(Text.literal(Language.get("command.mexchange.insufficient_items", quantity)))
+            return 0
+        }
+
+        // Use CurrencyService to exchange currency to balance
+        ServerMarket.instance.currencyService.exchangeCurrencyToBalance(
+            player.uuid, itemId, nbt, quantity
+        ).whenComplete { totalGain, ex ->
+            source.server.execute {
+                if (ex != null) {
+                    ServerMarket.LOGGER.error("/mexchange 执行失败", ex)
+                    source.sendError(Text.literal(Language.get("command.mexchange.failed")))
+                    return@execute
                 }
+
+                if (totalGain == null) {
+                    source.sendError(Text.literal(Language.get("command.mexchange.not_currency")))
+                    return@execute
+                }
+
+                // Deduct items from inventory
+                var remaining = quantity
+                for (stack in matchingStacks) {
+                    if (remaining <= 0) break
+                    val deduct = kotlin.math.min(remaining, stack.count)
+                    stack.count -= deduct
+                    remaining -= deduct
+                }
+
+                source.sendMessage(
+                    Text.literal(
+                        Language.get(
+                            "command.mexchange.success",
+                            quantity,
+                            itemName,
+                            String.format("%.2f", totalGain)
+                        )
+                    )
+                )
             }
+        }
         return 1
     }
 }

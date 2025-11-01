@@ -1,7 +1,7 @@
-// filepath: /Users/asagiri/IdeaProjects/Server-market/src/main/kotlin/asagiribeta/serverMarket/commandHandler/command/MPay.kt
 package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.ServerMarket
+import asagiribeta.serverMarket.service.TransferService
 import asagiribeta.serverMarket.util.Config
 import asagiribeta.serverMarket.util.Language
 import com.mojang.brigadier.CommandDispatcher
@@ -57,18 +57,51 @@ class MPay {
             return 0
         }
 
-        val database = ServerMarket.instance.database
-        val fromUuid = sender.uuid
-        val toUuid = targetPlayer.uuid
-
-        database.transferAsync(fromUuid, toUuid, amount).whenComplete { _, ex ->
+        // Use TransferService instead of direct database access
+        ServerMarket.instance.transferService.transfer(
+            fromUuid = sender.uuid,
+            fromName = sender.name.string,
+            toUuid = targetPlayer.uuid,
+            toName = targetPlayer.name.string,
+            amount = amount
+        ).whenComplete { result, ex ->
             context.source.server.execute {
                 if (ex != null) {
                     context.source.sendError(Text.literal(Language.get("command.mpay.transfer_failed")))
                     ServerMarket.LOGGER.error("mpay命令执行失败", ex)
-                } else {
-                    context.source.sendMessage(Text.literal(Language.get("command.mpay.success", targetPlayer.name.string, "%.2f".format(amount))))
-                    targetPlayer.sendMessage(Text.literal(Language.get("command.mpay.received", sender.name.string, "%.2f".format(amount))))
+                    return@execute
+                }
+
+                when (result) {
+                    is TransferService.TransferResult.Success -> {
+                        context.source.sendMessage(
+                            Text.literal(
+                                Language.get(
+                                    "command.mpay.success",
+                                    targetPlayer.name.string,
+                                    "%.2f".format(amount)
+                                )
+                            )
+                        )
+                        targetPlayer.sendMessage(
+                            Text.literal(
+                                Language.get(
+                                    "command.mpay.received",
+                                    sender.name.string,
+                                    "%.2f".format(amount)
+                                )
+                            )
+                        )
+                    }
+                    is TransferService.TransferResult.InsufficientFunds -> {
+                        context.source.sendError(
+                            Text.literal(Language.get("command.mpay.insufficient_funds"))
+                        )
+                    }
+                    is TransferService.TransferResult.Error -> {
+                        context.source.sendError(Text.literal(Language.get("command.mpay.transfer_failed")))
+                        ServerMarket.LOGGER.error("转账失败: ${result.message}")
+                    }
                 }
             }
         }

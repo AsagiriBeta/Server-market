@@ -96,6 +96,7 @@ object Language {
             zhTranslations["command.mpay.amount_too_large"] = "转账金额过大，最大允许 1,000,000"
             zhTranslations["command.mpay.cannot_pay_self"] = "不能向自己转账"
             zhTranslations["command.mpay.player_offline"] = "目标玩家不在线"
+            zhTranslations["command.mpay.insufficient_funds"] = "余额不足"
             zhTranslations["command.mpay.success"] = "成功向 %s 转账 %s"
             zhTranslations["command.mpay.received"] = "%s 向您转账 %s"
             zhTranslations["command.mpay.transfer_failed"] = "转账失败"
@@ -135,9 +136,10 @@ object Language {
             zhTranslations["command.msell.operation_failed"] = "补货失败"
             
             // MBuy 命令
-            zhTranslations["command.mbuy.not_found"] = "没有找到可购买的 %s"
+            zhTranslations["command.mbuy.not_found"] = "没有找到可购买的商品"
             zhTranslations["command.mbuy.insufficient_stock"] = "全服库存不足，最多可购买 %d 个"
-            zhTranslations["command.mbuy.insufficient_balance"] = "余额不足，需要 %s"
+            zhTranslations["command.mbuy.insufficient_funds"] = "余额不足，需要 %s"
+            zhTranslations["command.mbuy.limit_exceeded"] = "超出每日限购，剩余可购买 %d 个"
             zhTranslations["command.mbuy.success"] = "成功购买 %d 个 %s，花费 %s"
             zhTranslations["command.mbuy.error"] = "购买过程中发生错误"
             
@@ -151,6 +153,11 @@ object Language {
             zhTranslations["command.mset.success"] = "成功设置玩家 %s 的余额为 %s"
             zhTranslations["command.mset.failed"] = "设置余额失败"
             
+            zhTranslations["command.madd.player_offline"] = "目标玩家不在线"
+            zhTranslations["command.madd.success"] = "成功为玩家 %s 增加余额 %s"
+            zhTranslations["command.madd.received"] = "管理员已为您增加余额 %s"
+            zhTranslations["command.madd.failed"] = "增加余额失败"
+
             zhTranslations["command.mreload.success"] = "配置重新加载成功"
             zhTranslations["command.mreload.failed"] = "配置重新加载失败"
 
@@ -255,6 +262,7 @@ object Language {
             enTranslations["command.mpay.amount_too_large"] = "Transfer amount too large, maximum allowed: 1,000,000"
             enTranslations["command.mpay.cannot_pay_self"] = "Cannot transfer money to yourself"
             enTranslations["command.mpay.player_offline"] = "Target player is offline"
+            enTranslations["command.mpay.insufficient_funds"] = "Insufficient balance"
             enTranslations["command.mpay.success"] = "Successfully transferred %s to %s"
             enTranslations["command.mpay.received"] = "Received %s from %s"
             enTranslations["command.mpay.transfer_failed"] = "Transfer failed"
@@ -294,9 +302,10 @@ object Language {
             enTranslations["command.msell.operation_failed"] = "Stocking failed"
             
             // MBuy 命令
-            enTranslations["command.mbuy.not_found"] = "No %s available for purchase"
+            enTranslations["command.mbuy.not_found"] = "No items available for purchase"
             enTranslations["command.mbuy.insufficient_stock"] = "Insufficient server stock, maximum available: %d"
-            enTranslations["command.mbuy.insufficient_balance"] = "Insufficient balance, need %s"
+            enTranslations["command.mbuy.insufficient_funds"] = "Insufficient balance, need %s"
+            enTranslations["command.mbuy.limit_exceeded"] = "Daily purchase limit exceeded, remaining: %d"
             enTranslations["command.mbuy.success"] = "Successfully purchased %d %s for %s"
             enTranslations["command.mbuy.error"] = "Error occurred during purchase"
             
@@ -305,6 +314,11 @@ object Language {
             enTranslations["command.mlang.invalid"] = "Invalid language code, supported languages: zh, en"
             
             // 管理员命令
+            enTranslations["command.madd.player_offline"] = "Target player is offline"
+            enTranslations["command.madd.success"] = "Successfully added %s to player %s's balance"
+            enTranslations["command.madd.received"] = "Administrator added %s to your balance"
+            enTranslations["command.madd.failed"] = "Failed to add balance"
+
             enTranslations["command.mset.player_offline"] = "Target player is offline"
             enTranslations["command.mset.negative_amount"] = "Amount cannot be negative"
             enTranslations["command.mset.success"] = "Successfully set player %s's balance to %s"

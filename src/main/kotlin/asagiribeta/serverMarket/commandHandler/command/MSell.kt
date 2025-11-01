@@ -1,6 +1,7 @@
 package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.model.SellResult
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import net.minecraft.server.command.ServerCommandSource
@@ -36,63 +37,73 @@ class MSell {
             return 0
         }
 
-        // 提前获取物品名称
         val itemName = mainHandStack.name.string
         val itemId = Registries.ITEM.getId(mainHandStack.item).toString()
         val snbt = ItemKey.snbtOf(mainHandStack)
 
-        val db = ServerMarket.instance.database
-        val repo = db.marketRepository
-        val uuid = player.uuid
+        // Check inventory for sufficient items
+        val allStacks = (0 until player.inventory.size()).map { player.inventory.getStack(it) }.filter {
+            !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == snbt
+        }
 
-        // 先在后台校验是否存在该上架项
-        db.supplyAsync { repo.hasPlayerItem(uuid, itemId, snbt) }
-            .whenComplete { exists, ex ->
-                context.source.server.execute {
-                    if (ex != null) {
-                        context.source.sendError(Text.literal(Language.get("command.msell.operation_failed")))
-                        ServerMarket.LOGGER.error("msell命令执行失败", ex)
-                        return@execute
-                    }
-                    if (exists != true) {
-                        context.source.sendError(Text.literal(Language.get("command.msell.not_listed")))
-                        return@execute
-                    }
+        val totalAvailable = allStacks.sumOf { it.count }
+        if (totalAvailable < quantity) {
+            context.source.sendError(Text.literal(Language.get("command.msell.insufficient_items", quantity)))
+            return 0
+        }
 
-                    // 物品栏访问：仅筛选同ID且同NBT的堆栈
-                    val allStacks = (0 until player.inventory.size()).map { player.inventory.getStack(it) }.filter {
-                        !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == snbt
-                    }
+        // Use MarketService to list/restock item
+        ServerMarket.instance.marketService.listItemForSale(
+            playerUuid = player.uuid,
+            playerName = player.name.string,
+            itemId = itemId,
+            nbt = snbt,
+            quantity = quantity,
+            price = null  // Keep existing price if already listed
+        ).whenComplete { result, ex ->
+            context.source.server.execute {
+                if (ex != null) {
+                    context.source.sendError(Text.literal(Language.get("command.msell.operation_failed")))
+                    ServerMarket.LOGGER.error("msell命令执行失败", ex)
+                    return@execute
+                }
 
-                    val totalAvailable = allStacks.sumOf { it.count }
-                    if (totalAvailable < quantity) {
-                        context.source.sendError(Text.literal(Language.get("command.msell.insufficient_items", quantity)))
-                        return@execute
-                    }
-
-                    // 扣除指定数量（优先主手）
-                    var remaining = quantity
-                    for (stack in allStacks) {
-                        if (remaining <= 0) break
-                        val deduct = minOf(remaining, stack.count)
-                        stack.decrement(deduct)
-                        remaining -= deduct
-                    }
-
-                    // 后台更新库存
-                    db.runAsync { repo.incrementPlayerItemQuantity(uuid, itemId, snbt, quantity) }
-                        .whenComplete { _, ex2 ->
-                            context.source.server.execute {
-                                if (ex2 != null) {
-                                    context.source.sendError(Text.literal(Language.get("command.msell.operation_failed")))
-                                    ServerMarket.LOGGER.error("msell命令更新库存失败", ex2)
-                                } else {
-                                    context.source.sendMessage(Text.literal(Language.get("command.msell.success", quantity, itemName)))
-                                }
-                            }
+                when (result) {
+                    is SellResult.Success -> {
+                        // Deduct items from inventory
+                        var remaining = quantity
+                        for (stack in allStacks) {
+                            if (remaining <= 0) break
+                            val deduct = minOf(remaining, stack.count)
+                            stack.decrement(deduct)
+                            remaining -= deduct
                         }
+
+                        context.source.sendMessage(
+                            Text.literal(
+                                Language.get("command.msell.success", quantity, itemName)
+                            )
+                        )
+                    }
+                    SellResult.InvalidPrice -> {
+                        context.source.sendError(
+                            Text.literal(Language.get("command.msell.not_listed"))
+                        )
+                    }
+                    is SellResult.Error -> {
+                        context.source.sendError(
+                            Text.literal(Language.get("command.msell.operation_failed"))
+                        )
+                        ServerMarket.LOGGER.error("补货失败: ${result.message}")
+                    }
+                    else -> {
+                        context.source.sendError(
+                            Text.literal(Language.get("command.msell.operation_failed"))
+                        )
+                    }
                 }
             }
+        }
         return 1
     }
 }

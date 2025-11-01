@@ -7,6 +7,7 @@ class AdminCommand {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         // 子命令模块化注册
         MSet().register(dispatcher)
+        MAdd().register(dispatcher)
         APrice().register(dispatcher)
         APull().register(dispatcher)
         MLang().register(dispatcher)

@@ -1,27 +1,31 @@
-package asagiribeta.serverMarket.util
+package asagiribeta.serverMarket.config
 
 import asagiribeta.serverMarket.ServerMarket
-import asagiribeta.serverMarket.config.ConfigProperties
+import asagiribeta.serverMarket.util.PropertyLoader
 import java.io.File
 import java.util.Properties
 
-object Config {
-    private val configFile = File("config/server-market/config.properties")
+/**
+ * 配置管理器（可依赖注入版本）
+ *
+ * 优势：
+ * - 支持依赖注入，便于单元测试
+ * - 解耦配置加载逻辑
+ * - 支持热重载
+ */
+@Suppress("unused")
+class ConfigManager(private val configFile: File = File("config/server-market/config.properties")) {
+
     private val properties = Properties()
     private val config = ConfigProperties()
 
     // 通过委托访问配置属性
     val maxTransferAmount: Double get() = config.maxTransferAmount
     val initialPlayerBalance: Double get() = config.initialPlayerBalance
-    @Suppress("unused")
     val enableTransactionHistory: Boolean get() = config.enableTransactionHistory
-    @Suppress("unused")
     val maxHistoryRecords: Int get() = config.maxHistoryRecords
-    @Suppress("unused")
     val enableDebugLogging: Boolean get() = config.enableDebugLogging
-    @Suppress("unused")
     val marketTaxRate: Double get() = config.marketTaxRate
-    @Suppress("unused")
     val enableTax: Boolean get() = config.enableTax
     val storageType: String get() = config.storageType
     val sqlitePath: String get() = config.sqlitePath
@@ -40,6 +44,13 @@ object Config {
     val xconomyWriteRecord: Boolean get() = config.xconomyWriteRecord
 
     init {
+        reload()
+    }
+
+    /**
+     * 重新加载配置文件
+     */
+    fun reload() {
         loadConfig()
     }
 
@@ -51,42 +62,39 @@ object Config {
                 val loader = PropertyLoader(properties)
                 config.loadFrom(loader)
 
-                // 如果发现缺失或非法的键，写回文件补全
                 if (loader.changed) {
                     saveConfig()
-                    ServerMarket.LOGGER.info("配置文件已补全缺失/修复非法项并保存")
-                } else {
-                    ServerMarket.LOGGER.info("Configuration loaded successfully (storage: {})", storageType)
                 }
             } else {
-                saveConfig() // 写出默认
+                // 首次创建配置文件
+                configFile.parentFile?.mkdirs()
+                setDefaults()
+                saveConfig()
             }
+
+            ServerMarket.LOGGER.info("配置文件加载成功")
         } catch (e: Exception) {
-            ServerMarket.LOGGER.error("Failed to load configuration, using defaults", e)
-            saveConfig()
+            ServerMarket.LOGGER.error("加载配置文件失败", e)
+            setDefaults()
         }
+    }
+
+    private fun setDefaults() {
+        val loader = PropertyLoader(properties)
+        config.saveTo(loader)
     }
 
     private fun saveConfig() {
         try {
-            val dataDir = configFile.parentFile
-            if (!dataDir.exists()) {
-                dataDir.mkdirs()
-            }
-
             val loader = PropertyLoader(properties)
             config.saveTo(loader)
 
             configFile.outputStream().use {
-                properties.store(it, "ServerMarket Configuration File")
+                properties.store(it, "Server Market Configuration")
             }
-            ServerMarket.LOGGER.info("Configuration saved")
         } catch (e: Exception) {
-            ServerMarket.LOGGER.error("Failed to save configuration", e)
+            ServerMarket.LOGGER.error("保存配置文件失败", e)
         }
     }
-
-    fun reloadConfig() {
-        loadConfig()
-    }
 }
+

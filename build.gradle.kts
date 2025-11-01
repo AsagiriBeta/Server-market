@@ -59,6 +59,8 @@ repositories {
     mavenCentral()
     // Lucko 仓库（发布 fabric-permissions-api）
     maven("https://repo.lucko.me/")
+    // Nucleoid 仓库（发布 sgui）
+    maven("https://maven.nucleoid.xyz/")
     // Sonatype snapshots（如果使用快照版本时需要）
     maven("https://oss.sonatype.org/content/repositories/snapshots/")
 }
@@ -75,6 +77,13 @@ dependencies {
     val fpaVersion = prop(mcVersion, "fpa_version")
     modImplementation("me.lucko:fabric-permissions-api:$fpaVersion")
     include("me.lucko:fabric-permissions-api:$fpaVersion")
+
+    // SGUI 库 - 服务端 GUI 库（1.21.3 不支持）
+    if (mcVersion != "1_21_3") {
+        val sguiVersion = prop(mcVersion, "sgui_version")
+        modImplementation("eu.pb4:sgui:$sguiVersion")
+        include("eu.pb4:sgui:$sguiVersion")
+    }
 
     // SQLite 驱动
     modImplementation("org.xerial:sqlite-jdbc:3.45.1.0")

@@ -1,10 +1,9 @@
 package asagiribeta.serverMarket.commandHandler.command
 
-import asagiribeta.serverMarket.menu.MarketMenuScreenHandler
+import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.util.Language
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
-import net.minecraft.screen.SimpleNamedScreenHandlerFactory
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.server.network.ServerPlayerEntity
@@ -25,9 +24,10 @@ class MMenu {
             ctx.source.sendError(Text.literal(Language.get("error.player_only")))
             return 0
         }
-        player.openHandledScreen(SimpleNamedScreenHandlerFactory({ syncId, inv, _ ->
-            MarketMenuScreenHandler(syncId, inv, emptyList())
-        }, Text.literal(Language.get("menu.title"))))
+
+        // 使用新的基于 sgui 的 GUI
+        MarketGui(player).open()
+
         return 1
     }
 }

@@ -5,6 +5,10 @@ import asagiribeta.serverMarket.commandHandler.command.Command
 import asagiribeta.serverMarket.repository.Database
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.Config
+import asagiribeta.serverMarket.config.ConfigManager
+import asagiribeta.serverMarket.service.MarketService
+import asagiribeta.serverMarket.service.CurrencyService
+import asagiribeta.serverMarket.service.TransferService
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
@@ -14,7 +18,12 @@ import org.slf4j.LoggerFactory
 import org.slf4j.Logger
 
 class ServerMarket : ModInitializer {
+    internal lateinit var configManager: ConfigManager
     internal lateinit var database: Database
+    internal lateinit var marketService: MarketService
+    internal lateinit var currencyService: CurrencyService
+    internal lateinit var transferService: TransferService
+
     private val command = Command()
     private val adminCommand = AdminCommand()
     // 新增：保存当前运行中的服务器引用（1.21+ 用于 ItemStack.CODEC 序列化组件）
@@ -27,11 +36,23 @@ class ServerMarket : ModInitializer {
 
     override fun onInitialize() {
         instance = this
-        // 先加载配置，确定存储类型
+
+        // 1. 初始化配置管理器
+        configManager = ConfigManager()
+        LOGGER.info("Configuration loaded")
+
+        // 2. 兼容旧代码：同步配置到 Config object
         Config.reloadConfig()
-        // 初始化数据库（根据 storage_type 创建 SQLite 或 MySQL 连接）
+
+        // 3. 初始化数据库（根据 storage_type 创建 SQLite 或 MySQL 连接）
         database = Database()
         LOGGER.info("Database initialized using storage_type={} (MySQL={})", Config.storageType, database.isMySQL)
+
+        // 4. 初始化业务服务层
+        marketService = MarketService(database)
+        currencyService = CurrencyService(database)
+        transferService = TransferService(database)
+        LOGGER.info("Business services initialized")
 
         // 记录服务器引用
         ServerLifecycleEvents.SERVER_STARTING.register { srv -> server = srv }

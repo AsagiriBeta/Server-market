@@ -67,15 +67,16 @@ class ACash {
         }
         val stack = requireHeldItem(source) ?: return 0
         val (itemId, snbt) = getItemSignature(stack)
-        // 异步写库（使用仓库异步API）
-        val repo = ServerMarket.instance.database.currencyRepository
-        repo.upsertCurrencyAsync(itemId, snbt, value).whenComplete { _, ex ->
+        // 使用 CurrencyService 设置面值
+        ServerMarket.instance.currencyService.setCurrencyValue(itemId, snbt, value).whenComplete { success, ex ->
             source.server.execute {
                 if (ex != null) {
                     ServerMarket.LOGGER.error("acash 命令设置面值失败", ex)
                     source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
-                } else {
+                } else if (success) {
                     source.sendMessage(Text.literal(Language.get("command.acash.success", stack.name.string, value)))
+                } else {
+                    source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
                 }
             }
         }
@@ -107,8 +108,8 @@ class ACash {
         val source = context.source
         val stack = requireHeldItem(source) ?: return 0
         val (itemId, snbt) = getItemSignature(stack)
-        val repo = ServerMarket.instance.database.currencyRepository
-        repo.deleteCurrencyAsync(itemId, snbt).whenComplete { deleted, ex ->
+        // 使用 CurrencyService 移除货币设置
+        ServerMarket.instance.currencyService.removeCurrency(itemId, snbt).whenComplete { deleted, ex ->
             source.server.execute {
                 if (ex != null) {
                     ServerMarket.LOGGER.error("acash del 执行失败", ex)
