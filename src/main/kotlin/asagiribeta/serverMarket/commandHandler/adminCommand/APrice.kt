@@ -7,6 +7,7 @@ import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.context.CommandContext
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
@@ -14,19 +15,18 @@ import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.PermissionUtil
 
 class APrice {
-    fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
-        dispatcher.register(
-            CommandManager.literal("aprice")
-                .requires(PermissionUtil.require("servermarket.admin.aprice", 4))
-                .then(
-                    CommandManager.argument("price", DoubleArgumentType.doubleArg(0.0))
-                        .executes(this::execute)
-                        .then(
-                            CommandManager.argument("limitPerDay", IntegerArgumentType.integer(-1))
-                                .executes(this::executeWithLimit)
-                        )
-                )
-        )
+    // 构建 /svm edit price 子命令
+    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+        return CommandManager.literal("price")
+            .requires(PermissionUtil.require("servermarket.admin.price", 4))
+            .then(
+                CommandManager.argument("price", DoubleArgumentType.doubleArg(0.0))
+                    .executes(this::execute)
+                    .then(
+                        CommandManager.argument("limitPerDay", IntegerArgumentType.integer(-1))
+                            .executes(this::executeWithLimit)
+                    )
+            )
     }
 
     // 提取公共准备逻辑：校验玩家、手持物品，解析价格，生成 itemId 与 nbt

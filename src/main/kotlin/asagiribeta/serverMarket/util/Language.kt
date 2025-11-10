@@ -207,6 +207,31 @@ object Language {
             // 新增：MExchange 专用提示
             zhTranslations["command.mexchange.hold_item"] = "请手持要兑换的现金物品"
 
+            // MPurchase 命令
+            zhTranslations["command.mpurchase.player_only"] = "该命令只能由玩家执行"
+            zhTranslations["command.mpurchase.hold_item"] = "请手持要收购的物品"
+            zhTranslations["command.mpurchase.success"] = "成功设置收购 %s，单价 %s，目标数量 %d"
+            zhTranslations["command.mpurchase.failed"] = "设置收购订单失败"
+
+            // APurchase 命令
+            zhTranslations["command.apurchase.player_only"] = "只有玩家可以执行此命令"
+            zhTranslations["command.apurchase.hold_item"] = "请手持要设置系统收购的物品"
+            zhTranslations["command.apurchase.add_success"] = "成功设置系统收购 %s，单价 %s，每日限额 %s"
+            zhTranslations["command.apurchase.update_success"] = "成功更新系统收购 %s，单价 %s，每日限额 %s"
+            zhTranslations["command.apurchase.failed"] = "设置系统收购失败"
+            zhTranslations["command.apurchase.unlimited"] = "无限"
+
+            // MSellToPurchase 命令
+            zhTranslations["command.mselltopurchase.player_only"] = "该命令只能由玩家执行"
+            zhTranslations["command.mselltopurchase.hold_item"] = "请手持要出售的物品"
+            zhTranslations["command.mselltopurchase.insufficient_items"] = "物品数量不足（需要 %d 个）"
+            zhTranslations["command.mselltopurchase.success"] = "成功出售 %d 个 %s，获得 %s"
+            zhTranslations["command.mselltopurchase.not_found"] = "没有找到该物品的收购订单"
+            zhTranslations["command.mselltopurchase.limit_exceeded"] = "超出每日出售限额，剩余可出售 %d 个"
+            zhTranslations["command.mselltopurchase.buyer_no_money"] = "收购者余额不足，需要 %s"
+            zhTranslations["command.mselltopurchase.error"] = "出售过程中发生错误"
+            zhTranslations["command.mselltopurchase.failed"] = "出售失败"
+
             // UI 相关
             zhTranslations["ui.seller"] = "卖家: %s"
             zhTranslations["ui.price"] = "单价: %s"
@@ -231,6 +256,23 @@ object Language {
             zhTranslations["menu.home.help2"] = "在卖家列表中选择卖家进入其店铺"
             zhTranslations["menu.home.help3"] = "店铺内左/右键购买 1/64"
             zhTranslations["menu.enter_market_sellers"] = "进入市场(按卖家)"
+            // Purchase menu
+            zhTranslations["menu.enter_purchase"] = "进入收购页面"
+            zhTranslations["menu.purchase_list.title"] = "收购列表"
+            zhTranslations["menu.purchase_list.tip1"] = "点击物品出售给收购者"
+            zhTranslations["menu.purchase_list.tip2"] = "箭头翻页"
+            zhTranslations["menu.purchase_list.tip3"] = "下界之星返回首页"
+            zhTranslations["menu.purchase_list.tip4"] = "屏障关闭"
+            zhTranslations["menu.purchase.buyer"] = "收购者: %s"
+            zhTranslations["menu.purchase.price"] = "收购价: %s"
+            zhTranslations["menu.purchase.limit"] = "限额: %s"
+            zhTranslations["menu.purchase.click_tip"] = "左键: 卖1  |  右键: 卖64"
+            zhTranslations["menu.purchase.sell_ok"] = "成功出售 %d 个 %s，获得 %s"
+            zhTranslations["menu.purchase.not_enough_items"] = "物品不足"
+            zhTranslations["menu.purchase.limit_exceeded"] = "已达每日出售限额"
+            zhTranslations["menu.purchase.buyer_no_money"] = "收购者余额不足"
+            zhTranslations["menu.purchase.error"] = "出售失败"
+            zhTranslations["menu.loading"] = "加载中..."
             // 卖家列表/卖家条目
             zhTranslations["menu.seller.items"] = "商品数: %d"
             zhTranslations["menu.seller.open_shop"] = "左键打开店铺"
@@ -247,6 +289,21 @@ object Language {
             zhTranslations["menu.shop.tip_close"] = "屏障关闭"
             zhTranslations["menu.back_sellers"] = "返回卖家"
             zhTranslations["menu.shop.click_tip"] = "左键: +1  |  右键: +64"
+
+            // 快递驿站
+            zhTranslations["menu.enter_parcel"] = "快递驿站"
+            zhTranslations["menu.parcel.title"] = "快递驿站"
+            zhTranslations["menu.parcel.tip1"] = "点击物品领取包裹"
+            zhTranslations["menu.parcel.tip2"] = "箭头翻页"
+            zhTranslations["menu.parcel.tip3"] = "下界之星返回首页"
+            zhTranslations["menu.parcel.tip4"] = "屏障关闭"
+            zhTranslations["menu.parcel.reason"] = "来源: %s"
+            zhTranslations["menu.parcel.time"] = "时间: %s"
+            zhTranslations["menu.parcel.click_tip"] = "点击领取"
+            zhTranslations["menu.parcel.received"] = "成功领取 %d 个 %s"
+            zhTranslations["menu.parcel.empty"] = "暂无包裹"
+            zhTranslations["menu.parcel.error"] = "领取失败"
+            zhTranslations["menu.parcel.count"] = "包裹数: %d"
 
             // 加载英文翻译
             val enTranslations = mutableMapOf<String, String>()
@@ -373,6 +430,31 @@ object Language {
             // 新增：MExchange 专用提示
             enTranslations["command.mexchange.hold_item"] = "Please hold the currency item you want to exchange"
 
+            // MPurchase 命令
+            enTranslations["command.mpurchase.player_only"] = "Only players can execute this command"
+            enTranslations["command.mpurchase.hold_item"] = "Please hold the item you want to purchase"
+            enTranslations["command.mpurchase.success"] = "Successfully set purchase order for %s, price %s, target amount %d"
+            enTranslations["command.mpurchase.failed"] = "Failed to set purchase order"
+
+            // APurchase 命令
+            enTranslations["command.apurchase.player_only"] = "Only players can execute this command"
+            enTranslations["command.apurchase.hold_item"] = "Please hold the item for system purchase"
+            enTranslations["command.apurchase.add_success"] = "Successfully set system purchase for %s, price %s, daily limit %s"
+            enTranslations["command.apurchase.update_success"] = "Successfully updated system purchase for %s, price %s, daily limit %s"
+            enTranslations["command.apurchase.failed"] = "Failed to set system purchase"
+            enTranslations["command.apurchase.unlimited"] = "Unlimited"
+
+            // MSellToPurchase 命令
+            enTranslations["command.mselltopurchase.player_only"] = "Only players can execute this command"
+            enTranslations["command.mselltopurchase.hold_item"] = "Please hold the item you want to sell"
+            enTranslations["command.mselltopurchase.insufficient_items"] = "Insufficient items (need %d)"
+            enTranslations["command.mselltopurchase.success"] = "Successfully sold %d %s for %s"
+            enTranslations["command.mselltopurchase.not_found"] = "No purchase order found for this item"
+            enTranslations["command.mselltopurchase.limit_exceeded"] = "Daily sell limit exceeded, remaining: %d"
+            enTranslations["command.mselltopurchase.buyer_no_money"] = "Buyer has insufficient balance, need %s"
+            enTranslations["command.mselltopurchase.error"] = "Error occurred during sale"
+            enTranslations["command.mselltopurchase.failed"] = "Sale failed"
+
             // UI 相关
             enTranslations["ui.seller"] = "Seller: %s"
             enTranslations["ui.price"] = "Price: %s"
@@ -397,6 +479,23 @@ object Language {
             enTranslations["menu.home.help2"] = "Select a seller to enter the shop"
             enTranslations["menu.home.help3"] = "In shop: Left/Right = 1/64"
             enTranslations["menu.enter_market_sellers"] = "Enter Market (Sellers)"
+            // Purchase menu
+            enTranslations["menu.enter_purchase"] = "Enter Purchase Page"
+            enTranslations["menu.purchase_list.title"] = "Purchase List"
+            enTranslations["menu.purchase_list.tip1"] = "Click item to sell to buyer"
+            enTranslations["menu.purchase_list.tip2"] = "Use arrows to turn page"
+            enTranslations["menu.purchase_list.tip3"] = "Nether Star: Home"
+            enTranslations["menu.purchase_list.tip4"] = "Barrier: Close"
+            enTranslations["menu.purchase.buyer"] = "Buyer: %s"
+            enTranslations["menu.purchase.price"] = "Purchase Price: %s"
+            enTranslations["menu.purchase.limit"] = "Limit: %s"
+            enTranslations["menu.purchase.click_tip"] = "Left: Sell 1  |  Right: Sell 64"
+            enTranslations["menu.purchase.sell_ok"] = "Successfully sold %d %s for %s"
+            enTranslations["menu.purchase.not_enough_items"] = "Insufficient items"
+            enTranslations["menu.purchase.limit_exceeded"] = "Daily sell limit reached"
+            enTranslations["menu.purchase.buyer_no_money"] = "Buyer has insufficient balance"
+            enTranslations["menu.purchase.error"] = "Sale failed"
+            enTranslations["menu.loading"] = "Loading..."
             // Seller list / entry
             enTranslations["menu.seller.items"] = "Items: %d"
             enTranslations["menu.seller.open_shop"] = "Left click to open shop"
@@ -413,6 +512,21 @@ object Language {
             enTranslations["menu.shop.tip_close"] = "Barrier: Close"
             enTranslations["menu.back_sellers"] = "Back to Sellers"
             enTranslations["menu.shop.click_tip"] = "Left: +1  |  Right: +64"
+
+            // Parcel Station
+            enTranslations["menu.enter_parcel"] = "Parcel Station"
+            enTranslations["menu.parcel.title"] = "Parcel Station"
+            enTranslations["menu.parcel.tip1"] = "Click item to receive parcel"
+            enTranslations["menu.parcel.tip2"] = "Use arrows to turn page"
+            enTranslations["menu.parcel.tip3"] = "Nether Star: Home"
+            enTranslations["menu.parcel.tip4"] = "Barrier: Close"
+            enTranslations["menu.parcel.reason"] = "From: %s"
+            enTranslations["menu.parcel.time"] = "Time: %s"
+            enTranslations["menu.parcel.click_tip"] = "Click to receive"
+            enTranslations["menu.parcel.received"] = "Received %d %s"
+            enTranslations["menu.parcel.empty"] = "No parcels"
+            enTranslations["menu.parcel.error"] = "Failed to receive"
+            enTranslations["menu.parcel.count"] = "Parcels: %d"
 
             translations["zh"] = zhTranslations
             translations["en"] = enTranslations

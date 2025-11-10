@@ -31,6 +31,8 @@ class Database {
     internal val marketRepository = MarketRepository(this)
     internal val historyRepository = HistoryRepository(this)
     internal val currencyRepository = CurrencyRepository(this)
+    internal val purchaseRepository = PurchaseRepository(this)
+    internal val parcelRepository = ParcelRepository(this)
 
     // 余额仓库需要在 init 后初始化
     private val balanceRepository: BalanceRepository by lazy {

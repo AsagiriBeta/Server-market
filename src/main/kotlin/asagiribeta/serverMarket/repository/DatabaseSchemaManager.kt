@@ -230,6 +230,65 @@ internal class DatabaseSchemaManager(
             ) $suffix
             """.trimIndent()
         )
+
+        st.execute(
+            """
+            CREATE TABLE IF NOT EXISTS system_purchase (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                item_id VARCHAR(100) NOT NULL,
+                nbt VARCHAR(512) NOT NULL DEFAULT '',
+                price DOUBLE NOT NULL,
+                limit_per_day INT NOT NULL DEFAULT -1,
+                UNIQUE KEY uk_system_purchase (item_id, nbt)
+            ) $suffix
+            """.trimIndent()
+        )
+
+        st.execute(
+            """
+            CREATE TABLE IF NOT EXISTS player_purchase (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                buyer CHAR(36) NOT NULL,
+                buyer_name VARCHAR(64) NOT NULL,
+                item_id VARCHAR(100) NOT NULL,
+                nbt VARCHAR(512) NOT NULL DEFAULT '',
+                price DOUBLE NOT NULL,
+                target_amount INT NOT NULL DEFAULT 0,
+                current_amount INT NOT NULL DEFAULT 0,
+                UNIQUE KEY uk_player_purchase (buyer, item_id, nbt),
+                INDEX idx_player_buyer (buyer)
+            ) $suffix
+            """.trimIndent()
+        )
+
+        st.execute(
+            """
+            CREATE TABLE IF NOT EXISTS system_daily_sell (
+                date CHAR(10) NOT NULL,
+                player_uuid CHAR(36) NOT NULL,
+                item_id VARCHAR(100) NOT NULL,
+                nbt VARCHAR(512) NOT NULL DEFAULT '',
+                sold INT NOT NULL DEFAULT 0,
+                PRIMARY KEY(date, player_uuid, item_id, nbt)
+            ) $suffix
+            """.trimIndent()
+        )
+
+        st.execute(
+            """
+            CREATE TABLE IF NOT EXISTS parcels (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                recipient_uuid CHAR(36) NOT NULL,
+                recipient_name VARCHAR(64) NOT NULL,
+                item_id VARCHAR(100) NOT NULL,
+                nbt VARCHAR(512) NOT NULL DEFAULT '',
+                quantity INT NOT NULL,
+                timestamp BIGINT NOT NULL,
+                reason VARCHAR(255) NOT NULL DEFAULT '',
+                INDEX idx_parcel_recipient (recipient_uuid)
+            ) $suffix
+            """.trimIndent()
+        )
     }
 
     private fun createTablesSQLite() {
@@ -335,6 +394,65 @@ internal class DatabaseSchemaManager(
             )
             """.trimIndent()
         )
+
+        st.execute(
+            """
+            CREATE TABLE IF NOT EXISTS system_purchase (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                item_id TEXT NOT NULL,
+                nbt TEXT NOT NULL DEFAULT '',
+                price REAL NOT NULL,
+                limit_per_day INTEGER NOT NULL DEFAULT -1,
+                UNIQUE(item_id, nbt)
+            )
+            """.trimIndent()
+        )
+
+        st.execute(
+            """
+            CREATE TABLE IF NOT EXISTS player_purchase (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                buyer TEXT NOT NULL,
+                buyer_name TEXT NOT NULL,
+                item_id TEXT NOT NULL,
+                nbt TEXT NOT NULL DEFAULT '',
+                price REAL NOT NULL,
+                target_amount INTEGER NOT NULL DEFAULT 0,
+                current_amount INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(buyer, item_id, nbt)
+            )
+            """.trimIndent()
+        )
+        st.execute("CREATE INDEX IF NOT EXISTS idx_player_buyer ON player_purchase(buyer)")
+
+        st.execute(
+            """
+            CREATE TABLE IF NOT EXISTS system_daily_sell (
+                date TEXT NOT NULL,
+                player_uuid TEXT NOT NULL,
+                item_id TEXT NOT NULL,
+                nbt TEXT NOT NULL DEFAULT '',
+                sold INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(date, player_uuid, item_id, nbt)
+            )
+            """.trimIndent()
+        )
+
+        st.execute(
+            """
+            CREATE TABLE IF NOT EXISTS parcels (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                recipient_uuid TEXT NOT NULL,
+                recipient_name TEXT NOT NULL,
+                item_id TEXT NOT NULL,
+                nbt TEXT NOT NULL DEFAULT '',
+                quantity INTEGER NOT NULL,
+                timestamp INTEGER NOT NULL,
+                reason TEXT NOT NULL DEFAULT ''
+            )
+            """.trimIndent()
+        )
+        st.execute("CREATE INDEX IF NOT EXISTS idx_parcel_recipient ON parcels(recipient_uuid)")
     }
 }
 

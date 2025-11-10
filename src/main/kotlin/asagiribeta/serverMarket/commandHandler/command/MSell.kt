@@ -4,6 +4,7 @@ import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.model.SellResult
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.CommandManager.argument
@@ -15,14 +16,13 @@ import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.PermissionUtil
 
 class MSell {
-    fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
-        dispatcher.register(
-            literal("msell")
-                .requires(PermissionUtil.requirePlayer("servermarket.command.msell", 0))
-                .then(argument("quantity", IntegerArgumentType.integer(1))
-                    .executes(this::execute)
-                )
-        )
+    // 构建 /svm sell 子命令
+    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+        return literal("sell")
+            .requires(PermissionUtil.requirePlayer("servermarket.command.sell", 0))
+            .then(argument("quantity", IntegerArgumentType.integer(1))
+                .executes(this::execute)
+            )
     }
 
     private fun execute(context: CommandContext<ServerCommandSource>): Int {

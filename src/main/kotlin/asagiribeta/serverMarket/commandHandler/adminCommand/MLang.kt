@@ -5,24 +5,24 @@ import asagiribeta.serverMarket.util.PermissionUtil
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.command.CommandSource
 import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 
 class MLang {
-    fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
-        dispatcher.register(
-            CommandManager.literal("mlang")
-                .requires(PermissionUtil.require("servermarket.admin.mlang", 4))
-                .then(
-                    CommandManager.argument("lang", StringArgumentType.word())
-                        .suggests { _, builder ->
-                            CommandSource.suggestMatching(listOf("zh", "en"), builder)
-                        }
-                        .executes(this::execute)
-                )
-        )
+    // 构建 /svm edit lang 子命令
+    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+        return CommandManager.literal("lang")
+            .requires(PermissionUtil.require("servermarket.admin.lang", 4))
+            .then(
+                CommandManager.argument("lang", StringArgumentType.word())
+                    .suggests { _, builder ->
+                        CommandSource.suggestMatching(listOf("zh", "en"), builder)
+                    }
+                    .executes(this::execute)
+            )
     }
 
     private fun execute(context: CommandContext<ServerCommandSource>): Int {

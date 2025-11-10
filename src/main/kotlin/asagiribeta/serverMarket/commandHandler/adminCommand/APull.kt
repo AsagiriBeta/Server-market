@@ -4,6 +4,7 @@ import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
@@ -12,12 +13,11 @@ import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.PermissionUtil
 
 class APull {
-    fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
-        dispatcher.register(
-            CommandManager.literal("apull")
-                .requires(PermissionUtil.require("servermarket.admin.apull", 4))
-                .executes(this::execute)
-        )
+    // 构建 /svm edit pull 子命令
+    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+        return CommandManager.literal("pull")
+            .requires(PermissionUtil.require("servermarket.admin.pull", 4))
+            .executes(this::execute)
     }
 
     private fun execute(context: CommandContext<ServerCommandSource>): Int {

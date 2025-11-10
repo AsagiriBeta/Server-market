@@ -7,6 +7,7 @@ import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.command.CommandSource
 import net.minecraft.item.ItemStack
 import net.minecraft.registry.Registries
@@ -16,14 +17,15 @@ import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.PermissionUtil
 
 class ACash {
-    fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
-        val root = CommandManager.literal("acash")
-            .requires(PermissionUtil.require("servermarket.admin.acash", 4))
-            // /acash get
+    // 构建 /svm edit cash 子命令
+    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+        return CommandManager.literal("cash")
+            .requires(PermissionUtil.require("servermarket.admin.cash", 4))
+            // /svm edit cash get
             .then(CommandManager.literal("get").executes(this::executeGet))
-            // /acash del
+            // /svm edit cash del
             .then(CommandManager.literal("del").executes(this::executeDel))
-            // /acash list [item]
+            // /svm edit cash list [item]
             .then(
                 CommandManager.literal("list")
                     .executes(this::executeList)
@@ -36,12 +38,11 @@ class ACash {
                             .executes(this::executeList)
                     )
             )
-            // 兼容：/acash <value>
+            // /svm edit cash <value>
             .then(
                 CommandManager.argument("value", DoubleArgumentType.doubleArg(0.0))
                     .executes(this::executeSetValue)
             )
-        dispatcher.register(root)
     }
 
     // 提取的公用方法：要求执行者为玩家且主手持有物品，否则提示并返回 null

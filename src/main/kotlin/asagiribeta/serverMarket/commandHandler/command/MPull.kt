@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.commandHandler.command
 
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.text.Text
@@ -12,12 +13,11 @@ import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.PermissionUtil
 
 class MPull {
-    fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
-        dispatcher.register(
-            literal("mpull")
-                .requires(PermissionUtil.requirePlayer("servermarket.command.mpull", 0))
-                .executes(this::execute)
-        )
+    // 构建 /svm pull 子命令
+    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+        return literal("pull")
+            .requires(PermissionUtil.requirePlayer("servermarket.command.pull", 0))
+            .executes(this::execute)
     }
 
     fun execute(context: CommandContext<ServerCommandSource>): Int {

@@ -8,6 +8,7 @@ import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.arguments.DoubleArgumentType
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.command.CommandSource
 import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
@@ -16,20 +17,19 @@ import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.PermissionUtil
 
 class MPay {
-    fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
-        dispatcher.register(
-            literal("mpay")
-                .requires(PermissionUtil.requirePlayer("servermarket.command.mpay", 0))
-                .then(argument("player", StringArgumentType.string())
-                    .suggests { context, builder ->
-                        val names = context.source.server.playerManager.playerNames
-                        CommandSource.suggestMatching(names, builder)
-                    }
-                    .then(argument("amount", DoubleArgumentType.doubleArg())
-                        .executes(this::execute)
-                    )
+    // 构建 /svm pay 子命令
+    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+        return literal("pay")
+            .requires(PermissionUtil.requirePlayer("servermarket.command.pay", 0))
+            .then(argument("player", StringArgumentType.string())
+                .suggests { context, builder ->
+                    val names = context.source.server.playerManager.playerNames
+                    CommandSource.suggestMatching(names, builder)
+                }
+                .then(argument("amount", DoubleArgumentType.doubleArg())
+                    .executes(this::execute)
                 )
-        )
+            )
     }
 
     internal fun execute(context: CommandContext<ServerCommandSource>): Int {

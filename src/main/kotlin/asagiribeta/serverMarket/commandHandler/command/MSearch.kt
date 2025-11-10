@@ -3,6 +3,7 @@ package asagiribeta.serverMarket.commandHandler.command
 import net.minecraft.server.command.ServerCommandSource
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.CommandManager.argument
 import com.mojang.brigadier.arguments.StringArgumentType
@@ -13,15 +14,14 @@ import asagiribeta.serverMarket.util.CommandSuggestions
 import asagiribeta.serverMarket.util.PermissionUtil
 
 class MSearch {
-    fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
-        dispatcher.register(
-            literal("msearch")
-                .requires(PermissionUtil.require("servermarket.command.msearch", 0))
-                .then(argument("item_id", StringArgumentType.greedyString())
-                    .suggests(CommandSuggestions.ITEM_ID_SUGGESTIONS)
-                    .executes(this::execute)
-                )
-        )
+    // 构建 /svm search 子命令
+    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+        return literal("search")
+            .requires(PermissionUtil.require("servermarket.command.search", 0))
+            .then(argument("item_id", StringArgumentType.greedyString())
+                .suggests(CommandSuggestions.ITEM_ID_SUGGESTIONS)
+                .executes(this::execute)
+            )
     }
 
     private fun execute(context: CommandContext<ServerCommandSource>): Int {

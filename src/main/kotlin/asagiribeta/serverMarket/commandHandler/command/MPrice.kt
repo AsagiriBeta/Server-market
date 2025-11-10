@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.commandHandler.command
 
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.CommandManager.argument
@@ -14,14 +15,13 @@ import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.PermissionUtil
 
 class MPrice {
-    fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
-        dispatcher.register(
-            literal("mprice")
-                .requires(PermissionUtil.requirePlayer("servermarket.command.mprice", 0))
-                .then(argument("price", DoubleArgumentType.doubleArg(0.0))
-                    .executes(this::execute)
-                )
-        )
+    // 构建 /svm price 子命令
+    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+        return literal("price")
+            .requires(PermissionUtil.requirePlayer("servermarket.command.price", 0))
+            .then(argument("price", DoubleArgumentType.doubleArg(0.0))
+                .executes(this::execute)
+            )
     }
 
     internal fun execute(context: CommandContext<ServerCommandSource>): Int {

@@ -7,6 +7,7 @@ import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
 import net.minecraft.registry.Registries
@@ -21,21 +22,20 @@ import net.minecraft.command.argument.IdentifierArgumentType
 import asagiribeta.serverMarket.util.PermissionUtil
 
 class MBuy {
-    fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
-        dispatcher.register(
-            literal("mbuy")
-                .requires(PermissionUtil.requirePlayer("servermarket.command.mbuy", 0))
-                .then(argument("quantity", DoubleArgumentType.doubleArg(1.0))
-                    .then(argument("item", IdentifierArgumentType.identifier())
-                        .suggests(CommandSuggestions.ITEM_ID_SUGGESTIONS)
-                        .executes(this::executeBuy)
-                        .then(argument("seller", StringArgumentType.string())
-                            .suggests(CommandSuggestions.SELLER_SUGGESTIONS)
-                            .executes(this::executeBuyWithSeller)
-                        )
+    // 构建 /svm buy 子命令
+    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+        return literal("buy")
+            .requires(PermissionUtil.requirePlayer("servermarket.command.buy", 0))
+            .then(argument("quantity", DoubleArgumentType.doubleArg(1.0))
+                .then(argument("item", IdentifierArgumentType.identifier())
+                    .suggests(CommandSuggestions.ITEM_ID_SUGGESTIONS)
+                    .executes(this::executeBuy)
+                    .then(argument("seller", StringArgumentType.string())
+                        .suggests(CommandSuggestions.SELLER_SUGGESTIONS)
+                        .executes(this::executeBuyWithSeller)
                     )
                 )
-        )
+            )
     }
 
 

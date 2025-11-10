@@ -1,138 +1,102 @@
-# Server Market Mod Guide | [中文文档](./README_ZH.md)
+# Server Market
 
-## Introduction
-This mod adds a complete player economy and item trading market to Minecraft servers: player balances, transfers, player & system shops, global search, GUI, and optional physical currency items.
+[中文文档](./README_ZH.md)
 
-## Player Commands
-- **/money** – Show current balance.
-- **/mpay <player> <amount>** – Transfer balance to another player.
-- **/mprice <price>** – Set sale price for the held item (applies to future stock of that item+NBT in your shop).
-- **/msell <quantity>** – Add (restock) held item into your personal shop.
-- **/mpull** – Unlist the held item and return all remaining stock of that listing.
-- **/msearch <itemID>** – Search global market for an item ID.
-- **/mbuy <quantity> <itemID> [seller]** – Purchase items; auto‑matches lowest prices across sellers unless a seller (player name or `server`) is specified. Notes: system items may have per‑player daily limits; purchase may span multiple listings until quantity is satisfied.
-- **/mlist [player|server]** – View listings for a seller (player) or the system shop.
-- **/mcash <value> <quantity>** – Convert balance into configured physical currency items.
-- **/mexchange <quantity>** – Convert matching physical currency stacks (held + inventory) back into balance (signature = itemID + NBT if any).
-- **/mmenu** – Open interactive GUI (home, seller list, shop pages; left click = 1, right click = up to stack respecting limits).
+A Fabric mod that adds a complete player economy and item trading market to Minecraft servers.
 
-## Admin Commands
-- **/mset <player> <amount>** – Set player balance exactly.
-- **/aprice <price> [limitPerDay]** – Set or update system shop price (optional per‑player daily limit, -1 = unlimited; stock is infinite regardless).
-- **/apull** – Remove the held item from the system shop.
-- **/mlang <language>** – Switch system language (e.g., `en`, `zh`).
-- **/acash <value> | get | del | list [itemID]** – Manage physical currency mapping for the held item (set / query / delete / list).
-- **/mreload** – Reload configuration (including language if defined in config file).
+## Features
 
-## Market System Overview
-1. Dual Markets: Player Market (finite player stock, custom prices) + System Market (admin defined, infinite stock, optional per‑player daily caps).
-2. Smart Purchasing: Auto lowest-price aggregation across sellers; optional seller pin.
-3. GUI: `/mmenu` for browsing sellers & listings with pagination and quick purchases.
-4. Physical Currency: Admin maps arbitrary items (optionally with custom NBT) to face values; players cash in/out via `/mcash` & `/mexchange`.
+- 💰 **Player Economy** - Balance system with transfers and trading
+- 🛒 **Dual Market** - Player shops (limited stock) + System shop (infinite stock, admin-defined)
+- 📥 **Purchase System** - Players and admins can set purchase orders, others can sell items for money
+- 📦 **Parcel Station** - Purchased items are delivered to a personal parcel station for safe pickup
+- 🔍 **Smart Shopping** - Auto-matches lowest prices across all sellers
+- 🖥️ **GUI Interface** - Easy-to-use menu for browsing, purchasing, and selling
+- 💵 **Physical Currency** - Optional item-based currency system
+- 🗄️ **Flexible Storage** - SQLite (default) or MySQL with XConomy support
 
-## Physical Currency Notes
-- Unique signature = Item ID + NBT.
-- Use distinctive NBT to reduce counterfeits.
-- Currency issuance respects max stack size automatically.
+## Quick Start
 
-## Database Configuration
-By default the mod uses SQLite (no external DB required). You can switch to MySQL if you want to share balances with a Paper server via XConomy.
+### Player Commands
 
-Default (SQLite):
+```bash
+/svm money                           # Check balance
+/svm buy <qty> <item> [seller]       # Buy items
+/svm sell <qty>                      # List items for sale
+/svm menu                            # Open GUI (access parcel station here)
+/svm menu                            # Open GUI
+/svm purchase <price> <amount>       # Set purchase order (hold item)
+/svm selltopurchase <quantity>       # Sell to buyers (hold item)
 ```
-storage_type = sqlite
-# Database file path (auto-created)
-sqlite_path = market.db
+**How the Parcel Station Works:**
+- When someone sells items to your purchase order, they are sent to your parcel station
+- Open `/svm menu` and click the "Parcel Station" button (minecart chest icon)
+- Same items are automatically merged and show total quantity
+- Click any parcel to receive all quantities of that item into your inventory
+- The home page shows how many parcels are waiting for you
+
+
+### Admin Commands
+
+```bash
+/svm edit set <player> <amount>      # Set player balance
+/svm edit price <price> [limit]      # Set system shop price
+/svm edit cash <value>               # Configure currency items
+/svm edit purchase <price> [limit]   # Set system purchase (hold item)
+/svm edit reload                     # Reload configuration
 ```
 
-Switch to MySQL (XConomy-compatible):
-```
+## Installation
+
+1. Download the mod JAR file
+2. Place it in your server's `mods` folder
+3. Start the server - configuration will be auto-generated at `config/server-market/config.properties`
+4. (Optional) Install [LuckPerms](https://luckperms.net/) for advanced permissions
+
+## Database Setup
+
+**SQLite (Default)** - No setup required, works out of the box.
+
+**MySQL** - Edit `config/server-market/config.properties`:
+
+```properties
 storage_type = mysql
-mysql_host = <host>
+mysql_host = localhost
 mysql_port = 3306
 mysql_database = server_market
-mysql_user = <user>
-mysql_password = <password>
-mysql_use_ssl = false
-# Optional extra JDBC parameters (append form)
-mysql_jdbc_params = rewriteBatchedStatements=true&connectTimeout=10000
+mysql_user = your_user
+mysql_password = your_password
 ```
-Notes:
-- On first run, `config/server-market/config.properties` is generated with sensible defaults (SQLite).
-- For MySQL, character set & timezone parameters are auto‑appended: `useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true`.
 
-### XConomy (Paper) Compatibility
-- Enabled only in MySQL mode. The mod reads/writes balances directly via XConomy tables and can optionally mirror records.
-- Point Fabric and Paper to the same MySQL database. Tables are created automatically if missing (names configurable).
+**XConomy Compatibility** - When using MySQL, the mod can share balances with Paper servers running XConomy. Point both servers to the same database.
 
-Keys:
+## Permissions
+
+The mod uses Fabric Permissions API with LuckPerms support.
+
+**Quick Setup (LuckPerms):**
+```bash
+# Grant all player commands
+/lp group default permission set servermarket.command.* true
+
+# Grant all admin commands
+/lp group admin permission set servermarket.admin.* true
 ```
-xconomy_player_table = xconomy
-xconomy_nonplayer_table = xconomynon
-xconomy_record_table = xconomyrecord
-xconomy_login_table = xconomylogin
-xconomy_system_account = SERVER
-xconomy_write_record = false
-```
-Behavior in MySQL mode:
-- Player balances use XConomy player table (`UID`, `player`, `balance`, `hidden`).
-- System account maps to non‑player table row with `account = xconomy_system_account`.
-- Purchases transfer value through XConomy rows. If `xconomy_write_record = true`, trade events mirror into `xconomyrecord` (best‑effort).
 
-Behavior in SQLite mode:
-- Balances are stored locally in a `balances` table in your SQLite DB; system account uses UUID all zeros.
-- No XConomy integration in SQLite mode (Fabric‑only economy).
+**Fallback:** Without a permissions plugin, all players can use player commands, and OP level 4 is required for admin commands.
 
-## Configuration Keys (Core)
-- `initial_player_balance` – Starting balance for new players.
-- `max_transfer_amount` – Transfer cap per operation.
-- `enable_transaction_history` – Enable recording trade / transfer events.
-- `max_history_records` – Soft cap for retained history rows.
-- `enable_tax` + `market_tax_rate` – Enable & set a tax on market transactions (0–1, e.g., 0.05 = 5%).
-- `enable_debug_logging` – Extra log noise for troubleshooting.
+## Configuration
 
-## Daily Limits (System Shop)
-If a system listing has `limit_per_day >= 0`, each player’s purchases of that exact (itemID + NBT) are capped per real‑world server local day (resets at date change).
+Key settings in `config/server-market/config.properties`:
 
-## Language
-`/mlang` changes active language at runtime; restarting or using `/mreload` re‑reads config default if provided.
+- `initial_player_balance` - Starting balance for new players
+- `enable_tax` / `market_tax_rate` - Market transaction tax
+- `storage_type` - Database type (sqlite/mysql)
+- `language` - Default language (en/zh)
 
-## Security Tips
-- Use custom NBT for currency items.
-- Restrict admin commands to trusted operators only.
-
-## Permissions (LuckPerms / Fabric Permissions API)
-- Uses Fabric Permissions API; if a provider (e.g., LuckPerms Fabric) is installed, checks are delegated to it.
-- Fallback when no provider: all player commands are allowed; admin commands require OP level 4.
-- Suggested: install LuckPerms (Fabric) and `fabric-permissions-api-v0` (optional; declared as a suggested dependency).
-
-Permission nodes
-
-Player commands
-- `servermarket.command.money`
-- `servermarket.command.mpay`
-- `servermarket.command.mprice`
-- `servermarket.command.mpull`
-- `servermarket.command.mlist`
-- `servermarket.command.msell`
-- `servermarket.command.msearch`
-- `servermarket.command.mbuy`
-- `servermarket.command.mcash`
-- `servermarket.command.mexchange`
-- `servermarket.command.mmenu`
-
-Admin commands (fallback OP level 4)
-- `servermarket.admin.mset`
-- `servermarket.admin.aprice`
-- `servermarket.admin.apull`
-- `servermarket.admin.mlang`
-- `servermarket.admin.mreload`
-- `servermarket.admin.acash`
-
-LuckPerms examples
-- `/lp group default permission set servermarket.command.* true`
-- `/lp group admin permission set servermarket.admin.* true`
-- `/lp user <player> permission set servermarket.command.mmenu true`
+Old commands like `/mbuy`, `/mpay`, `/mset` have been replaced with the unified `/svm` command system.
 
 ## License
-See `LICENSE.txt`.
+
+See [LICENSE.txt](./LICENSE.txt)
+

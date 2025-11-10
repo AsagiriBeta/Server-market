@@ -6,6 +6,7 @@ import asagiribeta.serverMarket.util.ItemKey
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.context.CommandContext
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
@@ -14,14 +15,13 @@ import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.PermissionUtil
 
 class MExchange {
-    fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
-        dispatcher.register(
-            literal("mexchange")
-                .requires(PermissionUtil.requirePlayer("servermarket.command.mexchange", 0))
-                .then(argument("quantity", IntegerArgumentType.integer(1))
-                    .executes(this::execute)
-                )
-        )
+    // 构建 /svm exchange 子命令
+    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+        return literal("exchange")
+            .requires(PermissionUtil.requirePlayer("servermarket.command.exchange", 0))
+            .then(argument("quantity", IntegerArgumentType.integer(1))
+                .executes(this::execute)
+            )
     }
 
     private fun execute(context: CommandContext<ServerCommandSource>): Int {

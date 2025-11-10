@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.menu
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.model.PurchaseResult
+import asagiribeta.serverMarket.model.SellToBuyerResult
 import asagiribeta.serverMarket.repository.MarketMenuEntry
 import asagiribeta.serverMarket.repository.SellerMenuEntry
 import asagiribeta.serverMarket.util.ItemKey
@@ -23,6 +24,20 @@ import java.util.*
 import kotlin.math.min
 
 /**
+ * 收购菜单条目
+ */
+data class PurchaseMenuEntry(
+    val itemId: String,
+    val nbt: String,
+    val price: Double,
+    val buyerName: String,
+    val buyerUuid: UUID?,
+    val limitPerDay: Int = -1,
+    val targetAmount: Int = 0,
+    val currentAmount: Int = 0
+)
+
+/**
  * 使用 SGUI 库重写的市场菜单
  * 三级导航：HOME 首页 -> SELLER_LIST 卖家列表 -> SELLER_SHOP 卖家店铺
  */
@@ -32,7 +47,7 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
         private const val PAGE_SIZE = 45
     }
 
-    private enum class ViewMode { HOME, SELLER_LIST, SELLER_SHOP }
+    private enum class ViewMode { HOME, SELLER_LIST, SELLER_SHOP, PURCHASE_LIST, PARCEL_STATION }
 
     private var mode: ViewMode = ViewMode.HOME
     private var page: Int = 0
@@ -43,6 +58,12 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
     
     // 商品列表缓存
     private var shopEntries: List<MarketMenuEntry> = emptyList()
+
+    // 收购列表缓存
+    private var purchaseEntries: List<PurchaseMenuEntry> = emptyList()
+
+    // 快递包裹缓存
+    private var parcelEntries: List<asagiribeta.serverMarket.model.ParcelEntry> = emptyList()
 
     init {
         this.title = Text.literal(Language.get("menu.title"))
@@ -109,11 +130,17 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
         setNavButton(49, Items.BARRIER, Language.get("menu.close")) {
             this.close()
         }
+        setNavButton(50, Items.CHEST_MINECART, Language.get("menu.enter_parcel")) {
+            showParcelStation(true)
+        }
+        setNavButton(51, Items.EMERALD, Language.get("menu.enter_purchase")) {
+            showPurchaseList(true)
+        }
         setNavButton(53, Items.CHEST, Language.get("menu.enter_market_sellers")) {
             showSellerList(true)
         }
 
-        // 异步加载余额
+        // 异步加载余额和包裹数量
         val db = ServerMarket.instance.database
         db.getBalanceAsync(player.uuid).whenComplete { balance, _ ->
             serverExecute {
@@ -121,6 +148,20 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
                     val updatedBalance = GuiElementBuilder(Items.GOLD_INGOT)
                         .setName(Text.literal(Language.get("menu.balance", "%.2f".format(balance))))
                     this.setSlot(4, updatedBalance)
+                }
+            }
+        }
+
+        // 异步显示包裹数量提示
+        ServerMarket.instance.parcelService.getParcelCountForPlayerAsync(player.uuid).whenComplete { count, _ ->
+            serverExecute {
+                if (mode == ViewMode.HOME && count != null && count > 0) {
+                    // 重新创建按钮，保留点击事件
+                    val updated = GuiElementBuilder(Items.CHEST_MINECART)
+                        .setName(Text.literal(Language.get("menu.enter_parcel")))
+                        .addLoreLine(Text.literal("§e${Language.get("menu.parcel.count", count)}"))
+                        .setCallback { _, _, _ -> showParcelStation(true) }
+                    this.setSlot(50, updated)
                 }
             }
         }
@@ -417,6 +458,400 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
         }
     }
 
+    // ==================== 收购列表视图 ====================
+
+    private fun showPurchaseList(resetPage: Boolean = true) {
+        mode = ViewMode.PURCHASE_LIST
+        if (resetPage) page = 0
+        clearContent()
+        clearNav()
+
+        // 显示加载提示
+        setNavButton(46, Items.BOOK, Language.get("menu.loading")) {}
+        buildPurchaseListNav()
+
+        // 异步加载收购列表
+        val db = ServerMarket.instance.database
+        db.supplyAsync {
+            val systemPurchases = db.purchaseRepository.getAllSystemPurchases()
+            val playerPurchases = db.purchaseRepository.getAllPlayerPurchases()
+
+            // 合并系统和玩家收购
+            val allPurchases = mutableListOf<PurchaseMenuEntry>()
+
+            // 添加系统收购
+            systemPurchases.forEach { order ->
+                allPurchases.add(
+                    PurchaseMenuEntry(
+                        itemId = order.itemId,
+                        nbt = order.nbt,
+                        price = order.price,
+                        buyerName = "SERVER",
+                        buyerUuid = null,
+                        limitPerDay = order.limitPerDay
+                    )
+                )
+            }
+
+            // 添加玩家收购（仅未完成的）
+            playerPurchases.filter { !it.isCompleted }.forEach { entry ->
+                allPurchases.add(
+                    PurchaseMenuEntry(
+                        itemId = entry.itemId,
+                        nbt = entry.nbt,
+                        price = entry.price,
+                        buyerName = entry.buyerName,
+                        buyerUuid = entry.buyerUuid,
+                        limitPerDay = -1,
+                        targetAmount = entry.targetAmount,
+                        currentAmount = entry.currentAmount
+                    )
+                )
+            }
+
+            allPurchases
+        }.whenComplete { list, _ ->
+            serverExecute {
+                if (mode != ViewMode.PURCHASE_LIST) return@serverExecute
+
+                purchaseEntries = list ?: emptyList()
+                val totalPages = pageCountOf(purchaseEntries.size)
+                page = clampPage(page, totalPages)
+
+                clearContent()
+
+                // 显示当前页的收购订单
+                pageSlice(purchaseEntries, page).forEachIndexed { idx, entry ->
+                    this.setSlot(idx, buildPurchaseElement(entry))
+                }
+
+                buildPurchaseListNav()
+            }
+        }
+    }
+
+    private fun buildPurchaseElement(entry: PurchaseMenuEntry): GuiElementBuilder {
+        // 构建物品栈
+        val stack = ItemKey.tryBuildFullStackFromSnbt(entry.nbt, 1) ?: run {
+            val id = Identifier.tryParse(entry.itemId)
+            val itemType = if (id != null && Registries.ITEM.containsId(id))
+                           Registries.ITEM.get(id) else Items.STONE
+            ItemStack(itemType)
+        }
+
+        val limitStr = if (entry.limitPerDay < 0) "∞" else entry.limitPerDay.toString()
+        val remainingStr = if (entry.targetAmount > 0) {
+            "${entry.targetAmount - entry.currentAmount}/${entry.targetAmount}"
+        } else "∞"
+
+        val element = GuiElementBuilder.from(stack)
+            .setName(Text.literal(entry.itemId))
+            .addLoreLine(Text.literal(Language.get("menu.purchase.buyer", entry.buyerName)))
+            .addLoreLine(Text.literal(Language.get("menu.purchase.price", String.format(java.util.Locale.ROOT, "%.2f", entry.price))))
+            .addLoreLine(Text.literal(Language.get("menu.purchase.limit", if (entry.buyerName == "SERVER") limitStr else remainingStr)))
+            .addLoreLine(Text.literal(Language.get("menu.purchase.click_tip")))
+            .setCallback { _, clickType, _ ->
+                val sellAll = clickType == ClickType.MOUSE_RIGHT || clickType == ClickType.MOUSE_RIGHT_SHIFT
+                handleSellToPurchase(entry, sellAll)
+            }
+
+        return element
+    }
+
+    private fun buildPurchaseListNav() {
+        val totalPages = pageCountOf(purchaseEntries.size)
+
+        setNavButton(45, Items.ARROW, Language.get("menu.prev")) {
+            if (page > 0) {
+                page--
+                showPurchaseList(false)
+            }
+        }
+
+        val helpItem = GuiElementBuilder(Items.BOOK)
+            .setName(Text.literal(Language.get("menu.purchase_list.title")))
+            .addLoreLine(Text.literal(Language.get("menu.purchase_list.tip1")))
+            .addLoreLine(Text.literal(Language.get("menu.purchase_list.tip2")))
+            .addLoreLine(Text.literal(Language.get("menu.purchase_list.tip3")))
+            .addLoreLine(Text.literal(Language.get("menu.purchase_list.tip4")))
+        this.setSlot(46, helpItem)
+
+        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back_home")) {
+            showHome()
+        }
+
+        setNavButton(49, Items.BARRIER, Language.get("menu.close")) {
+            this.close()
+        }
+
+        setNavButton(53, Items.ARROW, Language.get("menu.next", "${page + 1}/$totalPages")) {
+            if (page + 1 < totalPages) {
+                page++
+                showPurchaseList(false)
+            }
+        }
+    }
+
+    // ==================== 出售逻辑 ====================
+
+    private fun handleSellToPurchase(entry: PurchaseMenuEntry, sellAll: Boolean) {
+        val desired = if (sellAll) 64 else 1
+        val itemId = entry.itemId
+        val nbt = entry.nbt
+
+        // 检查玩家背包中的物品数量
+        val allStacks = (0 until player.inventory.size()).map { player.inventory.getStack(it) }.filter {
+            !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == nbt
+        }
+
+        val totalAvailable = allStacks.sumOf { it.count }
+        if (totalAvailable < desired) {
+            player.sendMessage(
+                Text.literal(Language.get("menu.purchase.not_enough_items")),
+                false
+            )
+            return
+        }
+
+        // 使用 PurchaseService 处理出售逻辑
+        val buyerFilter = if (entry.buyerName == "SERVER") "SERVER" else entry.buyerUuid?.toString()
+
+        ServerMarket.instance.purchaseService.sellToBuyerAsync(
+            sellerUuid = player.uuid,
+            sellerName = player.name.string,
+            itemId = itemId,
+            nbt = nbt,
+            quantity = desired,
+            buyerFilter = buyerFilter
+        ).whenComplete { result: SellToBuyerResult?, _ ->
+            serverExecute {
+                when (result) {
+                    is SellToBuyerResult.Success -> {
+                        // 扣除物品
+                        var remaining = result.amount
+                        for (stack in allStacks) {
+                            if (remaining <= 0) break
+                            val deduct = minOf(remaining, stack.count)
+                            stack.decrement(deduct)
+                            remaining -= deduct
+                        }
+
+                        player.sendMessage(
+                            Text.literal(Language.get(
+                                "menu.purchase.sell_ok",
+                                result.amount,
+                                itemId,
+                                "%.2f".format(result.totalEarned)
+                            )),
+                            false
+                        )
+
+                        refreshPurchaseListAfterSell()
+                    }
+
+                    SellToBuyerResult.NotFound -> {
+                        player.sendMessage(
+                            Text.literal(Language.get("menu.purchase.error")),
+                            false
+                        )
+                    }
+
+                    is SellToBuyerResult.LimitExceeded -> {
+                        player.sendMessage(
+                            Text.literal(Language.get("menu.purchase.limit_exceeded")),
+                            false
+                        )
+                    }
+
+                    is SellToBuyerResult.InsufficientFunds -> {
+                        player.sendMessage(
+                            Text.literal(Language.get("menu.purchase.buyer_no_money")),
+                            false
+                        )
+                    }
+
+                    SellToBuyerResult.InsufficientItems -> {
+                        player.sendMessage(
+                            Text.literal(Language.get("menu.purchase.not_enough_items")),
+                            false
+                        )
+                    }
+
+                    is SellToBuyerResult.Error -> {
+                        player.sendMessage(
+                            Text.literal(Language.get("menu.purchase.error")),
+                            false
+                        )
+                    }
+
+                    null -> {
+                        player.sendMessage(
+                            Text.literal(Language.get("menu.purchase.error")),
+                            false
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun refreshPurchaseListAfterSell() {
+        if (mode == ViewMode.PURCHASE_LIST) {
+            val oldPage = page
+            showPurchaseList(resetPage = false)
+            page = oldPage.coerceAtMost(pageCountOf(purchaseEntries.size) - 1)
+        }
+    }
+
+    // ==================== 快递驿站视图 ====================
+
+    private fun showParcelStation(resetPage: Boolean = true) {
+        mode = ViewMode.PARCEL_STATION
+        if (resetPage) page = 0
+        clearContent()
+        clearNav()
+
+        // 显示加载提示
+        setNavButton(46, Items.BOOK, Language.get("menu.loading")) {}
+        buildParcelStationNav()
+
+        // 异步加载包裹列表（合并相同物品）
+        ServerMarket.instance.parcelService.getParcelsForPlayerMergedAsync(player.uuid)
+            .whenComplete { list, _ ->
+            serverExecute {
+                if (mode != ViewMode.PARCEL_STATION) return@serverExecute
+
+                parcelEntries = list ?: emptyList()
+                val totalPages = pageCountOf(parcelEntries.size)
+                page = clampPage(page, totalPages)
+
+                clearContent()
+
+                if (parcelEntries.isEmpty()) {
+                    // 显示空包裹提示
+                    val emptyItem = GuiElementBuilder(Items.BARRIER)
+                        .setName(Text.literal(Language.get("menu.parcel.empty")))
+                    this.setSlot(22, emptyItem)
+                } else {
+                    // 显示当前页的包裹
+                    pageSlice(parcelEntries, page).forEachIndexed { idx, entry ->
+                        this.setSlot(idx, buildParcelElement(entry))
+                    }
+                }
+
+                buildParcelStationNav()
+            }
+        }
+    }
+
+    private fun buildParcelElement(entry: asagiribeta.serverMarket.model.ParcelEntry): GuiElementBuilder {
+        // 构建物品栈
+        val stack = ItemKey.tryBuildFullStackFromSnbt(entry.nbt, entry.quantity) ?: run {
+            val id = Identifier.tryParse(entry.itemId)
+            val itemType = if (id != null && Registries.ITEM.containsId(id))
+                           Registries.ITEM.get(id) else Items.CHEST
+            ItemStack(itemType, entry.quantity)
+        }
+
+        // 格式化时间
+        val timeStr = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(java.util.Date(entry.timestamp))
+
+        val element = GuiElementBuilder.from(stack)
+            .setName(Text.literal(entry.itemId))
+            .addLoreLine(Text.literal(Language.get("menu.parcel.reason", entry.reason)))
+            .addLoreLine(Text.literal(Language.get("menu.parcel.time", timeStr)))
+            .addLoreLine(Text.literal(Language.get("ui.quantity", entry.quantity)))
+            .addLoreLine(Text.literal("§a${Language.get("menu.parcel.click_tip")}"))
+            .setCallback { _, _, _ ->
+                handleParcelReceive(entry)
+            }
+
+        return element
+    }
+
+    private fun buildParcelStationNav() {
+        val totalPages = pageCountOf(parcelEntries.size)
+
+        setNavButton(45, Items.ARROW, Language.get("menu.prev")) {
+            if (page > 0) {
+                page--
+                showParcelStation(false)
+            }
+        }
+
+        val helpItem = GuiElementBuilder(Items.BOOK)
+            .setName(Text.literal(Language.get("menu.parcel.title")))
+            .addLoreLine(Text.literal(Language.get("menu.parcel.tip1")))
+            .addLoreLine(Text.literal(Language.get("menu.parcel.tip2")))
+            .addLoreLine(Text.literal(Language.get("menu.parcel.tip3")))
+            .addLoreLine(Text.literal(Language.get("menu.parcel.tip4")))
+        this.setSlot(46, helpItem)
+
+        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back_home")) {
+            showHome()
+        }
+
+        setNavButton(49, Items.BARRIER, Language.get("menu.close")) {
+            this.close()
+        }
+
+        setNavButton(53, Items.ARROW, Language.get("menu.next", "${page + 1}/$totalPages")) {
+            if (page + 1 < totalPages) {
+                page++
+                showParcelStation(false)
+            }
+        }
+    }
+
+    // ==================== 快递领取逻辑 ====================
+
+    private fun handleParcelReceive(entry: asagiribeta.serverMarket.model.ParcelEntry) {
+        // 删除该玩家的所有相同物品的包裹
+        ServerMarket.instance.parcelService.removeParcelsByItemAsync(
+            player.uuid,
+            entry.itemId,
+            entry.nbt
+        ).whenComplete { count, _ ->
+            serverExecute {
+                if (count != null && count > 0) {
+                    // 发放物品
+                    val stack = ItemKey.tryBuildFullStackFromSnbt(entry.nbt, entry.quantity) ?: run {
+                        val id = Identifier.tryParse(entry.itemId)
+                        val itemType = if (id != null && Registries.ITEM.containsId(id))
+                                       Registries.ITEM.get(id) else Items.AIR
+                        ItemStack(itemType, entry.quantity)
+                    }
+                    player.giveItemStack(stack)
+
+                    player.sendMessage(
+                        Text.literal(Language.get(
+                            "menu.parcel.received",
+                            entry.quantity,
+                            entry.itemId
+                        )),
+                        false
+                    )
+
+                    // 刷新包裹列表
+                    refreshParcelStationAfterReceive()
+                } else {
+                    player.sendMessage(
+                        Text.literal(Language.get("menu.parcel.error")),
+                        false
+                    )
+                }
+            }
+        }
+    }
+
+    private fun refreshParcelStationAfterReceive() {
+        if (mode == ViewMode.PARCEL_STATION) {
+            val oldPage = page
+            showParcelStation(resetPage = false)
+            page = oldPage.coerceAtMost(pageCountOf(parcelEntries.size) - 1)
+        }
+    }
+
     // ==================== 辅助方法 ====================
 
     private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: String, callback: () -> Unit) {
@@ -426,4 +861,3 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
         this.setSlot(slot, element)
     }
 }
-

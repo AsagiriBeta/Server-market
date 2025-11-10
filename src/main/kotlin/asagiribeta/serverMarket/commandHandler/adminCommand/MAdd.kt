@@ -6,6 +6,7 @@ import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.command.CommandSource
 import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
@@ -13,23 +14,22 @@ import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.PermissionUtil
 
 class MAdd {
-    fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
-        dispatcher.register(
-            CommandManager.literal("madd")
-                .requires(PermissionUtil.require("servermarket.admin.madd", 4))
-                .then(
-                    CommandManager.argument("player", StringArgumentType.string())
-                        .suggests { context, builder ->
-                            val server = context.source.server
-                            val names = server.playerManager.playerNames
-                            CommandSource.suggestMatching(names, builder)
-                        }
-                        .then(
-                            CommandManager.argument("amount", DoubleArgumentType.doubleArg())
-                                .executes(this::execute)
-                        )
-                )
-        )
+    // 构建 /svm edit add 子命令
+    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+        return CommandManager.literal("add")
+            .requires(PermissionUtil.require("servermarket.admin.add", 4))
+            .then(
+                CommandManager.argument("player", StringArgumentType.string())
+                    .suggests { context, builder ->
+                        val server = context.source.server
+                        val names = server.playerManager.playerNames
+                        CommandSource.suggestMatching(names, builder)
+                    }
+                    .then(
+                        CommandManager.argument("amount", DoubleArgumentType.doubleArg())
+                            .executes(this::execute)
+                    )
+            )
     }
 
     private fun execute(context: CommandContext<ServerCommandSource>): Int {

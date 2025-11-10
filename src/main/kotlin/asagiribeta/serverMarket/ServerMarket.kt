@@ -1,7 +1,6 @@
 package asagiribeta.serverMarket
 
-import asagiribeta.serverMarket.commandHandler.adminCommand.AdminCommand
-import asagiribeta.serverMarket.commandHandler.command.Command
+import asagiribeta.serverMarket.commandHandler.Command
 import asagiribeta.serverMarket.repository.Database
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.Config
@@ -9,6 +8,8 @@ import asagiribeta.serverMarket.config.ConfigManager
 import asagiribeta.serverMarket.service.MarketService
 import asagiribeta.serverMarket.service.CurrencyService
 import asagiribeta.serverMarket.service.TransferService
+import asagiribeta.serverMarket.service.PurchaseService
+import asagiribeta.serverMarket.service.ParcelService
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
@@ -23,10 +24,10 @@ class ServerMarket : ModInitializer {
     internal lateinit var marketService: MarketService
     internal lateinit var currencyService: CurrencyService
     internal lateinit var transferService: TransferService
+    internal lateinit var purchaseService: PurchaseService
+    internal lateinit var parcelService: ParcelService
 
     private val command = Command()
-    private val adminCommand = AdminCommand()
-    // 新增：保存当前运行中的服务器引用（1.21+ 用于 ItemStack.CODEC 序列化组件）
     internal var server: MinecraftServer? = null
 
     companion object {
@@ -52,6 +53,8 @@ class ServerMarket : ModInitializer {
         marketService = MarketService(database)
         currencyService = CurrencyService(database)
         transferService = TransferService(database)
+        purchaseService = PurchaseService(database)
+        parcelService = ParcelService(database)
         LOGGER.info("Business services initialized")
 
         // 记录服务器引用
@@ -95,10 +98,9 @@ class ServerMarket : ModInitializer {
             }
         }
 
-        // 注册命令
+        // 注册命令 - 所有命令现在都在 /svm 下
         CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->
             command.register(dispatcher)
-            adminCommand.register(dispatcher) // 注册管理员命令
         }
     }
 }
