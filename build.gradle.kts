@@ -73,10 +73,10 @@ dependencies {
     modImplementation("net.fabricmc:fabric-language-kotlin:$kotlinLoaderVersion")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${prop(mcVersion, "fabric_version")}")
 
-    // 引入并打包 fabric-permissions-api 到本模组内（无需服务器单独安装）
+    // 引入 fabric-permissions-api 但不打包（避免与其他模组的版本冲突）
+    // 用户需要单独安装 fabric-permissions-api
     val fpaVersion = prop(mcVersion, "fpa_version")
     modImplementation("me.lucko:fabric-permissions-api:$fpaVersion")
-    include("me.lucko:fabric-permissions-api:$fpaVersion")
 
     // SGUI 库 - 服务端 GUI 库（1.21.3 不支持）
     if (mcVersion != "1_21_3") {

@@ -49,9 +49,14 @@ A Fabric mod that adds a complete player economy and item trading market to Mine
 ## Installation
 
 1. Download the mod JAR file
-2. Place it in your server's `mods` folder
-3. Start the server - configuration will be auto-generated at `config/server-market/config.properties`
-4. (Optional) Install [LuckPerms](https://luckperms.net/) for advanced permissions
+2. **Download [Fabric Permissions API](https://modrinth.com/mod/fabric-permissions-api)** (required dependency)
+3. Place both JAR files in your server's `mods` folder
+4. Start the server - configuration will be auto-generated at `config/server-market/config.properties`
+5. (Optional) Install [LuckPerms](https://luckperms.net/) for advanced permissions
+
+**Note:** Fabric Permissions API is a required dependency. Make sure to download the correct version:
+- For Minecraft 1.21.6+: Use fabric-permissions-api v0.4.0 or later
+- For Minecraft 1.21.5 and below: Use fabric-permissions-api v0.3.3
 
 ## Database Setup
 

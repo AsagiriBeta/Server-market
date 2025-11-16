@@ -49,9 +49,14 @@
 ## 安装方法
 
 1. 下载模组 JAR 文件
-2. 放入服务器的 `mods` 文件夹
-3. 启动服务器 - 配置文件会自动生成在 `config/server-market/config.properties`
-4. （可选）安装 [LuckPerms](https://luckperms.net/) 以使用高级权限管理
+2. **下载 [Fabric Permissions API](https://modrinth.com/mod/fabric-permissions-api)**（必需依赖）
+3. 将两个 JAR 文件都放入服务器的 `mods` 文件夹
+4. 启动服务器 - 配置文件会自动生成在 `config/server-market/config.properties`
+5. （可选）安装 [LuckPerms](https://luckperms.net/) 以使用高级权限管理
+
+**注意：** Fabric Permissions API 是必需的依赖项。请确保下载正确的版本：
+- Minecraft 1.21.6 及以上版本：使用 fabric-permissions-api v0.4.0 或更高版本
+- Minecraft 1.21.5 及以下版本：使用 fabric-permissions-api v0.3.3
 
 ## 数据库设置
 
