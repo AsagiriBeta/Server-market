@@ -123,6 +123,11 @@ class MBuy {
                             Text.literal(Language.get("command.mbuy.not_found"))
                         )
                     }
+                    is PurchaseResult.CannotBuyOwnItem -> {
+                        context.source.sendError(
+                            Text.literal(Language.get("command.mbuy.cannot_buy_own_item"))
+                        )
+                    }
                     is PurchaseResult.Error -> {
                         context.source.sendError(
                             Text.literal(Language.get("command.mbuy.error"))
@@ -206,6 +211,11 @@ class MBuy {
                     is PurchaseResult.NotFound -> {
                         context.source.sendError(
                             Text.literal(Language.get("command.mbuy.not_found"))
+                        )
+                    }
+                    is PurchaseResult.CannotBuyOwnItem -> {
+                        context.source.sendError(
+                            Text.literal(Language.get("command.mbuy.cannot_buy_own_item"))
                         )
                     }
                     is PurchaseResult.Error -> {

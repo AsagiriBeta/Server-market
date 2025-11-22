@@ -67,7 +67,21 @@ class MarketService(private val database: Database) {
             return PurchaseResult.NotFound
         }
 
-        // 2. 检查总可用数量（考虑限购）
+        // 2. 检查是否尝试购买自己的商品（防止旅行者背包等容器物品刷物品的漏洞）
+        val hasOwnItems = items.any { entry ->
+            entry.sellerName != "SERVER" &&
+            try {
+                UUID.fromString(entry.sellerName) == playerUuid
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+        if (hasOwnItems) {
+            return PurchaseResult.CannotBuyOwnItem
+        }
+
+        // 3. 检查总可用数量（考虑限购）
         var totalAvailable = 0
         for (entry in items) {
             if (entry.sellerName == "SERVER") {

@@ -142,7 +142,8 @@ object Language {
             zhTranslations["command.mbuy.limit_exceeded"] = "超出每日限购，剩余可购买 %d 个"
             zhTranslations["command.mbuy.success"] = "成功购买 %d 个 %s，花费 %s"
             zhTranslations["command.mbuy.error"] = "购买过程中发生错误"
-            
+            zhTranslations["command.mbuy.cannot_buy_own_item"] = "不能购买自己上架的商品"
+
             // MLang 命令
             zhTranslations["command.mlang.success"] = "语言已切换为%s"
             zhTranslations["command.mlang.invalid"] = "无效的语言代码，支持的语言: zh, en"
@@ -246,6 +247,7 @@ object Language {
             zhTranslations["menu.no_money"] = "余额不足，需要 %s"
             zhTranslations["menu.buy_ok"] = "成功购买 %d 个 %s 花费 %s"
             zhTranslations["menu.buy_error"] = "购买失败"
+            zhTranslations["menu.cannot_buy_own_item"] = "不能购买自己上架的商品"
             // 首页新增键
             zhTranslations["menu.balance"] = "当前余额: %s"
             zhTranslations["menu.enter_market"] = "进入市场"
@@ -292,6 +294,8 @@ object Language {
 
             // 快递驿站
             zhTranslations["menu.enter_parcel"] = "快递驿站"
+            zhTranslations["menu.enter_my_shop"] = "我的店铺"
+            zhTranslations["menu.enter_my_purchase"] = "我的收购"
             zhTranslations["menu.parcel.title"] = "快递驿站"
             zhTranslations["menu.parcel.tip1"] = "点击物品领取包裹"
             zhTranslations["menu.parcel.tip2"] = "箭头翻页"
@@ -304,6 +308,49 @@ object Language {
             zhTranslations["menu.parcel.empty"] = "暂无包裹"
             zhTranslations["menu.parcel.error"] = "领取失败"
             zhTranslations["menu.parcel.count"] = "包裹数: %d"
+
+            // 我的店铺
+            zhTranslations["menu.myshop.title"] = "我的店铺"
+            zhTranslations["menu.myshop.tip1"] = "点击商品进入管理界面"
+            zhTranslations["menu.myshop.count"] = "商品数: %d"
+            zhTranslations["menu.myshop.click_to_manage"] = "点击管理"
+
+            // 我的店铺详情
+            zhTranslations["menu.myshop.detail.total_value"] = "总价值: %s"
+            zhTranslations["menu.myshop.detail.current_stock"] = "当前库存"
+            zhTranslations["menu.myshop.detail.left_unlist"] = "左侧: 部分下架"
+            zhTranslations["menu.myshop.detail.right_restock"] = "右侧: 从背包补货"
+            zhTranslations["menu.myshop.detail.unlist_64"] = "下架 64"
+            zhTranslations["menu.myshop.detail.unlist_16"] = "下架 16"
+            zhTranslations["menu.myshop.detail.unlist_1"] = "下架 1"
+            zhTranslations["menu.myshop.detail.unlist_tip"] = "下架并发送到快递驿站"
+            zhTranslations["menu.myshop.detail.restock_1"] = "补货 1"
+            zhTranslations["menu.myshop.detail.restock_16"] = "补货 16"
+            zhTranslations["menu.myshop.detail.restock_64"] = "补货 64"
+            zhTranslations["menu.myshop.detail.restock_tip"] = "从背包扣除并增加库存"
+            zhTranslations["menu.myshop.detail.unlist_all"] = "完全下架"
+            zhTranslations["menu.myshop.detail.unlist_all_confirm"] = "将下架全部 %d 个"
+            zhTranslations["menu.myshop.detail.no_stock"] = "库存不足"
+            zhTranslations["menu.myshop.detail.invalid_item"] = "无效物品"
+            zhTranslations["menu.myshop.detail.insufficient_items"] = "背包中物品不足（需要 %d 个）"
+            zhTranslations["menu.myshop.detail.unlist_success"] = "已下架 %d 个 %s 到快递驿站"
+            zhTranslations["menu.myshop.detail.restock_success"] = "成功补货 %d 个 %s"
+            zhTranslations["menu.myshop.detail.unlist_reason"] = "部分下架"
+            zhTranslations["menu.myshop.detail.unlist_all_success"] = "已完全下架 %s，返还 %d 个到快递驿站"
+            zhTranslations["menu.myshop.detail.unlist_all_reason"] = "完全下架"
+            zhTranslations["menu.back"] = "返回"
+
+            // 我的收购
+            zhTranslations["menu.mypurchase.title"] = "我的收购"
+            zhTranslations["menu.mypurchase.tip1"] = "已收购的物品会自动发送到快递驿站"
+            zhTranslations["menu.mypurchase.tip2"] = "点击订单可取消收购"
+            zhTranslations["menu.mypurchase.count"] = "订单数: %d"
+            zhTranslations["menu.mypurchase.progress"] = "进度: %d/%d (%d%%)"
+            zhTranslations["menu.mypurchase.remaining"] = "剩余: %d"
+            zhTranslations["menu.mypurchase.auto_sent_tip"] = "已收购物品已自动发送至快递驿站"
+            zhTranslations["menu.mypurchase.completed"] = "收购完成！"
+            zhTranslations["menu.mypurchase.click_cancel"] = "点击取消此收购订单"
+            zhTranslations["menu.mypurchase.cancel_success"] = "已取消收购 %s"
 
             // 加载英文翻译
             val enTranslations = mutableMapOf<String, String>()
@@ -365,7 +412,8 @@ object Language {
             enTranslations["command.mbuy.limit_exceeded"] = "Daily purchase limit exceeded, remaining: %d"
             enTranslations["command.mbuy.success"] = "Successfully purchased %d %s for %s"
             enTranslations["command.mbuy.error"] = "Error occurred during purchase"
-            
+            enTranslations["command.mbuy.cannot_buy_own_item"] = "Cannot buy your own items"
+
             // MLang 命令
             enTranslations["command.mlang.success"] = "Language changed to %s"
             enTranslations["command.mlang.invalid"] = "Invalid language code, supported languages: zh, en"
@@ -469,6 +517,7 @@ object Language {
             enTranslations["menu.no_money"] = "Insufficient balance, need %s"
             enTranslations["menu.buy_ok"] = "Purchased %d %s for %s"
             enTranslations["menu.buy_error"] = "Purchase failed"
+            enTranslations["menu.cannot_buy_own_item"] = "Cannot buy your own items"
             // 首页新增键
             enTranslations["menu.balance"] = "Balance: %s"
             enTranslations["menu.enter_market"] = "Enter Market"
@@ -527,6 +576,54 @@ object Language {
             enTranslations["menu.parcel.empty"] = "No parcels"
             enTranslations["menu.parcel.error"] = "Failed to receive"
             enTranslations["menu.parcel.count"] = "Parcels: %d"
+
+            // My Shop
+            enTranslations["menu.myshop.title"] = "My Shop"
+            enTranslations["menu.myshop.tip1"] = "Click item to manage"
+            enTranslations["menu.myshop.count"] = "Items: %d"
+            enTranslations["menu.myshop.click_to_manage"] = "Click to manage"
+
+            // My Shop Detail
+            enTranslations["menu.myshop.detail.total_value"] = "Total value: %s"
+            enTranslations["menu.myshop.detail.current_stock"] = "Current Stock"
+            enTranslations["menu.myshop.detail.left_unlist"] = "Left: Partial unlist"
+            enTranslations["menu.myshop.detail.right_restock"] = "Right: Restock from inventory"
+            enTranslations["menu.myshop.detail.unlist_64"] = "Unlist 64"
+            enTranslations["menu.myshop.detail.unlist_16"] = "Unlist 16"
+            enTranslations["menu.myshop.detail.unlist_1"] = "Unlist 1"
+            enTranslations["menu.myshop.detail.unlist_tip"] = "Unlist and send to parcel station"
+            enTranslations["menu.myshop.detail.restock_1"] = "Restock 1"
+            enTranslations["menu.myshop.detail.restock_16"] = "Restock 16"
+            enTranslations["menu.myshop.detail.restock_64"] = "Restock 64"
+            enTranslations["menu.myshop.detail.restock_tip"] = "Deduct from inventory and add stock"
+            enTranslations["menu.myshop.detail.unlist_all"] = "Unlist All"
+            enTranslations["menu.myshop.detail.unlist_all_confirm"] = "Unlist all %d items"
+            enTranslations["menu.myshop.detail.no_stock"] = "Insufficient stock"
+            enTranslations["menu.myshop.detail.invalid_item"] = "Invalid item"
+            enTranslations["menu.myshop.detail.insufficient_items"] = "Insufficient items in inventory (need %d)"
+            enTranslations["menu.myshop.detail.unlist_success"] = "Unlisted %d %s to parcel station"
+            enTranslations["menu.myshop.detail.restock_success"] = "Successfully restocked %d %s"
+            enTranslations["menu.myshop.detail.unlist_reason"] = "Partial unlist"
+            enTranslations["menu.myshop.detail.unlist_all_success"] = "Fully unlisted %s, returned %d to parcel station"
+            enTranslations["menu.myshop.detail.unlist_all_reason"] = "Full unlist"
+            enTranslations["menu.back"] = "Back"
+
+            // My Purchase
+            enTranslations["menu.mypurchase.title"] = "My Purchase Orders"
+            enTranslations["menu.mypurchase.tip1"] = "Shift+Right click to claim purchased items"
+            enTranslations["menu.mypurchase.tip2"] = "Click to view details"
+            enTranslations["menu.mypurchase.count"] = "Orders: %d"
+            enTranslations["menu.mypurchase.progress"] = "Progress: %d/%d (%d%%)"
+            enTranslations["menu.mypurchase.remaining"] = "Remaining: %d"
+            enTranslations["menu.mypurchase.left_tip"] = "Left: View details"
+            enTranslations["menu.mypurchase.shift_right_claim_tip"] = "Shift+Right: Claim purchased"
+            enTranslations["menu.mypurchase.order_info"] = "%s | Price: %s | Purchased: %d/%d"
+            enTranslations["menu.mypurchase.price_prompt"] = "Please use command to change price"
+            enTranslations["menu.mypurchase.use_mpurchase"] = "Use command: /mpurchase <price> <target> (holding %s)"
+            enTranslations["menu.mypurchase.cancel_success"] = "Cancelled purchase order for %s"
+            enTranslations["menu.mypurchase.claim_success"] = "Claimed %d %s to parcel station"
+            enTranslations["menu.mypurchase.nothing_to_claim"] = "Nothing to claim"
+            enTranslations["menu.mypurchase.claim_reason"] = "Purchase order"
 
             translations["zh"] = zhTranslations
             translations["en"] = enTranslations

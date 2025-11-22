@@ -40,6 +40,11 @@ sealed class PurchaseResult {
     object NotFound : PurchaseResult()
 
     /**
+     * 不允许购买自己的商品
+     */
+    object CannotBuyOwnItem : PurchaseResult()
+
+    /**
      * 其他错误
      * @property message 错误消息
      */
