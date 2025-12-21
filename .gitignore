@@ -5,3 +5,6 @@
 /build/classes/kotlin/main/
 /run/
 /.idea/
+
+# macOS
+.DS_Store
