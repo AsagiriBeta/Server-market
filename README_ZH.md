@@ -8,7 +8,7 @@
 
 必需：
 - Fabric Permissions API **0.5.0**
-- Fabric Kotlin Loader **1.13.8+kotlin.2.3.0**
+- Fabric Language Kotlin **1.13.8+kotlin.2.3.0**
 
 可选：
 - LuckPerms（推荐）用于权限管理

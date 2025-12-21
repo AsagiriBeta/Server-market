@@ -8,7 +8,7 @@ A Fabric mod providing player economy + item market (GUI + commands) for Minecra
 
 Required:
 - Fabric Permissions API **0.5.0**
-- Fabric Kotlin Loader **1.13.8+kotlin.2.3.0**
+- Fabric Language Kotlin **1.13.8+kotlin.2.3.0**
 
 Optional:
 - LuckPerms (recommended) for permission management
