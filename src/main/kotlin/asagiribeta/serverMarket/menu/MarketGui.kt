@@ -70,7 +70,7 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
     }
 
     internal fun serverExecute(block: () -> Unit) {
-        player.server?.execute(block)
+        player.entityWorld.server.execute(block)
     }
 
     // ==================== 视图切换方法 ====================

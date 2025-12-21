@@ -125,7 +125,7 @@ class SellerShopView(private val gui: MarketGui) {
         val desired = if (buyAll) 64 else 1
 
         // 使用 MarketService 处理购买逻辑
-        ServerMarket.instance.marketService.purchaseItemAsync(
+        ServerMarket.instance.marketService.purchaseItem(
             playerUuid = player.uuid,
             playerName = player.name.string,
             itemId = entry.itemId,

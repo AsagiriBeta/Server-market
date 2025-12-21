@@ -285,7 +285,8 @@ internal class DatabaseSchemaManager(
                 quantity INT NOT NULL,
                 timestamp BIGINT NOT NULL,
                 reason VARCHAR(255) NOT NULL DEFAULT '',
-                INDEX idx_parcel_recipient (recipient_uuid)
+                INDEX idx_parcel_recipient (recipient_uuid),
+                INDEX idx_parcel_recipient_time (recipient_uuid, timestamp)
             ) $suffix
             """.trimIndent()
         )
@@ -453,6 +454,7 @@ internal class DatabaseSchemaManager(
             """.trimIndent()
         )
         st.execute("CREATE INDEX IF NOT EXISTS idx_parcel_recipient ON parcels(recipient_uuid)")
+        st.execute("CREATE INDEX IF NOT EXISTS idx_parcel_recipient_time ON parcels(recipient_uuid, timestamp)")
     }
 }
 

@@ -13,6 +13,7 @@ import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class APrice {
     // 构建 /svm edit price 子命令
@@ -60,17 +61,15 @@ class APrice {
 
     // 提取公共完成回调，统一在主线程反馈结果
     private fun handleCompletion(prepared: Prepared, ex: Throwable?) {
-        prepared.source.server.execute {
-            if (ex != null) {
-                prepared.source.sendError(Text.literal(Language.get("command.aprice.operation_failed")))
-                ServerMarket.LOGGER.error("aprice命令执行失败", ex)
-            } else {
-                prepared.source.sendMessage(
-                    Text.literal(
-                        Language.get("command.aprice.update_success", prepared.itemName, prepared.price)
-                    )
+        if (ex != null) {
+            prepared.source.sendError(Text.literal(Language.get("command.aprice.operation_failed")))
+            ServerMarket.LOGGER.error("aprice命令执行失败", ex)
+        } else {
+            prepared.source.sendMessage(
+                Text.literal(
+                    Language.get("command.aprice.update_success", prepared.itemName, prepared.price)
                 )
-            }
+            )
         }
     }
 
@@ -81,7 +80,7 @@ class APrice {
         // 直接 UPSERT，避免多一次 has 查询
         ServerMarket.instance.database.runAsync {
             repo.addSystemItem(prepared.itemId, prepared.nbt, prepared.price, -1)
-        }.whenComplete { _, ex ->
+        }.whenCompleteOnServerThread(prepared.source.server) { _, ex ->
             handleCompletion(prepared, ex)
         }
         return 1
@@ -94,7 +93,7 @@ class APrice {
         val repo = ServerMarket.instance.database.marketRepository
         ServerMarket.instance.database.runAsync {
             repo.addSystemItem(prepared.itemId, prepared.nbt, prepared.price, limitPerDay)
-        }.whenComplete { _, ex ->
+        }.whenCompleteOnServerThread(prepared.source.server) { _, ex ->
             handleCompletion(prepared, ex)
         }
         return 1

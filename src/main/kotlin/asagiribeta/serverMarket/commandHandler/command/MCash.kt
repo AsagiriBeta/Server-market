@@ -16,6 +16,7 @@ import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class MCash {
     // 构建 /svm cash 子命令
@@ -53,86 +54,82 @@ class MCash {
 
         // Use CurrencyService to find and exchange currency
         currencyRepo.findByValueAsync(value)
-            .whenComplete { mapping, ex ->
-                source.server.execute {
-                    if (ex != null) {
-                        ServerMarket.LOGGER.error("/mcash 查询失败", ex)
+            .whenCompleteOnServerThread(source.server) { mapping, ex ->
+                if (ex != null) {
+                    ServerMarket.LOGGER.error("/mcash 查询失败", ex)
+                    source.sendError(Text.literal(Language.get("command.mcash.failed")))
+                    return@whenCompleteOnServerThread
+                }
+
+                if (mapping == null) {
+                    source.sendError(Text.literal(Language.get("command.mcash.value_not_found", value)))
+                    return@whenCompleteOnServerThread
+                }
+
+                // Use CurrencyService to exchange balance to currency
+                ServerMarket.instance.currencyService.exchangeBalanceToCurrency(
+                    uuid, mapping.itemId, mapping.nbt, quantity
+                ).whenCompleteOnServerThread(source.server) { deducted, ex2 ->
+                    if (ex2 != null) {
+                        ServerMarket.LOGGER.error("/mcash 执行失败", ex2)
                         source.sendError(Text.literal(Language.get("command.mcash.failed")))
-                        return@execute
+                        return@whenCompleteOnServerThread
                     }
 
-                    if (mapping == null) {
-                        source.sendError(Text.literal(Language.get("command.mcash.value_not_found", value)))
-                        return@execute
+                    if (deducted == null) {
+                        source.sendError(
+                            Text.literal(
+                                Language.get(
+                                    "command.mcash.insufficient_balance",
+                                    String.format("%.2f", totalCost)
+                                )
+                            )
+                        )
+                        return@whenCompleteOnServerThread
                     }
 
-                    // Use CurrencyService to exchange balance to currency
-                    ServerMarket.instance.currencyService.exchangeBalanceToCurrency(
-                        uuid, mapping.itemId, mapping.nbt, quantity
-                    ).whenComplete { deducted, ex2 ->
-                        source.server.execute {
-                            if (ex2 != null) {
-                                ServerMarket.LOGGER.error("/mcash 执行失败", ex2)
-                                source.sendError(Text.literal(Language.get("command.mcash.failed")))
-                                return@execute
-                            }
+                    // Give currency items to player
+                    val id = Identifier.of(mapping.itemId)
+                    val item = Registries.ITEM.get(id)
+                    if (item.defaultStack.isEmpty) {
+                        // Refund if item is invalid
+                        db.supplyAsync0 { db.addBalance(uuid, deducted) }
+                        source.sendError(Text.literal(Language.get("command.mcash.failed")))
+                        return@whenCompleteOnServerThread
+                    }
 
-                            if (deducted == null) {
-                                source.sendError(
-                                    Text.literal(
-                                        Language.get(
-                                            "command.mcash.insufficient_balance",
-                                            String.format("%.2f", totalCost)
-                                        )
-                                    )
-                                )
-                                return@execute
-                            }
+                    var remaining = quantity
+                    val maxStack = item.maxCount
+                    val itemName = item.name.string
+                    val cleanNbt = ItemKey.normalizeSnbt(mapping.nbt)
 
-                            // Give currency items to player
-                            val id = Identifier.of(mapping.itemId)
-                            val item = Registries.ITEM.get(id)
-                            if (item.defaultStack.isEmpty) {
-                                // Refund if item is invalid
-                                db.depositAsync(uuid, deducted)
-                                source.sendError(Text.literal(Language.get("command.mcash.failed")))
-                                return@execute
+                    try {
+                        while (remaining > 0) {
+                            val give = kotlin.math.min(remaining, maxStack)
+                            val rebuilt = ItemKey.tryBuildFullStackFromSnbt(cleanNbt, give)
+                            val stack = rebuilt ?: run {
+                                val s = ItemStack(item, give)
+                                ItemKey.applySnbt(s, cleanNbt)
+                                s
                             }
-
-                            var remaining = quantity
-                            val maxStack = item.maxCount
-                            val itemName = item.name.string
-                            val cleanNbt = ItemKey.normalizeSnbt(mapping.nbt)
-
-                            try {
-                                while (remaining > 0) {
-                                    val give = kotlin.math.min(remaining, maxStack)
-                                    val rebuilt = ItemKey.tryBuildFullStackFromSnbt(cleanNbt, give)
-                                    val stack = rebuilt ?: run {
-                                        val s = ItemStack(item, give)
-                                        ItemKey.applySnbt(s, cleanNbt)
-                                        s
-                                    }
-                                    player.giveItemStack(stack)
-                                    remaining -= give
-                                }
-                                source.sendMessage(
-                                    Text.literal(
-                                        Language.get(
-                                            "command.mcash.success",
-                                            quantity,
-                                            itemName,
-                                            String.format("%.2f", totalCost)
-                                        )
-                                    )
-                                )
-                            } catch (e: Exception) {
-                                // Refund on failure
-                                db.depositAsync(uuid, deducted)
-                                ServerMarket.LOGGER.error("/mcash 物品发放失败，已退款", e)
-                                source.sendError(Text.literal(Language.get("command.mcash.failed")))
-                            }
+                            player.giveItemStack(stack)
+                            remaining -= give
                         }
+                        source.sendMessage(
+                            Text.literal(
+                                Language.get(
+                                    "command.mcash.success",
+                                    quantity,
+                                    itemName,
+                                    String.format("%.2f", totalCost)
+                                )
+                            )
+                        )
+                    } catch (e: Exception) {
+                        // Refund on failure
+                        db.supplyAsync0 { db.addBalance(uuid, deducted) }
+                        ServerMarket.LOGGER.error("/mcash 物品发放失败，已退款", e)
+                        source.sendError(Text.literal(Language.get("command.mcash.failed")))
                     }
                 }
             }

@@ -13,6 +13,7 @@ import net.minecraft.registry.Registries
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class MPrice {
     // 构建 /svm price 子命令
@@ -38,11 +39,12 @@ class MPrice {
             return 0
         }
 
-        return try {
-            val itemId = Registries.ITEM.getId(itemStack.item).toString()
-            val nbt = ItemKey.snbtOf(itemStack)
-            val marketRepo = ServerMarket.instance.database.marketRepository
-            
+        val db = ServerMarket.instance.database
+        val itemId = Registries.ITEM.getId(itemStack.item).toString()
+        val nbt = ItemKey.snbtOf(itemStack)
+
+        db.supplyAsync { _ ->
+            val marketRepo = db.marketRepository
             if (!marketRepo.hasPlayerItem(player.uuid, itemId, nbt)) {
                 marketRepo.addPlayerItem(
                     sellerUuid = player.uuid,
@@ -51,16 +53,25 @@ class MPrice {
                     nbt = nbt,
                     price = price
                 )
-                source.sendMessage(Text.literal(Language.get("command.mprice.add_success", itemStack.name.string, price)))
+                "add"
             } else {
                 marketRepo.updatePlayerItemPrice(player.uuid, itemId, nbt, price)
+                "update"
+            }
+        }.whenCompleteOnServerThread(source.server) { op, err ->
+            if (err != null) {
+                source.sendError(Text.literal(Language.get("command.mprice.operation_failed")))
+                ServerMarket.LOGGER.error("mprice命令执行失败", err)
+                return@whenCompleteOnServerThread
+            }
+
+            if (op == "add") {
+                source.sendMessage(Text.literal(Language.get("command.mprice.add_success", itemStack.name.string, price)))
+            } else {
                 source.sendMessage(Text.literal(Language.get("command.mprice.update_success", itemStack.name.string, price)))
             }
-            1
-        } catch (e: Exception) {
-            source.sendError(Text.literal(Language.get("command.mprice.operation_failed")))
-            ServerMarket.LOGGER.error("mprice命令执行失败", e)
-            0
         }
+
+        return 1
     }
 }

@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
@@ -42,17 +43,16 @@ class MAdd {
         }
 
         // 使用 TransferService 增加余额
-        ServerMarket.instance.transferService.addBalance(targetPlayer.uuid, amount).whenComplete { success, ex ->
-            server.execute {
+        ServerMarket.instance.transferService.addBalance(targetPlayer.uuid, amount)
+            .whenCompleteOnServerThread(server) { success, ex ->
                 if (ex != null) {
                     context.source.sendError(Text.literal(Language.get("command.madd.failed")))
                     ServerMarket.LOGGER.error("madd命令执行失败", ex)
-                } else if (success) {
+                } else if (success == true) {
                     val sign = if (amount >= 0) "+" else ""
                     context.source.sendMessage(
                         Text.literal(Language.get("command.madd.success", targetPlayer.name.string, "$sign%.2f".format(amount)))
                     )
-                    // 通知目标玩家
                     targetPlayer.sendMessage(
                         Text.literal(Language.get("command.madd.received", "$sign%.2f".format(amount)))
                     )
@@ -60,7 +60,6 @@ class MAdd {
                     context.source.sendError(Text.literal(Language.get("command.madd.failed")))
                 }
             }
-        }
         return 1
     }
 }

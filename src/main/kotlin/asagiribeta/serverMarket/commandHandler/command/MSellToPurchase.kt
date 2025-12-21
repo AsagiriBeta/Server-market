@@ -5,6 +5,7 @@ import asagiribeta.serverMarket.model.SellToBuyerResult
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import com.mojang.brigadier.context.CommandContext
@@ -59,20 +60,19 @@ class MSellToPurchase {
         }
 
         // 执行出售
-        ServerMarket.instance.purchaseService.sellToBuyerAsync(
+        ServerMarket.instance.purchaseService.sellToBuyer(
             sellerUuid = player.uuid,
             sellerName = player.name.string,
             itemId = itemId,
             nbt = snbt,
             quantity = quantity,
             buyerFilter = null  // 优先系统
-        ).whenComplete { result: SellToBuyerResult?, ex ->
-            context.source.server.execute {
-                if (ex != null) {
-                    context.source.sendError(Text.literal(Language.get("command.mselltopurchase.failed")))
-                    ServerMarket.LOGGER.error("出售失败", ex)
-                    return@execute
-                }
+        ).whenCompleteOnServerThread(context.source.server) { result: SellToBuyerResult?, ex ->
+            if (ex != null) {
+                context.source.sendError(Text.literal(Language.get("command.mselltopurchase.failed")))
+                ServerMarket.LOGGER.error("出售失败", ex)
+                return@whenCompleteOnServerThread
+            }
 
                 when (result) {
                     is SellToBuyerResult.Success -> {
@@ -126,7 +126,6 @@ class MSellToPurchase {
                         context.source.sendError(Text.literal(Language.get("command.mselltopurchase.error")))
                     }
                 }
-            }
         }
 
         return 1

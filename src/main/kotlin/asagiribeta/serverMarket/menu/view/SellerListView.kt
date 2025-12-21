@@ -6,6 +6,7 @@ import asagiribeta.serverMarket.menu.builder.GuiElementBuilders
 import asagiribeta.serverMarket.menu.builder.GuiElementBuilders.setPlayerSkin
 import asagiribeta.serverMarket.repository.SellerMenuEntry
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import net.minecraft.item.Items
 import net.minecraft.text.Text
@@ -34,9 +35,8 @@ class SellerListView(private val gui: MarketGui) {
     private fun loadSellerList() {
         val db = ServerMarket.instance.database
         db.supplyAsync { db.marketRepository.getAllSellersForMenu() }
-            .whenComplete { list, _ ->
-                gui.serverExecute {
-                    if (gui.mode != ViewMode.SELLER_LIST) return@serverExecute
+            .whenCompleteOnServerThread(gui.player.entityWorld.server) { list, _ ->
+                if (gui.mode != ViewMode.SELLER_LIST) return@whenCompleteOnServerThread
 
                     sellerEntries = list ?: emptyList()
                     val totalPages = gui.pageCountOf(sellerEntries.size)
@@ -50,7 +50,6 @@ class SellerListView(private val gui: MarketGui) {
                     }
 
                     buildNav()
-                }
             }
     }
 

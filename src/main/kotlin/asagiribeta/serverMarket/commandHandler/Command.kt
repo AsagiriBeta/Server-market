@@ -23,6 +23,7 @@ import asagiribeta.serverMarket.commandHandler.command.MSell
 import asagiribeta.serverMarket.commandHandler.command.MSellToPurchase
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
 import net.minecraft.server.command.CommandManager
@@ -98,13 +99,12 @@ class Command {
         }
         val uuid = player.uuid
         // 使用 TransferService 查询余额
-        ServerMarket.instance.transferService.getBalance(uuid).whenComplete { balance, _ ->
-            context.source.server.execute {
+        ServerMarket.instance.transferService.getBalance(uuid)
+            .whenCompleteOnServerThread(context.source.server) { balance, _ ->
                 context.source.sendMessage(
-                    Text.literal(Language.get("command.money.balance", "%.2f".format(balance)))
+                    Text.literal(Language.get("command.money.balance", "%.2f".format(balance ?: 0.0)))
                 )
             }
-        }
         return 1
     }
 }

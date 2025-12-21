@@ -12,6 +12,7 @@ import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.CommandSuggestions
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class MSearch {
     // 构建 /svm search 子命令
@@ -30,34 +31,35 @@ class MSearch {
         val db = ServerMarket.instance.database
 
         db.supplyAsync { db.marketRepository.searchForDisplay(itemId) }
-            .whenComplete { items, ex ->
-                source.server.execute {
-                    if (ex != null) {
-                        source.sendError(Text.literal(Language.get("command.msearch.search_failed")))
-                        ServerMarket.LOGGER.error("msearch命令执行失败", ex)
-                        return@execute
-                    }
-                    val list = items ?: emptyList()
-                    if (list.isEmpty()) {
-                        source.sendMessage(Text.literal(Language.get("command.msearch.not_found", itemId)))
-                        return@execute
-                    }
-                    source.sendMessage(Text.literal(Language.get("command.msearch.title", itemId)).styled {
-                        it.withBold(true).withColor(0xA020F0)
-                    })
-                    list.forEach { (_, _, sellerName, price, quantity) ->
-                        val sellerType = if (sellerName == "SERVER")
-                            Language.get("command.msearch.system_market")
-                        else
-                            Language.get("command.msearch.player_market")
+            .whenCompleteOnServerThread(source.server) { items, ex ->
+                if (ex != null) {
+                    source.sendError(Text.literal(Language.get("command.msearch.search_failed")))
+                    ServerMarket.LOGGER.error("msearch命令执行失败", ex)
+                    return@whenCompleteOnServerThread
+                }
 
-                        source.sendMessage(
-                            Text.literal("▸ $sellerType")
-                                .append(Text.literal(Language.get("ui.seller", sellerName)).styled { it.withColor(0x00FF00) })
-                                .append(Text.literal(Language.get("ui.price", "%.2f".format(price))).styled { it.withColor(0xFFA500) })
-                                .append(Text.literal(Language.get("ui.quantity", quantity.toString())).styled { it.withColor(0xADD8E6) })
-                        )
-                    }
+                val list = items ?: emptyList()
+                if (list.isEmpty()) {
+                    source.sendMessage(Text.literal(Language.get("command.msearch.not_found", itemId)))
+                    return@whenCompleteOnServerThread
+                }
+
+                source.sendMessage(Text.literal(Language.get("command.msearch.title", itemId)).styled {
+                    it.withBold(true).withColor(0xA020F0)
+                })
+
+                list.forEach { (_, _, sellerName, price, quantity) ->
+                    val sellerType = if (sellerName == "SERVER")
+                        Language.get("command.msearch.system_market")
+                    else
+                        Language.get("command.msearch.player_market")
+
+                    source.sendMessage(
+                        Text.literal("▸ $sellerType")
+                            .append(Text.literal(Language.get("ui.seller", sellerName)).styled { it.withColor(0x00FF00) })
+                            .append(Text.literal(Language.get("ui.price", "%.2f".format(price))).styled { it.withColor(0xFFA500) })
+                            .append(Text.literal(Language.get("ui.quantity", quantity.toString())).styled { it.withColor(0xADD8E6) })
+                    )
                 }
             }
         return 1

@@ -5,6 +5,7 @@ import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.model.ParcelEntry
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
@@ -36,10 +37,9 @@ class ParcelStationView(private val gui: MarketGui) {
     }
 
     private fun loadParcels() {
-        ServerMarket.instance.parcelService.getParcelsForPlayerMergedAsync(gui.player.uuid)
-            .whenComplete { list, _ ->
-                gui.serverExecute {
-                    if (gui.mode != ViewMode.PARCEL_STATION) return@serverExecute
+        ServerMarket.instance.parcelService.getParcelsForPlayerMerged(gui.player.uuid)
+            .whenCompleteOnServerThread(gui.player.entityWorld.server) { list, _ ->
+                if (gui.mode != ViewMode.PARCEL_STATION) return@whenCompleteOnServerThread
 
                     parcelEntries = list ?: emptyList()
                     val totalPages = gui.pageCountOf(parcelEntries.size)
@@ -60,7 +60,6 @@ class ParcelStationView(private val gui: MarketGui) {
                     }
 
                     buildNav()
-                }
             }
     }
 
@@ -127,7 +126,7 @@ class ParcelStationView(private val gui: MarketGui) {
         val player = gui.player
 
         // 删除该玩家的所有相同物品的包裹
-        ServerMarket.instance.parcelService.removeParcelsByItemAsync(
+        ServerMarket.instance.parcelService.removeParcelsByItem(
             player.uuid,
             entry.itemId,
             entry.nbt

@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
@@ -47,12 +48,12 @@ class MSet {
         }
 
         // 使用 TransferService 设置余额
-        ServerMarket.instance.transferService.setBalance(targetPlayer.uuid, amount).whenComplete { success, ex ->
-            server.execute {
+        ServerMarket.instance.transferService.setBalance(targetPlayer.uuid, amount)
+            .whenCompleteOnServerThread(server) { success, ex ->
                 if (ex != null) {
                     context.source.sendError(Text.literal(Language.get("command.mset.failed")))
                     ServerMarket.LOGGER.error("mset命令执行失败", ex)
-                } else if (success) {
+                } else if (success == true) {
                     context.source.sendMessage(
                         Text.literal(Language.get("command.mset.success", targetPlayer.name.string, "%.2f".format(amount)))
                     )
@@ -60,7 +61,6 @@ class MSet {
                     context.source.sendError(Text.literal(Language.get("command.mset.failed")))
                 }
             }
-        }
         return 1
     }
 }

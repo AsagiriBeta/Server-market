@@ -10,6 +10,9 @@ import asagiribeta.serverMarket.service.CurrencyService
 import asagiribeta.serverMarket.service.TransferService
 import asagiribeta.serverMarket.service.PurchaseService
 import asagiribeta.serverMarket.service.ParcelService
+import asagiribeta.serverMarket.integration.PlaceholderIntegration
+import asagiribeta.serverMarket.api.ServerMarketApiProvider
+import asagiribeta.serverMarket.api.internal.ServerMarketApiImpl
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
@@ -57,6 +60,9 @@ class ServerMarket : ModInitializer {
         parcelService = ParcelService(database)
         LOGGER.info("Business services initialized")
 
+        // Public API for other mods
+        ServerMarketApiProvider.set(ServerMarketApiImpl(this))
+
         // 记录服务器引用
         ServerLifecycleEvents.SERVER_STARTING.register { srv -> server = srv }
         ServerLifecycleEvents.SERVER_STOPPED.register { srv -> if (server === srv) server = null }
@@ -68,19 +74,18 @@ class ServerMarket : ModInitializer {
             val player = handler.player
             val uuid = player.uuid
             val name = player.gameProfile.name // 获取玩家名
-            // 切换为异步：避免在主线程做阻塞 IO
-            database.playerExistsAsync(uuid)
-                .thenCompose { exists: Boolean ->
-                    if (!exists) {
-                        database.initializeBalanceAsync(uuid, name, Config.initialPlayerBalance)
-                    } else {
-                        database.upsertPlayerNameAsync(uuid, name)
-                    }
+            // Avoid blocking IO on main thread
+            database.runAsync {
+                val exists = database.playerExists(uuid)
+                if (!exists) {
+                    database.initializeBalance(uuid, name, Config.initialPlayerBalance)
+                } else {
+                    database.upsertPlayerName(uuid, name)
                 }
-                .exceptionally { e ->
-                    LOGGER.error("玩家进服时数据库初始化失败 UUID: {} Name: {}", uuid, name, e)
-                    null
-                }
+            }.exceptionally { e ->
+                LOGGER.error("玩家进服时数据库初始化失败 UUID: {} Name: {}", uuid, name, e)
+                null
+            }
         }
 
         // 注册服务器停止事件关闭数据库连接
@@ -92,10 +97,18 @@ class ServerMarket : ModInitializer {
         // 注册玩家离线事件保存数据（异步）
         ServerPlayConnectionEvents.DISCONNECT.register { handler, _ ->
             val uuid = handler.player.uuid
-            database.syncSaveAsync(uuid).exceptionally { e ->
+            database.runAsync { database.syncSave(uuid) }.exceptionally { e ->
                 LOGGER.warn("玩家离线时保存数据失败 UUID: {}", uuid, e)
                 null
             }
+        }
+
+        // Placeholder API integration
+        try {
+            PlaceholderIntegration.register()
+            LOGGER.info("Placeholder API integration enabled")
+        } catch (t: Throwable) {
+            LOGGER.warn("Placeholder API integration failed to initialize", t)
         }
 
         // 注册命令 - 所有命令现在都在 /svm 下

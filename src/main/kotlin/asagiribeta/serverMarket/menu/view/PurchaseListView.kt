@@ -6,6 +6,7 @@ import asagiribeta.serverMarket.model.PurchaseMenuEntry
 import asagiribeta.serverMarket.model.SellToBuyerResult
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import eu.pb4.sgui.api.ClickType
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import net.minecraft.item.ItemStack
@@ -77,9 +78,8 @@ class PurchaseListView(private val gui: MarketGui) {
             }
 
             allPurchases
-        }.whenComplete { list, _ ->
-            gui.serverExecute {
-                if (gui.mode != ViewMode.PURCHASE_LIST) return@serverExecute
+        }.whenCompleteOnServerThread(gui.player.entityWorld.server) { list, _ ->
+            if (gui.mode != ViewMode.PURCHASE_LIST) return@whenCompleteOnServerThread
 
                 purchaseEntries = list ?: emptyList()
                 val totalPages = gui.pageCountOf(purchaseEntries.size)
@@ -93,7 +93,6 @@ class PurchaseListView(private val gui: MarketGui) {
                 }
 
                 buildNav()
-            }
         }
     }
 
@@ -182,7 +181,7 @@ class PurchaseListView(private val gui: MarketGui) {
         // 使用 PurchaseService 处理出售逻辑
         val buyerFilter = if (entry.buyerName == "SERVER") "SERVER" else entry.buyerUuid?.toString()
 
-        ServerMarket.instance.purchaseService.sellToBuyerAsync(
+        ServerMarket.instance.purchaseService.sellToBuyer(
             sellerUuid = player.uuid,
             sellerName = player.name.string,
             itemId = itemId,

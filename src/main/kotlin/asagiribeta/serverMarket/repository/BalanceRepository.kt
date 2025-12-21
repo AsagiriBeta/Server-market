@@ -9,8 +9,6 @@ import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.sql.SQLException
 import java.util.*
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ExecutorService
 
 /**
  * 余额管理仓库
@@ -27,8 +25,7 @@ import java.util.concurrent.ExecutorService
  */
 internal class BalanceRepository(
     private val connection: Connection,
-    private val isMySQL: Boolean,
-    private val executor: ExecutorService
+    private val isMySQL: Boolean
 ) {
 
     // XConomy 兼容（MySQL模式）
@@ -106,15 +103,6 @@ internal class BalanceRepository(
         0.0
     }
 
-    fun getBalanceAsync(uuid: UUID): CompletableFuture<Double> =
-        CompletableFuture.supplyAsync({
-            try {
-                queryBalance(uuid)
-            } catch (e: Exception) {
-                ServerMarket.LOGGER.error("异步查询余额失败", e)
-                throw e
-            }
-        }, executor)
 
     // ============== 余额修改 ==============
 
@@ -178,22 +166,6 @@ internal class BalanceRepository(
         )
     }
 
-    fun addBalanceAsync(uuid: UUID, amount: Double): CompletableFuture<Void> =
-        CompletableFuture.runAsync({
-            try {
-                addBalance(uuid, amount)
-            } catch (e: Exception) {
-                ServerMarket.LOGGER.error("异步添加余额失败", e)
-                throw e
-            }
-        }, executor)
-
-    fun depositAsync(uuid: UUID, amount: Double): CompletableFuture<Void> {
-        if (amount.isNaN() || amount.isInfinite() || amount <= 0.0) {
-            return CompletableFuture.completedFuture(null)
-        }
-        return addBalanceAsync(uuid, amount)
-    }
 
     fun setBalance(uuid: UUID, amount: Double) {
         try {
@@ -346,37 +318,24 @@ internal class BalanceRepository(
         }
     }
 
-    fun syncSaveAsync(uuid: UUID): CompletableFuture<Void> =
-        CompletableFuture.runAsync({
-            try {
-                syncSave(uuid)
-            } catch (e: Exception) {
-                ServerMarket.LOGGER.error("异步保存失败", e)
-                throw e
-            }
-        }, executor)
-
-    fun playerExistsAsync(uuid: UUID): CompletableFuture<Boolean> =
-        CompletableFuture.supplyAsync({
-            try {
-                if (isMySQL) {
-                    connection.prepareStatement("SELECT 1 FROM $xcoPlayerTable WHERE UID = ?").use { ps ->
-                        ps.setString(1, uuid.toString())
-                        val rs = ps.executeQuery()
-                        rs.next()
-                    }
-                } else {
-                    connection.prepareStatement("SELECT 1 FROM $sqliteBalanceTable WHERE uid = ?").use { ps ->
-                        ps.setString(1, uuid.toString())
-                        val rs = ps.executeQuery()
-                        rs.next()
-                    }
+    fun playerExists(uuid: UUID): Boolean {
+        return try {
+            if (isMySQL) {
+                connection.prepareStatement("SELECT 1 FROM $xcoPlayerTable WHERE UID = ?").use { ps ->
+                    ps.setString(1, uuid.toString())
+                    ps.executeQuery().use { rs -> rs.next() }
                 }
-            } catch (e: SQLException) {
-                ServerMarket.LOGGER.error("检查玩家存在性失败 UUID: $uuid", e)
-                false
+            } else {
+                connection.prepareStatement("SELECT 1 FROM $sqliteBalanceTable WHERE uid = ?").use { ps ->
+                    ps.setString(1, uuid.toString())
+                    ps.executeQuery().use { rs -> rs.next() }
+                }
             }
-        }, executor)
+        } catch (e: SQLException) {
+            ServerMarket.LOGGER.error("检查玩家存在性失败 UUID: $uuid", e)
+            false
+        }
+    }
 
     fun initializeBalance(uuid: UUID, playerName: String, initialAmount: Double) {
         val originalAutoCommit = connection.autoCommit
@@ -410,15 +369,6 @@ internal class BalanceRepository(
         }
     }
 
-    fun initializeBalanceAsync(uuid: UUID, playerName: String, initialAmount: Double): CompletableFuture<Void> =
-        CompletableFuture.runAsync({
-            try {
-                initializeBalance(uuid, playerName, initialAmount)
-            } catch (e: Exception) {
-                ServerMarket.LOGGER.error("异步初始化余额失败", e)
-                throw e
-            }
-        }, executor)
 
     fun upsertPlayerName(uuid: UUID, playerName: String) {
         try {
@@ -446,15 +396,6 @@ internal class BalanceRepository(
         }
     }
 
-    fun upsertPlayerNameAsync(uuid: UUID, playerName: String): CompletableFuture<Void> =
-        CompletableFuture.runAsync({
-            try {
-                upsertPlayerName(uuid, playerName)
-            } catch (e: Exception) {
-                ServerMarket.LOGGER.error("异步更新玩家名失败", e)
-                throw e
-            }
-        }, executor)
 
     // ============== 辅助方法 ==============
 

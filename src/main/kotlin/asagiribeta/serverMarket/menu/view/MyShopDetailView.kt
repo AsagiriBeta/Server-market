@@ -110,13 +110,13 @@ class MyShopDetailView(private val gui: MarketGui) {
             .setCallback { _, _, _ -> handleUnlistAll() }
         gui.setSlot(46, unlistButton)
 
-        // 返回按钮（槽位 45）
-        setNavButton(45, Items.ARROW, Language.get("menu.back")) {
+        // 返回按钮（槽位 47）
+        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back")) {
             gui.showMyShop(false)
         }
 
-        // 关闭按钮（槽位 53）
-        setNavButton(53, Items.NETHER_STAR, Language.get("menu.close")) {
+        // 关闭按钮（槽位 49）
+        setNavButton(49, Items.BARRIER, Language.get("menu.close")) {
             gui.close()
         }
     }
@@ -146,8 +146,8 @@ class MyShopDetailView(private val gui: MarketGui) {
                 playerUuid, item.itemId, item.nbt, -actualAmount
             )
 
-            // 发送到快递驿站
-            ServerMarket.instance.parcelService.addParcelAsync(
+            // 发送到快递驿站（当前已在 DB 线程中，直接写入）
+            db.parcelRepository.addParcel(
                 playerUuid,
                 gui.player.name.string,
                 item.itemId,
@@ -273,7 +273,7 @@ class MyShopDetailView(private val gui: MarketGui) {
 
             // 返还库存到快递驿站
             if (quantity > 0) {
-                ServerMarket.instance.parcelService.addParcelAsync(
+                ServerMarket.instance.parcelService.addParcel(
                     playerUuid,
                     gui.player.name.string,
                     item.itemId,

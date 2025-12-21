@@ -12,6 +12,7 @@ import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class MList {
     // 构建 /svm list 子命令
@@ -42,28 +43,28 @@ class MList {
                     ?: return@supplyAsync emptyList()
                 repo.getPlayerItems(sellerUuid)
             }
-        }.whenComplete { items, ex ->
-            source.server.execute {
-                if (ex != null) {
-                    source.sendError(Text.literal(Language.get("command.mlist.query_failed")))
-                    ServerMarket.LOGGER.error("mlist命令执行失败", ex)
-                    return@execute
-                }
-                val list = items ?: emptyList()
-                if (list.isEmpty()) {
-                    source.sendMessage(Text.literal(Language.get("command.mlist.no_items", target)))
-                    return@execute
-                }
-                source.sendMessage(Text.literal(Language.get("command.mlist.title", target)).styled { it.withBold(true).withColor(0xA020F0) })
-                list.forEach { item ->
-                    val nbtSuffix = if (item.nbt.isNotEmpty()) " [NBT]" else ""
-                    source.sendMessage(
-                        Text.literal("▸ ${item.itemId}$nbtSuffix")
-                            .append(Text.literal(Language.get("ui.seller", item.sellerName)).styled { it.withColor(0x00FF00) })
-                            .append(Text.literal(Language.get("ui.price", "%.2f".format(item.price))).styled { it.withColor(0xFFA500) })
-                            .append(Text.literal(Language.get("ui.quantity", item.quantity.toString())).styled { it.withColor(0xADD8E6) })
-                    )
-                }
+        }.whenCompleteOnServerThread(source.server) { items, ex ->
+            if (ex != null) {
+                source.sendError(Text.literal(Language.get("command.mlist.query_failed")))
+                ServerMarket.LOGGER.error("mlist命令执行失败", ex)
+                return@whenCompleteOnServerThread
+            }
+
+            val list = items ?: emptyList()
+            if (list.isEmpty()) {
+                source.sendMessage(Text.literal(Language.get("command.mlist.no_items", target)))
+                return@whenCompleteOnServerThread
+            }
+
+            source.sendMessage(Text.literal(Language.get("command.mlist.title", target)).styled { it.withBold(true).withColor(0xA020F0) })
+            list.forEach { item ->
+                val nbtSuffix = if (item.nbt.isNotEmpty()) " [NBT]" else ""
+                source.sendMessage(
+                    Text.literal("▸ ${item.itemId}$nbtSuffix")
+                        .append(Text.literal(Language.get("ui.seller", item.sellerName)).styled { it.withColor(0x00FF00) })
+                        .append(Text.literal(Language.get("ui.price", "%.2f".format(item.price))).styled { it.withColor(0xFFA500) })
+                        .append(Text.literal(Language.get("ui.quantity", item.quantity.toString())).styled { it.withColor(0xADD8E6) })
+                )
             }
         }
         return 1

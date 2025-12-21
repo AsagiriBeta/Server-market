@@ -4,6 +4,7 @@ import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
@@ -70,27 +71,26 @@ class APurchase {
                 limitPerDay = limitPerDay
             )
             existed
-        }.whenComplete { existed, ex ->
-            context.source.server.execute {
-                if (ex != null) {
-                    context.source.sendError(Text.literal(Language.get("command.apurchase.failed")))
-                    ServerMarket.LOGGER.error("设置系统收购失败", ex)
-                } else {
-                    val limitStr = if (limitPerDay < 0) Language.get("command.apurchase.unlimited") else limitPerDay.toString()
-                    if (existed) {
-                        context.source.sendMessage(
-                            Text.literal(
-                                Language.get("command.apurchase.update_success", itemName, "%.2f".format(price), limitStr)
-                            )
-                        )
-                    } else {
-                        context.source.sendMessage(
-                            Text.literal(
-                                Language.get("command.apurchase.add_success", itemName, "%.2f".format(price), limitStr)
-                            )
-                        )
-                    }
-                }
+        }.whenCompleteOnServerThread(context.source.server) { existed, ex ->
+            if (ex != null) {
+                context.source.sendError(Text.literal(Language.get("command.apurchase.failed")))
+                ServerMarket.LOGGER.error("设置系统收购失败", ex)
+                return@whenCompleteOnServerThread
+            }
+
+            val limitStr = if (limitPerDay < 0) Language.get("command.apurchase.unlimited") else limitPerDay.toString()
+            if (existed == true) {
+                context.source.sendMessage(
+                    Text.literal(
+                        Language.get("command.apurchase.update_success", itemName, "%.2f".format(price), limitStr)
+                    )
+                )
+            } else {
+                context.source.sendMessage(
+                    Text.literal(
+                        Language.get("command.apurchase.add_success", itemName, "%.2f".format(price), limitStr)
+                    )
+                )
             }
         }
 

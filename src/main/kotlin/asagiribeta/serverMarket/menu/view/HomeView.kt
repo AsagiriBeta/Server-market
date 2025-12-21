@@ -3,6 +3,7 @@ package asagiribeta.serverMarket.menu.view
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import net.minecraft.item.Items
 import net.minecraft.text.Text
@@ -60,28 +61,26 @@ class HomeView(private val gui: MarketGui) {
         val player = gui.player
 
         // 加载余额
-        db.getBalanceAsync(player.uuid).whenComplete { balance, _ ->
-            gui.serverExecute {
-                if (gui.mode == ViewMode.HOME) {
-                    val updatedBalance = GuiElementBuilder(Items.GOLD_INGOT)
-                        .setName(Text.literal(Language.get("menu.balance", "%.2f".format(balance))))
-                    gui.setSlot(4, updatedBalance)
-                }
+        db.supplyAsync0 { db.getBalance(player.uuid) }
+            .whenCompleteOnServerThread(gui.player.entityWorld.server) { balance, _ ->
+                if (gui.mode != ViewMode.HOME) return@whenCompleteOnServerThread
+
+                val updatedBalance = GuiElementBuilder(Items.GOLD_INGOT)
+                    .setName(Text.literal(Language.get("menu.balance", "%.2f".format(balance))))
+                gui.setSlot(4, updatedBalance)
             }
-        }
 
         // 加载包裹数量
-        ServerMarket.instance.parcelService.getParcelCountForPlayerAsync(player.uuid).whenComplete { count, _ ->
-            gui.serverExecute {
-                if (gui.mode == ViewMode.HOME && count != null && count > 0) {
-                    val updated = GuiElementBuilder(Items.CHEST_MINECART)
-                        .setName(Text.literal(Language.get("menu.enter_parcel")))
-                        .addLoreLine(Text.literal("§e${Language.get("menu.parcel.count", count)}"))
-                        .setCallback { _, _, _ -> gui.showParcelStation(true) }
-                    gui.setSlot(50, updated)
-                }
+        ServerMarket.instance.parcelService.getParcelCountForPlayer(player.uuid)
+            .whenCompleteOnServerThread(gui.player.entityWorld.server) { count, _ ->
+                if (gui.mode != ViewMode.HOME || count == null || count <= 0) return@whenCompleteOnServerThread
+
+                val updated = GuiElementBuilder(Items.CHEST_MINECART)
+                    .setName(Text.literal(Language.get("menu.enter_parcel")))
+                    .addLoreLine(Text.literal("§e${Language.get("menu.parcel.count", count)}"))
+                    .setCallback { _, _, _ -> gui.showParcelStation(true) }
+                gui.setSlot(50, updated)
             }
-        }
     }
 
     private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: String, callback: () -> Unit) {

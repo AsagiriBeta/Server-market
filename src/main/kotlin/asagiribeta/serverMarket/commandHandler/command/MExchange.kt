@@ -13,6 +13,7 @@ import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class MExchange {
     // 构建 /svm exchange 子命令
@@ -60,29 +61,28 @@ class MExchange {
         // Use CurrencyService to exchange currency to balance
         ServerMarket.instance.currencyService.exchangeCurrencyToBalance(
             player.uuid, itemId, nbt, quantity
-        ).whenComplete { totalGain, ex ->
-            source.server.execute {
-                if (ex != null) {
-                    ServerMarket.LOGGER.error("/mexchange 执行失败", ex)
-                    source.sendError(Text.literal(Language.get("command.mexchange.failed")))
-                    return@execute
-                }
+        ).whenCompleteOnServerThread(source.server) { totalGain, ex ->
+            if (ex != null) {
+                ServerMarket.LOGGER.error("/mexchange 执行失败", ex)
+                source.sendError(Text.literal(Language.get("command.mexchange.failed")))
+                return@whenCompleteOnServerThread
+            }
 
-                if (totalGain == null) {
-                    source.sendError(Text.literal(Language.get("command.mexchange.not_currency")))
-                    return@execute
-                }
+            if (totalGain == null) {
+                source.sendError(Text.literal(Language.get("command.mexchange.not_currency")))
+                return@whenCompleteOnServerThread
+            }
 
-                // Deduct items from inventory
-                var remaining = quantity
-                for (stack in matchingStacks) {
-                    if (remaining <= 0) break
-                    val deduct = kotlin.math.min(remaining, stack.count)
-                    stack.count -= deduct
-                    remaining -= deduct
-                }
+            // Deduct items from inventory
+            var remaining = quantity
+            for (stack in matchingStacks) {
+                if (remaining <= 0) break
+                val deduct = kotlin.math.min(remaining, stack.count)
+                stack.count -= deduct
+                remaining -= deduct
+            }
 
-                source.sendMessage(
+            source.sendMessage(
                     Text.literal(
                         Language.get(
                             "command.mexchange.success",
@@ -91,8 +91,7 @@ class MExchange {
                             String.format("%.2f", totalGain)
                         )
                     )
-                )
-            }
+            )
         }
         return 1
     }

@@ -28,7 +28,7 @@ class MarketService(private val database: Database) {
      * @param seller 指定卖家（null表示不限制）
      * @return 购买结果
      */
-    fun purchaseItemAsync(
+    fun purchaseItem(
         playerUuid: UUID,
         playerName: String,
         itemId: String,
@@ -37,7 +37,7 @@ class MarketService(private val database: Database) {
     ): CompletableFuture<PurchaseResult> {
         return database.supplyAsync {
             try {
-                purchaseItem(playerUuid, playerName, itemId, quantity, seller)
+                doPurchaseItem(playerUuid, playerName, itemId, quantity, seller)
             } catch (e: Exception) {
                 PurchaseResult.Error(e.message ?: "未知错误")
             }
@@ -47,7 +47,7 @@ class MarketService(private val database: Database) {
     /**
      * 购买商品（同步版本，在数据库线程中调用）
      */
-    private fun purchaseItem(
+    private fun doPurchaseItem(
         playerUuid: UUID,
         playerName: String,
         itemId: String,

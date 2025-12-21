@@ -54,9 +54,34 @@ A Fabric mod that adds a complete player economy and item trading market to Mine
 4. Start the server - configuration will be auto-generated at `config/server-market/config.properties`
 5. (Optional) Install [LuckPerms](https://luckperms.net/) for advanced permissions
 
-**Note:** Fabric Permissions API is a required dependency. Make sure to download the correct version:
-- For Minecraft 1.21.6+: Use fabric-permissions-api v0.4.0 or later
-- For Minecraft 1.21.5 and below: Use fabric-permissions-api v0.3.3
+**Note:** This dev branch targets **Minecraft 1.21.10**. Install **Fabric Permissions API v0.5.0** (required dependency).
+
+## Placeholder API
+
+This mod bundles **pb4 Placeholder API** and registers a few placeholders (usable by other mods):
+
+- `%server-market:balance%` (player required)
+- `%server-market:parcel_count%` (player required)
+- `%server-market:player_name%` (player required)
+
+## Integration API
+
+This mod exposes an API for other mods (Vault-like economy access):
+
+- Entry point: `asagiribeta.serverMarket.api.ServerMarketApiProvider`
+- Usage:
+  - Kotlin: `val api = ServerMarketApiProvider.get() ?: return`
+  - Java: `ServerMarketApi api = ServerMarketApiProvider.get();`
+
+Economy methods (all async):
+- `getBalance`
+- `getParcelCount`
+- `addBalance`
+- `withdraw`
+- `transfer`
+
+Events:
+- `ServerMarketEvents.BALANCE_CHANGED` (fired on server thread)
 
 ## Database Setup
 

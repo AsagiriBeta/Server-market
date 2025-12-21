@@ -46,14 +46,12 @@ class TransferService(private val database: Database) {
     ): CompletableFuture<TransferResult> {
         return database.supplyAsync {
             try {
-                // 检查余额
-                val balance = database.getBalance(fromUuid)
-                if (balance < amount) {
+                // 执行转账（内部会原子检查余额）
+                try {
+                    database.transfer(fromUuid, toUuid, amount)
+                } catch (_: Exception) {
                     return@supplyAsync TransferResult.InsufficientFunds
                 }
-
-                // 执行转账
-                database.transfer(fromUuid, toUuid, amount)
 
                 // 记录历史
                 historyRepo.postHistory(
@@ -113,10 +111,9 @@ class TransferService(private val database: Database) {
     fun addBalance(playerUuid: UUID, amount: Double): CompletableFuture<Boolean> {
         return database.supplyAsync {
             try {
-                val current = database.getBalance(playerUuid)
-                database.setBalance(playerUuid, current + amount)
+                database.addBalance(playerUuid, amount)
                 true
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 false
             }
         }

@@ -14,6 +14,12 @@ import java.util.*
  * 提供创建各种 GUI 元素的工具方法
  */
 object GuiElementBuilders {
+    private const val PROFILE_CACHE_MS = 10 * 60 * 1000L
+
+    private data class CachedProfile(val profile: GameProfile, val atMs: Long)
+
+    private val profileCache = java.util.concurrent.ConcurrentHashMap<UUID, CachedProfile>()
+
 
     /**
      * 获取玩家的 GameProfile（用于显示玩家头像）
@@ -24,17 +30,32 @@ object GuiElementBuilders {
     ): GameProfile? {
         if (entry.sellerId.equals("SERVER", ignoreCase = true)) return null
         val uuid = try { UUID.fromString(entry.sellerId) } catch (_: Exception) { return null }
-        val server = player.server ?: return null
+        val server = player.entityWorld.server
+
+        val now = System.currentTimeMillis()
+        profileCache[uuid]?.let { cached ->
+            if (now - cached.atMs <= PROFILE_CACHE_MS) return cached.profile
+        }
 
         // 优先获取在线玩家的 GameProfile
-        server.playerManager.getPlayer(uuid)?.let { return it.gameProfile }
+        val online = server.playerManager.getPlayer(uuid)
+        if (online != null) {
+            profileCache[uuid] = CachedProfile(online.gameProfile, now)
+            return online.gameProfile
+        }
 
-        // 其次尝试从缓存获取
-        val cache = server.userCache
-        val cached = try { cache?.getByUuid(uuid)?.orElse(null) } catch (_: Exception) { null }
-        if (cached != null) return cached
+        // 其次尝试通过 GameProfileResolver 获取（可能命中磁盘缓存或在线解析）
+        val resolved = try {
+            server.apiServices.profileResolver().getProfileById(uuid).orElse(null)
+        } catch (_: Exception) {
+            null
+        }
+        if (resolved != null) {
+            profileCache[uuid] = CachedProfile(resolved, now)
+            return resolved
+        }
 
-        return GameProfile(uuid, entry.sellerName)
+        return GameProfile(uuid, entry.sellerName).also { profileCache[uuid] = CachedProfile(it, now) }
     }
 
     /**
@@ -43,7 +64,7 @@ object GuiElementBuilders {
     fun GuiElementBuilder.setPlayerSkin(profile: GameProfile?): GuiElementBuilder {
         if (profile != null) {
             try {
-                this.setComponent(DataComponentTypes.PROFILE, ProfileComponent(profile))
+                this.setComponent(DataComponentTypes.PROFILE, ProfileComponent.ofStatic(profile))
             } catch (_: Exception) { }
         }
         return this

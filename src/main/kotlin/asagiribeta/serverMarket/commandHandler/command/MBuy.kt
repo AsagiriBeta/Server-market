@@ -17,6 +17,7 @@ import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import asagiribeta.serverMarket.util.CommandSuggestions
 import net.minecraft.command.argument.IdentifierArgumentType
 import asagiribeta.serverMarket.util.PermissionUtil
@@ -56,22 +57,24 @@ class MBuy {
         val itemId = IdentifierArgumentType.getIdentifier(context, "item").toString()
 
         // Use MarketService instead of direct database access
-        ServerMarket.instance.marketService.purchaseItemAsync(
+        ServerMarket.instance.marketService.purchaseItem(
             playerUuid = player.uuid,
             playerName = player.name.string,
             itemId = itemId,
             quantity = quantity,
             seller = null
-        ).whenComplete { result, ex ->
-            context.source.server.execute {
-                if (ex != null) {
-                    context.source.sendError(Text.literal(Language.get("command.mbuy.error")))
-                    ServerMarket.LOGGER.error("MBuy命令执行失败", ex)
-                    return@execute
-                }
+        ).whenCompleteOnServerThread(context.source.server) { result, ex ->
+            if (ex != null) {
+                context.source.sendError(Text.literal(Language.get("command.mbuy.error")))
+                ServerMarket.LOGGER.error("MBuy命令执行失败", ex)
+                return@whenCompleteOnServerThread
+            }
 
-                when (result) {
-                    is PurchaseResult.Success -> {
+            when (result) {
+                null -> {
+                    context.source.sendError(Text.literal(Language.get("command.mbuy.error")))
+                }
+                is PurchaseResult.Success -> {
                         // Give items to player
                         for ((pid, nbt, amount) in result.items) {
                             val stack = buildStackFromRecord(pid, nbt, amount)
@@ -135,7 +138,6 @@ class MBuy {
                         ServerMarket.LOGGER.error("购买失败: ${result.message}")
                     }
                 }
-            }
         }
         return 1
     }
@@ -147,22 +149,24 @@ class MBuy {
         val seller = StringArgumentType.getString(context, "seller")
 
         // Use MarketService with seller filter
-        ServerMarket.instance.marketService.purchaseItemAsync(
+        ServerMarket.instance.marketService.purchaseItem(
             playerUuid = player.uuid,
             playerName = player.name.string,
             itemId = itemId,
             quantity = quantity,
             seller = seller
-        ).whenComplete { result, ex ->
-            context.source.server.execute {
-                if (ex != null) {
-                    context.source.sendError(Text.literal(Language.get("command.mbuy.error")))
-                    ServerMarket.LOGGER.error("MBuy命令执行失败(带卖家)", ex)
-                    return@execute
-                }
+        ).whenCompleteOnServerThread(context.source.server) { result, ex ->
+            if (ex != null) {
+                context.source.sendError(Text.literal(Language.get("command.mbuy.error")))
+                ServerMarket.LOGGER.error("MBuy命令执行失败(带卖家)", ex)
+                return@whenCompleteOnServerThread
+            }
 
-                when (result) {
-                    is PurchaseResult.Success -> {
+            when (result) {
+                null -> {
+                    context.source.sendError(Text.literal(Language.get("command.mbuy.error")))
+                }
+                is PurchaseResult.Success -> {
                         for ((pid, nbt, amount) in result.items) {
                             val stack = buildStackFromRecord(pid, nbt, amount)
                             player.giveItemStack(stack)
@@ -225,7 +229,6 @@ class MBuy {
                         ServerMarket.LOGGER.error("购买失败: ${result.message}")
                     }
                 }
-            }
         }
         return 1
     }

@@ -4,6 +4,7 @@ import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
@@ -61,19 +62,18 @@ class MPurchase {
                 price = price,
                 targetAmount = amount
             )
-        }.whenComplete { _, ex ->
-            context.source.server.execute {
-                if (ex != null) {
-                    context.source.sendError(Text.literal(Language.get("command.mpurchase.failed")))
-                    ServerMarket.LOGGER.error("添加收购订单失败", ex)
-                } else {
-                    context.source.sendMessage(
-                        Text.literal(
-                            Language.get("command.mpurchase.success", itemName, "%.2f".format(price), amount)
-                        )
-                    )
-                }
+        }.whenCompleteOnServerThread(context.source.server) { _, ex ->
+            if (ex != null) {
+                context.source.sendError(Text.literal(Language.get("command.mpurchase.failed")))
+                ServerMarket.LOGGER.error("添加收购订单失败", ex)
+                return@whenCompleteOnServerThread
             }
+
+            context.source.sendMessage(
+                Text.literal(
+                    Language.get("command.mpurchase.success", itemName, "%.2f".format(price), amount)
+                )
+            )
         }
 
         return 1

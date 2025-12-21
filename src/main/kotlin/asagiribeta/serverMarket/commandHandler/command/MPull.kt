@@ -11,6 +11,8 @@ import net.minecraft.registry.Registries
 import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class MPull {
     // 构建 /svm pull 子命令
@@ -43,29 +45,28 @@ class MPull {
             itemId = itemId,
             nbt = nbt,
             quantity = Int.MAX_VALUE  // Remove all
-        ).whenComplete { returnedQuantity, ex ->
-            source.server.execute {
-                if (ex != null) {
-                    source.sendError(Text.literal(Language.get("command.mpull.operation_failed")))
-                    ServerMarket.LOGGER.error("mpull命令执行失败", ex)
-                    return@execute
-                }
-
-                if (returnedQuantity <= 0) {
-                    source.sendError(Text.literal(Language.get("command.mpull.not_listed")))
-                    return@execute
-                }
-
-                // Return items to player
-                val returnStack = itemStack.copy().apply { count = returnedQuantity }
-                player.giveItemStack(returnStack)
-
-                source.sendMessage(
-                    Text.literal(
-                        Language.get("command.mpull.success", itemName, returnedQuantity)
-                    )
-                )
+        ).whenCompleteOnServerThread(source.server) { returnedQuantity, ex ->
+            if (ex != null) {
+                source.sendError(Text.literal(Language.get("command.mpull.operation_failed")))
+                ServerMarket.LOGGER.error("mpull命令执行失败", ex)
+                return@whenCompleteOnServerThread
             }
+
+            val qty = returnedQuantity ?: 0
+            if (qty <= 0) {
+                source.sendError(Text.literal(Language.get("command.mpull.not_listed")))
+                return@whenCompleteOnServerThread
+            }
+
+            // Return items to player
+            val returnStack = itemStack.copy().apply { count = qty }
+            player.giveItemStack(returnStack)
+
+            source.sendMessage(
+                Text.literal(
+                    Language.get("command.mpull.success", itemName, qty)
+                )
+            )
         }
         return 1
     }

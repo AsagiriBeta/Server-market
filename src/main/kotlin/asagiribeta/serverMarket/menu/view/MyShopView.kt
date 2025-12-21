@@ -5,6 +5,7 @@ import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.repository.MarketItem
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
@@ -39,9 +40,8 @@ class MyShopView(private val gui: MarketGui) {
         val playerUuid = gui.player.uuid
 
         db.supplyAsync { db.marketRepository.getPlayerItems(playerUuid.toString()) }
-            .whenComplete { list, _ ->
-                gui.serverExecute {
-                    if (gui.mode != ViewMode.MY_SHOP) return@serverExecute
+            .whenCompleteOnServerThread(gui.player.entityWorld.server) { list, _ ->
+                if (gui.mode != ViewMode.MY_SHOP) return@whenCompleteOnServerThread
 
                     myItems = list ?: emptyList()
                     val totalPages = gui.pageCountOf(myItems.size)
@@ -55,7 +55,6 @@ class MyShopView(private val gui: MarketGui) {
                     }
 
                     buildNav()
-                }
             }
     }
 
@@ -101,22 +100,22 @@ class MyShopView(private val gui: MarketGui) {
             .addLoreLine(Text.literal(Language.get("menu.myshop.count", myItems.size)))
         gui.setSlot(46, helpItem)
 
-        // 下一页
-        setNavButton(47, Items.ARROW, Language.get("menu.next", "${gui.page + 1}/$totalPages")) {
-            if (gui.page < totalPages - 1) {
-                gui.page++
-                show(false)
-            }
-        }
-
         // 返回首页
-        setNavButton(49, Items.NETHER_STAR, Language.get("menu.back_home")) {
+        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back_home")) {
             gui.showHome()
         }
 
         // 关闭
-        setNavButton(53, Items.BARRIER, Language.get("menu.close")) {
+        setNavButton(49, Items.BARRIER, Language.get("menu.close")) {
             gui.close()
+        }
+
+        // 下一页
+        setNavButton(53, Items.ARROW, Language.get("menu.next", "${gui.page + 1}/$totalPages")) {
+            if (gui.page < totalPages - 1) {
+                gui.page++
+                show(false)
+            }
         }
     }
 

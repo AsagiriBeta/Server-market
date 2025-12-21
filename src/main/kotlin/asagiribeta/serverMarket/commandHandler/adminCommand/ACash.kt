@@ -15,6 +15,7 @@ import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class ACash {
     // 构建 /svm edit cash 子命令
@@ -69,18 +70,17 @@ class ACash {
         val stack = requireHeldItem(source) ?: return 0
         val (itemId, snbt) = getItemSignature(stack)
         // 使用 CurrencyService 设置面值
-        ServerMarket.instance.currencyService.setCurrencyValue(itemId, snbt, value).whenComplete { success, ex ->
-            source.server.execute {
+        ServerMarket.instance.currencyService.setCurrencyValue(itemId, snbt, value)
+            .whenCompleteOnServerThread(source.server) { success, ex ->
                 if (ex != null) {
                     ServerMarket.LOGGER.error("acash 命令设置面值失败", ex)
                     source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
-                } else if (success) {
+                } else if (success == true) {
                     source.sendMessage(Text.literal(Language.get("command.acash.success", stack.name.string, value)))
                 } else {
                     source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
                 }
             }
-        }
         return 1
     }
 
@@ -90,8 +90,8 @@ class ACash {
         val (itemId, snbt) = getItemSignature(stack)
         // 异步读库（使用仓库异步API）
         val repo = ServerMarket.instance.database.currencyRepository
-        repo.getCurrencyValueAsync(itemId, snbt).whenComplete { value, ex ->
-            source.server.execute {
+        repo.getCurrencyValueAsync(itemId, snbt)
+            .whenCompleteOnServerThread(source.server) { value, ex ->
                 if (ex != null) {
                     ServerMarket.LOGGER.error("acash get 执行失败", ex)
                     source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
@@ -101,7 +101,6 @@ class ACash {
                     source.sendError(Text.literal(Language.get("command.acash.get.not_set")))
                 }
             }
-        }
         return 1
     }
 
@@ -110,8 +109,8 @@ class ACash {
         val stack = requireHeldItem(source) ?: return 0
         val (itemId, snbt) = getItemSignature(stack)
         // 使用 CurrencyService 移除货币设置
-        ServerMarket.instance.currencyService.removeCurrency(itemId, snbt).whenComplete { deleted, ex ->
-            source.server.execute {
+        ServerMarket.instance.currencyService.removeCurrency(itemId, snbt)
+            .whenCompleteOnServerThread(source.server) { deleted, ex ->
                 if (ex != null) {
                     ServerMarket.LOGGER.error("acash del 执行失败", ex)
                     source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
@@ -121,7 +120,6 @@ class ACash {
                     source.sendError(Text.literal(Language.get("command.acash.del.not_set")))
                 }
             }
-        }
         return 1
     }
 
@@ -139,31 +137,31 @@ class ACash {
             }
             else -> repo.listAllAsync(20, 0)
         }
-        future.whenComplete { items, ex ->
-            source.server.execute {
-                if (ex != null) {
-                    ServerMarket.LOGGER.error("acash list 执行失败", ex)
-                    source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
-                    return@execute
-                }
-                val list = items ?: emptyList()
-                if (list.isEmpty()) {
-                    source.sendError(Text.literal(Language.get("command.acash.list.empty")))
-                    return@execute
-                }
-                source.sendMessage(Text.literal(Language.get("command.acash.list.title", list.size)))
-                list.forEach { ci ->
-                    source.sendMessage(
-                        Text.literal(
-                            Language.get(
-                                "command.acash.list.entry",
-                                ci.itemId,
-                                ci.nbt.ifEmpty { "<none>" },
-                                ci.value
-                            )
+        future.whenCompleteOnServerThread(source.server) { items, ex ->
+            if (ex != null) {
+                ServerMarket.LOGGER.error("acash list 执行失败", ex)
+                source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
+                return@whenCompleteOnServerThread
+            }
+
+            val list = items ?: emptyList()
+            if (list.isEmpty()) {
+                source.sendError(Text.literal(Language.get("command.acash.list.empty")))
+                return@whenCompleteOnServerThread
+            }
+
+            source.sendMessage(Text.literal(Language.get("command.acash.list.title", list.size)))
+            list.forEach { ci ->
+                source.sendMessage(
+                    Text.literal(
+                        Language.get(
+                            "command.acash.list.entry",
+                            ci.itemId,
+                            ci.nbt.ifEmpty { "<none>" },
+                            ci.value
                         )
                     )
-                }
+                )
             }
         }
         return 1

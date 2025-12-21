@@ -20,7 +20,7 @@ class ParcelService(private val database: Database) {
      * 注意：此方法供外部调用。内部事务中应直接使用 repository
      */
     @Suppress("unused")
-    fun addParcelAsync(
+    fun addParcel(
         recipientUuid: UUID,
         recipientName: String,
         itemId: String,
@@ -37,7 +37,7 @@ class ParcelService(private val database: Database) {
      * 获取玩家的所有包裹（异步）
      */
     @Suppress("unused")
-    fun getParcelsForPlayerAsync(uuid: UUID): CompletableFuture<List<ParcelEntry>> {
+    fun getParcelsForPlayer(uuid: UUID): CompletableFuture<List<ParcelEntry>> {
         return database.supplyAsync {
             parcelRepo.getParcelsForPlayer(uuid)
         }
@@ -46,7 +46,7 @@ class ParcelService(private val database: Database) {
     /**
      * 获取玩家的所有包裹（合并相同物品，异步）
      */
-    fun getParcelsForPlayerMergedAsync(uuid: UUID): CompletableFuture<List<ParcelEntry>> {
+    fun getParcelsForPlayerMerged(uuid: UUID): CompletableFuture<List<ParcelEntry>> {
         return database.supplyAsync {
             parcelRepo.getParcelsForPlayerMerged(uuid)
         }
@@ -55,7 +55,7 @@ class ParcelService(private val database: Database) {
     /**
      * 获取玩家包裹数量（异步）
      */
-    fun getParcelCountForPlayerAsync(uuid: UUID): CompletableFuture<Int> {
+    fun getParcelCountForPlayer(uuid: UUID): CompletableFuture<Int> {
         return database.supplyAsync {
             parcelRepo.getParcelCountForPlayer(uuid)
         }
@@ -65,7 +65,7 @@ class ParcelService(private val database: Database) {
      * 删除包裹（异步）
      */
     @Suppress("unused")
-    fun removeParcelAsync(id: Long): CompletableFuture<Boolean> {
+    fun removeParcel(id: Long): CompletableFuture<Boolean> {
         return database.supplyAsync {
             parcelRepo.removeParcel(id)
         }
@@ -74,7 +74,7 @@ class ParcelService(private val database: Database) {
     /**
      * 删除指定物品的所有包裹（异步）
      */
-    fun removeParcelsByItemAsync(uuid: UUID, itemId: String, nbt: String): CompletableFuture<Int> {
+    fun removeParcelsByItem(uuid: UUID, itemId: String, nbt: String): CompletableFuture<Int> {
         return database.supplyAsync {
             parcelRepo.removeParcelsByItem(uuid, itemId, nbt)
         }
@@ -84,7 +84,7 @@ class ParcelService(private val database: Database) {
      * 批量删除包裹（异步）
      */
     @Suppress("unused")
-    fun removeParcelsAsync(ids: List<Long>): CompletableFuture<Int> {
+    fun removeParcels(ids: List<Long>): CompletableFuture<Int> {
         return database.supplyAsync {
             parcelRepo.removeParcels(ids)
         }

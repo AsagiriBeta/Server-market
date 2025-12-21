@@ -14,6 +14,8 @@ import asagiribeta.serverMarket.ServerMarket
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class MSell {
     // 构建 /svm sell 子命令
@@ -60,16 +62,18 @@ class MSell {
             nbt = snbt,
             quantity = quantity,
             price = null  // Keep existing price if already listed
-        ).whenComplete { result, ex ->
-            context.source.server.execute {
-                if (ex != null) {
-                    context.source.sendError(Text.literal(Language.get("command.msell.operation_failed")))
-                    ServerMarket.LOGGER.error("msell命令执行失败", ex)
-                    return@execute
-                }
+        ).whenCompleteOnServerThread(context.source.server) { result, ex ->
+            if (ex != null) {
+                context.source.sendError(Text.literal(Language.get("command.msell.operation_failed")))
+                ServerMarket.LOGGER.error("msell命令执行失败", ex)
+                return@whenCompleteOnServerThread
+            }
 
-                when (result) {
-                    is SellResult.Success -> {
+            when (result) {
+                null -> {
+                    context.source.sendError(Text.literal(Language.get("command.msell.operation_failed")))
+                }
+                is SellResult.Success -> {
                         // Deduct items from inventory
                         var remaining = quantity
                         for (stack in allStacks) {
@@ -101,7 +105,6 @@ class MSell {
                             Text.literal(Language.get("command.msell.operation_failed"))
                         )
                     }
-                }
             }
         }
         return 1

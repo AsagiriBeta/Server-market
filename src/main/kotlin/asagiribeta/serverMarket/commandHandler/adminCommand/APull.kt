@@ -11,6 +11,7 @@ import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class APull {
     // 构建 /svm edit pull 子命令
@@ -39,28 +40,26 @@ class APull {
         val repo = db.marketRepository
 
         db.supplyAsync { repo.hasSystemItem(itemId, nbt) }
-            .whenComplete { exists, ex ->
-                source.server.execute {
-                    if (ex != null) {
-                        source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
-                        ServerMarket.LOGGER.error("apull命令执行失败", ex)
-                        return@execute
-                    }
-                    if (exists != true) {
-                        source.sendError(Text.literal(Language.get("command.apull.not_listed")))
-                        return@execute
-                    }
-                    db.runAsync { repo.removeSystemItem(itemId, nbt) }.whenComplete { _, ex2 ->
-                        source.server.execute {
-                            if (ex2 != null) {
-                                source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
-                                ServerMarket.LOGGER.error("apull命令删除失败", ex2)
-                            } else {
-                                source.sendMessage(Text.literal(Language.get("command.apull.success", itemStack.name.string)))
-                            }
+            .whenCompleteOnServerThread(source.server) { exists, ex ->
+                if (ex != null) {
+                    source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
+                    ServerMarket.LOGGER.error("apull命令执行失败", ex)
+                    return@whenCompleteOnServerThread
+                }
+                if (exists != true) {
+                    source.sendError(Text.literal(Language.get("command.apull.not_listed")))
+                    return@whenCompleteOnServerThread
+                }
+
+                db.runAsync { repo.removeSystemItem(itemId, nbt) }
+                    .whenCompleteOnServerThread(source.server) { _, ex2 ->
+                        if (ex2 != null) {
+                            source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
+                            ServerMarket.LOGGER.error("apull命令删除失败", ex2)
+                        } else {
+                            source.sendMessage(Text.literal(Language.get("command.apull.success", itemStack.name.string)))
                         }
                     }
-                }
             }
         return 1
     }

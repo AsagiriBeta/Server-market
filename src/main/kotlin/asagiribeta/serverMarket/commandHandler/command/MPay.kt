@@ -15,6 +15,7 @@ import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class MPay {
     // 构建 /svm pay 子命令
@@ -64,15 +65,17 @@ class MPay {
             toUuid = targetPlayer.uuid,
             toName = targetPlayer.name.string,
             amount = amount
-        ).whenComplete { result, ex ->
-            context.source.server.execute {
-                if (ex != null) {
-                    context.source.sendError(Text.literal(Language.get("command.mpay.transfer_failed")))
-                    ServerMarket.LOGGER.error("mpay命令执行失败", ex)
-                    return@execute
-                }
+        ).whenCompleteOnServerThread(context.source.server) { result, ex ->
+            if (ex != null) {
+                context.source.sendError(Text.literal(Language.get("command.mpay.transfer_failed")))
+                ServerMarket.LOGGER.error("mpay命令执行失败", ex)
+                return@whenCompleteOnServerThread
+            }
 
                 when (result) {
+                    null -> {
+                        context.source.sendError(Text.literal(Language.get("command.mpay.transfer_failed")))
+                    }
                     is TransferService.TransferResult.Success -> {
                         context.source.sendMessage(
                             Text.literal(
@@ -103,7 +106,6 @@ class MPay {
                         ServerMarket.LOGGER.error("转账失败: ${result.message}")
                     }
                 }
-            }
         }
         return 1
     }

@@ -32,7 +32,7 @@ class PurchaseService(private val database: Database) {
      * @param buyerFilter 收购者过滤（null=优先系统，"SERVER"=仅系统，UUID=指定玩家）
      * @return 出售结果
      */
-    fun sellToBuyerAsync(
+    fun sellToBuyer(
         sellerUuid: UUID,
         sellerName: String,
         itemId: String,
@@ -42,7 +42,7 @@ class PurchaseService(private val database: Database) {
     ): CompletableFuture<SellToBuyerResult> {
         return database.supplyAsync {
             try {
-                sellToBuyer(sellerUuid, sellerName, itemId, nbt, quantity, buyerFilter)
+                doSellToBuyer(sellerUuid, sellerName, itemId, nbt, quantity, buyerFilter)
             } catch (e: Exception) {
                 SellToBuyerResult.Error(e.message ?: "未知错误")
             }
@@ -52,7 +52,7 @@ class PurchaseService(private val database: Database) {
     /**
      * 玩家向收购者出售物品（同步版本，在数据库线程中调用）
      */
-    private fun sellToBuyer(
+    private fun doSellToBuyer(
         sellerUuid: UUID,
         sellerName: String,
         itemId: String,
