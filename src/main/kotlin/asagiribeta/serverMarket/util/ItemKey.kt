@@ -32,18 +32,22 @@ object ItemKey {
     }
 
     // NBT 缓存：LRU 缓存，最多 200 条记录
+    // 使用规范化后的完整SNBT字符串作为缓存键，避免hashCode冲突导致的图标错误
+    // 键：规范化后的SNBT，值：规范化后的SNBT（用于去重和快速查找）
     private val snbtCache = Collections.synchronizedMap(
-        object : LinkedHashMap<Int, String>(200, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, String>?) = size > 200
+        object : LinkedHashMap<String, String>(200, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > 200
         }
     )
 
     fun snbtOf(stack: ItemStack): String {
-        // 使用 components hashCode 作为缓存键
-        val cacheKey = stack.components.hashCode()
-        return snbtCache.getOrPut(cacheKey) {
-            computeSnbtInternal(stack)
-        }
+        // 先计算原始SNBT
+        val rawSnbt = computeSnbtInternal(stack)
+        // 规范化SNBT作为最终的输出和缓存键
+        val normalized = normalizeSnbt(rawSnbt)
+        // 使用规范化后的SNBT作为缓存键，这样等价物品会共享同一个缓存条目
+        // 如果缓存中已存在，直接返回；否则缓存并返回
+        return snbtCache.getOrPut(normalized) { normalized }
     }
 
     private fun computeSnbtInternal(stack: ItemStack): String {

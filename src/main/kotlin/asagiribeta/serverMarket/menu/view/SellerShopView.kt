@@ -73,7 +73,7 @@ class SellerShopView(private val gui: MarketGui) {
         val stockStr = if (entry.isSystem && entry.quantity < 0) "∞" else entry.quantity.toString()
 
         val element = GuiElementBuilder.from(stack)
-            .setName(Text.literal(entry.itemId))
+            .setName(stack.getName())
             .addLoreLine(Text.literal(Language.get("ui.seller", entry.sellerName)))
             .addLoreLine(Text.literal(Language.get("ui.price", String.format(Locale.ROOT, "%.2f", entry.price))))
             .addLoreLine(Text.literal(Language.get("ui.quantity", stockStr)))

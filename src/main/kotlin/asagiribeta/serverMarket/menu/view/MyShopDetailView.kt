@@ -43,7 +43,7 @@ class MyShopDetailView(private val gui: MarketGui) {
 
         // 中央展示物品（槽位 22）
         val displayItem = GuiElementBuilder.from(stack)
-            .setName(Text.literal("§e${item.itemId}"))
+            .setName(Text.literal(stack.getName().string).styled { it.withColor(0xFFFF00) })
             .addLoreLine(Text.literal(""))
             .addLoreLine(Text.literal(Language.get("ui.price", String.format(Locale.ROOT, "%.2f", item.price))))
             .addLoreLine(Text.literal(Language.get("ui.quantity", item.quantity)))

@@ -69,7 +69,7 @@ class MyShopView(private val gui: MarketGui) {
         }
 
         val element = GuiElementBuilder.from(stack)
-            .setName(Text.literal(item.itemId))
+            .setName(stack.getName())
             .addLoreLine(Text.literal(Language.get("ui.price", String.format(Locale.ROOT, "%.2f", item.price))))
             .addLoreLine(Text.literal(Language.get("ui.quantity", item.quantity)))
             .addLoreLine(Text.literal(""))
@@ -101,22 +101,22 @@ class MyShopView(private val gui: MarketGui) {
             .addLoreLine(Text.literal(Language.get("menu.myshop.count", myItems.size)))
         gui.setSlot(46, helpItem)
 
-        // 下一页
-        setNavButton(47, Items.ARROW, Language.get("menu.next", "${gui.page + 1}/$totalPages")) {
-            if (gui.page < totalPages - 1) {
-                gui.page++
-                show(false)
-            }
-        }
-
         // 返回首页
-        setNavButton(49, Items.NETHER_STAR, Language.get("menu.back_home")) {
+        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back_home")) {
             gui.showHome()
         }
 
         // 关闭
-        setNavButton(53, Items.BARRIER, Language.get("menu.close")) {
+        setNavButton(49, Items.BARRIER, Language.get("menu.close")) {
             gui.close()
+        }
+
+        // 下一页
+        setNavButton(53, Items.ARROW, Language.get("menu.next", "${gui.page + 1}/$totalPages")) {
+            if (gui.page < totalPages - 1) {
+                gui.page++
+                show(false)
+            }
         }
     }
 

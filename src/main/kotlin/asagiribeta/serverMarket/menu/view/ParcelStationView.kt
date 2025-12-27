@@ -77,7 +77,7 @@ class ParcelStationView(private val gui: MarketGui) {
         val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm").format(Date(entry.timestamp))
 
         val element = GuiElementBuilder.from(stack)
-            .setName(Text.literal(entry.itemId))
+            .setName(stack.getName())
             .addLoreLine(Text.literal(Language.get("menu.parcel.reason", entry.reason)))
             .addLoreLine(Text.literal(Language.get("menu.parcel.time", timeStr)))
             .addLoreLine(Text.literal(Language.get("ui.quantity", entry.quantity)))

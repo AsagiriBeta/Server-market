@@ -112,7 +112,7 @@ class PurchaseListView(private val gui: MarketGui) {
         } else "∞"
 
         val element = GuiElementBuilder.from(stack)
-            .setName(Text.literal(entry.itemId))
+            .setName(stack.getName())
             .addLoreLine(Text.literal(Language.get("menu.purchase.buyer", entry.buyerName)))
             .addLoreLine(Text.literal(Language.get("menu.purchase.price", String.format(Locale.ROOT, "%.2f", entry.price))))
             .addLoreLine(Text.literal(Language.get("menu.purchase.limit", if (entry.buyerName == "SERVER") limitStr else remainingStr)))

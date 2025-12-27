@@ -17,10 +17,15 @@ class APull {
     fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
         return CommandManager.literal("pull")
             .requires(PermissionUtil.require("servermarket.admin.pull", 4))
-            .executes(this::execute)
+            .executes(this::executeSystemItem)
+            .then(
+                CommandManager.literal("purchase")
+                    .executes(this::executeSystemPurchase)
+            )
     }
 
-    private fun execute(context: CommandContext<ServerCommandSource>): Int {
+    // 下架系统出售商品
+    private fun executeSystemItem(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
         val player = source.player ?: run {
             source.sendError(Text.literal(Language.get("command.apull.player_only")))
@@ -55,6 +60,52 @@ class APull {
                             if (ex2 != null) {
                                 source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
                                 ServerMarket.LOGGER.error("apull命令删除失败", ex2)
+                            } else {
+                                source.sendMessage(Text.literal(Language.get("command.apull.success", itemStack.name.string)))
+                            }
+                        }
+                    }
+                }
+            }
+        return 1
+    }
+
+    // 下架系统收购订单
+    private fun executeSystemPurchase(context: CommandContext<ServerCommandSource>): Int {
+        val source = context.source
+        val player = source.player ?: run {
+            source.sendError(Text.literal(Language.get("command.apull.player_only")))
+            return 0
+        }
+
+        val itemStack = player.mainHandStack
+        if (itemStack.isEmpty) {
+            source.sendError(Text.literal(Language.get("command.apull.hold_item")))
+            return 0
+        }
+
+        val itemId = Registries.ITEM.getId(itemStack.item).toString()
+        val nbt = ItemKey.snbtOf(itemStack)
+        val db = ServerMarket.instance.database
+        val purchaseRepo = db.purchaseRepository
+
+        db.supplyAsync { purchaseRepo.hasSystemPurchase(itemId, nbt) }
+            .whenComplete { exists, ex ->
+                source.server.execute {
+                    if (ex != null) {
+                        source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
+                        ServerMarket.LOGGER.error("apull purchase命令执行失败", ex)
+                        return@execute
+                    }
+                    if (!exists) {
+                        source.sendError(Text.literal(Language.get("command.apull.not_listed")))
+                        return@execute
+                    }
+                    db.runAsync { purchaseRepo.removeSystemPurchase(itemId, nbt) }.whenComplete { _, ex2 ->
+                        source.server.execute {
+                            if (ex2 != null) {
+                                source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
+                                ServerMarket.LOGGER.error("apull purchase命令删除失败", ex2)
                             } else {
                                 source.sendMessage(Text.literal(Language.get("command.apull.success", itemStack.name.string)))
                             }
