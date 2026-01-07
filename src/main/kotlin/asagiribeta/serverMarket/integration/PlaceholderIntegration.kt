@@ -1,12 +1,12 @@
 package asagiribeta.serverMarket.integration
 
 import asagiribeta.serverMarket.ServerMarket
+import asagiribeta.serverMarket.util.MoneyFormat
 import eu.pb4.placeholders.api.PlaceholderContext
 import eu.pb4.placeholders.api.PlaceholderResult
 import eu.pb4.placeholders.api.Placeholders
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
-import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -27,7 +27,15 @@ object PlaceholderIntegration {
             val player = ctx.player ?: return@register PlaceholderResult.invalid("No player")
             val value = getBalanceCached(player.uuid)
             if (value == null) PlaceholderResult.value("...")
-            else PlaceholderResult.value(String.format(Locale.ROOT, "%.2f", value))
+            else PlaceholderResult.value(MoneyFormat.format(value, 2))
+        }
+
+        // %server-market:balance_short% (requires player)
+        Placeholders.register(Identifier.of("server-market", "balance_short")) { ctx, _ ->
+            val player = ctx.player ?: return@register PlaceholderResult.invalid("No player")
+            val value = getBalanceCached(player.uuid)
+            if (value == null) PlaceholderResult.value("...")
+            else PlaceholderResult.value(MoneyFormat.formatShort(value))
         }
 
         // %server-market:parcel_count% (requires player)

@@ -4,15 +4,14 @@ import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.repository.PlayerPurchaseEntry
 import asagiribeta.serverMarket.util.ItemKey
-import asagiribeta.serverMarket.util.Language
-import eu.pb4.sgui.api.ClickType
+import asagiribeta.serverMarket.util.MoneyFormat
+import asagiribeta.serverMarket.util.TextFormat
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
 import net.minecraft.registry.Registries
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
-import java.util.*
 
 /**
  * 我的收购视图 - 玩家管理自己的收购订单
@@ -27,11 +26,9 @@ class MyPurchaseView(private val gui: MarketGui) {
         gui.clearContent()
         gui.clearNav()
 
-        // 显示加载提示
-        setNavButton(46, Items.BOOK, Language.get("menu.loading")) {}
+        setNavButton(46, Items.BOOK, Text.translatable("servermarket.menu.loading")) {}
         buildNav()
 
-        // 异步加载玩家的收购订单
         loadMyPurchases()
     }
 
@@ -73,21 +70,29 @@ class MyPurchaseView(private val gui: MarketGui) {
             (entry.currentAmount * 100.0 / entry.targetAmount).toInt()
         } else 0
 
+        val name = TextFormat.displayItemName(stack, entry.itemId)
+
         val element = GuiElementBuilder.from(stack)
-            .setName(Text.literal(entry.itemId))
-            .addLoreLine(Text.literal(Language.get("ui.price", String.format(Locale.ROOT, "%.2f", entry.price))))
-            .addLoreLine(Text.literal(Language.get("menu.mypurchase.progress",
-                entry.currentAmount, entry.targetAmount, progressPercent)))
-            .addLoreLine(Text.literal(Language.get("menu.mypurchase.remaining", entry.remaining)))
+            .setName(Text.literal(name))
+            .addLoreLine(Text.translatable("servermarket.ui.price", MoneyFormat.format(entry.price, 2)))
+            .addLoreLine(
+                Text.translatable(
+                    "servermarket.menu.mypurchase.progress",
+                    entry.currentAmount,
+                    entry.targetAmount,
+                    progressPercent
+                )
+            )
+            .addLoreLine(Text.translatable("servermarket.menu.mypurchase.remaining", entry.remaining))
             .addLoreLine(Text.literal(""))
 
         if (entry.currentAmount > 0) {
-            element.addLoreLine(Text.literal("§a${Language.get("menu.mypurchase.auto_sent_tip")}"))
+            element.addLoreLine(Text.translatable("servermarket.menu.mypurchase.auto_sent_tip").copy().formatted(net.minecraft.util.Formatting.GREEN))
         }
         if (entry.isCompleted) {
-            element.addLoreLine(Text.literal("§6${Language.get("menu.mypurchase.completed")}"))
+            element.addLoreLine(Text.translatable("servermarket.menu.mypurchase.completed").copy().formatted(net.minecraft.util.Formatting.GOLD))
         }
-        element.addLoreLine(Text.literal("§7${Language.get("menu.mypurchase.click_cancel")}"))
+        element.addLoreLine(Text.translatable("servermarket.menu.mypurchase.click_cancel").copy().formatted(net.minecraft.util.Formatting.GRAY))
         element.setCallback { _, _, _ ->
             handleCancelPurchase(entry)
         }
@@ -103,8 +108,16 @@ class MyPurchaseView(private val gui: MarketGui) {
             db.purchaseRepository.removePlayerPurchase(playerUuid, entry.itemId, entry.nbt)
 
             gui.serverExecute {
+                // In cancel callback / response message, use localized display name
+                val stack = ItemKey.tryBuildFullStackFromSnbt(entry.nbt, 1) ?: run {
+                    val id = Identifier.tryParse(entry.itemId)
+                    val itemType = if (id != null && Registries.ITEM.containsId(id))
+                                   Registries.ITEM.get(id) else Items.STONE
+                    ItemStack(itemType)
+                }
+
                 gui.player.sendMessage(
-                    Text.literal(Language.get("menu.mypurchase.cancel_success", entry.itemId)),
+                    Text.translatable("servermarket.menu.mypurchase.cancel_success", TextFormat.displayItemName(stack, entry.itemId)),
                     false
                 )
                 // 刷新界面
@@ -118,7 +131,7 @@ class MyPurchaseView(private val gui: MarketGui) {
         val totalPages = gui.pageCountOf(myPurchases.size)
 
         // 上一页
-        setNavButton(45, Items.ARROW, Language.get("menu.prev")) {
+        setNavButton(45, Items.ARROW, Text.translatable("servermarket.menu.prev")) {
             if (gui.page > 0) {
                 gui.page--
                 show(false)
@@ -127,24 +140,24 @@ class MyPurchaseView(private val gui: MarketGui) {
 
         // 帮助信息
         val helpItem = GuiElementBuilder(Items.BOOK)
-            .setName(Text.literal(Language.get("menu.mypurchase.title")))
-            .addLoreLine(Text.literal(Language.get("menu.mypurchase.tip1")))
-            .addLoreLine(Text.literal(Language.get("menu.mypurchase.tip2")))
-            .addLoreLine(Text.literal(Language.get("menu.mypurchase.count", myPurchases.size)))
+            .setName(Text.translatable("servermarket.menu.mypurchase.title"))
+            .addLoreLine(Text.translatable("servermarket.menu.mypurchase.tip1"))
+            .addLoreLine(Text.translatable("servermarket.menu.mypurchase.tip2"))
+            .addLoreLine(Text.translatable("servermarket.menu.mypurchase.count", myPurchases.size))
         gui.setSlot(46, helpItem)
 
         // 返回首页
-        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back_home")) {
+        setNavButton(47, Items.NETHER_STAR, Text.translatable("servermarket.menu.back_home")) {
             gui.showHome()
         }
 
         // 关闭
-        setNavButton(49, Items.BARRIER, Language.get("menu.close")) {
+        setNavButton(49, Items.BARRIER, Text.translatable("servermarket.menu.close")) {
             gui.close()
         }
 
         // 下一页
-        setNavButton(53, Items.ARROW, Language.get("menu.next", "${gui.page + 1}/$totalPages")) {
+        setNavButton(53, Items.ARROW, Text.translatable("servermarket.menu.next", "${gui.page + 1}/$totalPages")) {
             if (gui.page < totalPages - 1) {
                 gui.page++
                 show(false)
@@ -152,11 +165,10 @@ class MyPurchaseView(private val gui: MarketGui) {
         }
     }
 
-    private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: String, callback: () -> Unit) {
+    private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: Text, callback: () -> Unit) {
         val element = GuiElementBuilder(item)
-            .setName(Text.literal(name))
+            .setName(name)
             .setCallback { _, _, _ -> callback() }
         gui.setSlot(slot, element)
     }
 }
-

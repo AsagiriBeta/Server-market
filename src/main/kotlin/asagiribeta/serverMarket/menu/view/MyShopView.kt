@@ -4,7 +4,8 @@ import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.repository.MarketItem
 import asagiribeta.serverMarket.util.ItemKey
-import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.MoneyFormat
+import asagiribeta.serverMarket.util.TextFormat
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import net.minecraft.item.ItemStack
@@ -12,7 +13,6 @@ import net.minecraft.item.Items
 import net.minecraft.registry.Registries
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
-import java.util.*
 
 /**
  * 我的店铺视图 - 玩家管理自己的售卖商品
@@ -27,11 +27,9 @@ class MyShopView(private val gui: MarketGui) {
         gui.clearContent()
         gui.clearNav()
 
-        // 显示加载提示
-        setNavButton(46, Items.BOOK, Language.get("menu.loading")) {}
+        setNavButton(46, Items.BOOK, Text.translatable("servermarket.menu.loading")) {}
         buildNav()
 
-        // 异步加载玩家的商品列表
         loadMyItems()
     }
 
@@ -67,12 +65,14 @@ class MyShopView(private val gui: MarketGui) {
             ItemStack(itemType)
         }
 
+        val name = TextFormat.displayItemName(stack, item.itemId)
+
         val element = GuiElementBuilder.from(stack)
-            .setName(Text.literal(item.itemId))
-            .addLoreLine(Text.literal(Language.get("ui.price", String.format(Locale.ROOT, "%.2f", item.price))))
-            .addLoreLine(Text.literal(Language.get("ui.quantity", item.quantity)))
+            .setName(Text.literal(name))
+            .addLoreLine(Text.translatable("servermarket.ui.price", MoneyFormat.format(item.price, 2)))
+            .addLoreLine(Text.translatable("servermarket.ui.quantity", item.quantity.toString()))
             .addLoreLine(Text.literal(""))
-            .addLoreLine(Text.literal("§e${Language.get("menu.myshop.click_to_manage")}"))
+            .addLoreLine(Text.translatable("servermarket.menu.myshop.click_to_manage").copy().formatted(net.minecraft.util.Formatting.YELLOW))
             .setCallback { _, _, _ ->
                 gui.showMyShopDetail(item)
             }
@@ -85,7 +85,7 @@ class MyShopView(private val gui: MarketGui) {
         val totalPages = gui.pageCountOf(myItems.size)
 
         // 上一页
-        setNavButton(45, Items.ARROW, Language.get("menu.prev")) {
+        setNavButton(45, Items.ARROW, Text.translatable("servermarket.menu.prev")) {
             if (gui.page > 0) {
                 gui.page--
                 show(false)
@@ -94,24 +94,24 @@ class MyShopView(private val gui: MarketGui) {
 
         // 帮助信息
         val helpItem = GuiElementBuilder(Items.BOOK)
-            .setName(Text.literal(Language.get("menu.myshop.title")))
-            .addLoreLine(Text.literal(Language.get("menu.myshop.tip1")))
-            .addLoreLine(Text.literal(Language.get("menu.myshop.tip2")))
-            .addLoreLine(Text.literal(Language.get("menu.myshop.count", myItems.size)))
+            .setName(Text.translatable("servermarket.menu.myshop.title"))
+            .addLoreLine(Text.translatable("servermarket.menu.myshop.tip1"))
+            .addLoreLine(Text.translatable("servermarket.menu.myshop.tip2"))
+            .addLoreLine(Text.translatable("servermarket.menu.myshop.count", myItems.size))
         gui.setSlot(46, helpItem)
 
         // 返回首页
-        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back_home")) {
+        setNavButton(47, Items.NETHER_STAR, Text.translatable("servermarket.menu.back_home")) {
             gui.showHome()
         }
 
         // 关闭
-        setNavButton(49, Items.BARRIER, Language.get("menu.close")) {
+        setNavButton(49, Items.BARRIER, Text.translatable("servermarket.menu.close")) {
             gui.close()
         }
 
         // 下一页
-        setNavButton(53, Items.ARROW, Language.get("menu.next", "${gui.page + 1}/$totalPages")) {
+        setNavButton(53, Items.ARROW, Text.translatable("servermarket.menu.next", "${gui.page + 1}/$totalPages")) {
             if (gui.page < totalPages - 1) {
                 gui.page++
                 show(false)
@@ -119,11 +119,10 @@ class MyShopView(private val gui: MarketGui) {
         }
     }
 
-    private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: String, callback: () -> Unit) {
+    private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: Text, callback: () -> Unit) {
         val element = GuiElementBuilder(item)
-            .setName(Text.literal(name))
+            .setName(name)
             .setCallback { _, _, _ -> callback() }
         gui.setSlot(slot, element)
     }
 }
-

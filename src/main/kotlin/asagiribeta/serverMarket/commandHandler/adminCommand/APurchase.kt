@@ -2,7 +2,7 @@ package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.ItemKey
-import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.PermissionUtil
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.DoubleArgumentType
@@ -45,7 +45,7 @@ class APurchase {
 
     private fun execute(context: CommandContext<ServerCommandSource>, limitPerDay: Int): Int {
         val player = context.source.player ?: run {
-            context.source.sendError(Text.literal(Language.get("command.apurchase.player_only")))
+            context.source.sendError(Text.translatable("servermarket.command.apurchase.player_only"))
             return 0
         }
 
@@ -53,7 +53,7 @@ class APurchase {
 
         val mainHandStack = player.mainHandStack
         if (mainHandStack.isEmpty) {
-            context.source.sendError(Text.literal(Language.get("command.apurchase.hold_item")))
+            context.source.sendError(Text.translatable("servermarket.command.apurchase.hold_item"))
             return 0
         }
 
@@ -73,23 +73,20 @@ class APurchase {
             existed
         }.whenCompleteOnServerThread(context.source.server) { existed, ex ->
             if (ex != null) {
-                context.source.sendError(Text.literal(Language.get("command.apurchase.failed")))
+                context.source.sendError(Text.translatable("servermarket.command.apurchase.failed"))
                 ServerMarket.LOGGER.error("设置系统收购失败", ex)
                 return@whenCompleteOnServerThread
             }
 
-            val limitStr = if (limitPerDay < 0) Language.get("command.apurchase.unlimited") else limitPerDay.toString()
+            val limitStr = if (limitPerDay < 0) Text.translatable("servermarket.command.apurchase.unlimited") else Text.literal(limitPerDay.toString())
+            val formattedPrice = MoneyFormat.format(price, 2)
             if (existed == true) {
                 context.source.sendMessage(
-                    Text.literal(
-                        Language.get("command.apurchase.update_success", itemName, "%.2f".format(price), limitStr)
-                    )
+                    Text.translatable("servermarket.command.apurchase.update_success", itemName, formattedPrice, limitStr)
                 )
             } else {
                 context.source.sendMessage(
-                    Text.literal(
-                        Language.get("command.apurchase.add_success", itemName, "%.2f".format(price), limitStr)
-                    )
+                    Text.translatable("servermarket.command.apurchase.add_success", itemName, formattedPrice, limitStr)
                 )
             }
         }
@@ -97,4 +94,3 @@ class APurchase {
         return 1
     }
 }
-

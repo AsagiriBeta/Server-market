@@ -1,12 +1,10 @@
 package asagiribeta.serverMarket.menu
 
 import asagiribeta.serverMarket.menu.view.*
-import asagiribeta.serverMarket.util.Language
 import eu.pb4.sgui.api.gui.SimpleGui
 import net.minecraft.screen.ScreenHandlerType
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.text.Text
-import kotlin.math.min
 
 /**
  * 使用 SGUI 库重写的市场菜单
@@ -34,7 +32,7 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
     private val myPurchaseView = MyPurchaseView(this)
 
     init {
-        this.title = Text.literal(Language.get("menu.title"))
+        this.title = Text.translatable("servermarket.menu.title")
         this.setLockPlayerInventory(true)
         showHome()
     }
@@ -54,7 +52,7 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
     internal fun <T> pageSlice(list: List<T>, page: Int): List<T> {
         val start = page * PAGE_SIZE
         return if (start >= list.size) emptyList()
-               else list.subList(start, min(list.size, start + PAGE_SIZE))
+               else list.subList(start, kotlin.math.min(list.size, start + PAGE_SIZE))
     }
 
     internal fun clearContent() {
@@ -107,4 +105,3 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
         myPurchaseView.show(resetPage)
     }
 }
-

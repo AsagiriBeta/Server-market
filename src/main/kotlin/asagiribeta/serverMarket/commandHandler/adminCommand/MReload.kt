@@ -1,8 +1,6 @@
 package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.util.Config
-import asagiribeta.serverMarket.util.Language
-import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.server.command.CommandManager
@@ -21,10 +19,10 @@ class MReload {
     private fun execute(context: CommandContext<ServerCommandSource>): Int {
         return try {
             Config.reloadConfig()
-            context.source.sendMessage(Text.literal(Language.get("command.mreload.success")))
+            context.source.sendMessage(Text.translatable("servermarket.command.mreload.success"))
             1
         } catch (_: Exception) {
-            context.source.sendError(Text.literal(Language.get("command.mreload.failed")))
+            context.source.sendError(Text.translatable("servermarket.command.mreload.failed"))
             0
         }
     }

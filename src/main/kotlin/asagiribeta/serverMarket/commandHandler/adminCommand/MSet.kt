@@ -1,9 +1,8 @@
 package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
-import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
-import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
@@ -38,12 +37,12 @@ class MSet {
         val amount = DoubleArgumentType.getDouble(context, "amount")
         val server = context.source.server
         val targetPlayer = server.playerManager.getPlayer(targetName) ?: run {
-            context.source.sendError(Text.literal(Language.get("command.mset.player_offline")))
+            context.source.sendError(Text.translatable("servermarket.command.mset.player_offline"))
             return 0
         }
 
         if (amount < 0) {
-            context.source.sendError(Text.literal(Language.get("command.mset.negative_amount")))
+            context.source.sendError(Text.translatable("servermarket.command.mset.negative_amount"))
             return 0
         }
 
@@ -51,14 +50,14 @@ class MSet {
         ServerMarket.instance.transferService.setBalance(targetPlayer.uuid, amount)
             .whenCompleteOnServerThread(server) { success, ex ->
                 if (ex != null) {
-                    context.source.sendError(Text.literal(Language.get("command.mset.failed")))
+                    context.source.sendError(Text.translatable("servermarket.command.mset.failed"))
                     ServerMarket.LOGGER.error("mset命令执行失败", ex)
                 } else if (success == true) {
                     context.source.sendMessage(
-                        Text.literal(Language.get("command.mset.success", targetPlayer.name.string, "%.2f".format(amount)))
+                        Text.translatable("servermarket.command.mset.success", targetPlayer.name, MoneyFormat.format(amount, 2))
                     )
                 } else {
-                    context.source.sendError(Text.literal(Language.get("command.mset.failed")))
+                    context.source.sendError(Text.translatable("servermarket.command.mset.failed"))
                 }
             }
         return 1

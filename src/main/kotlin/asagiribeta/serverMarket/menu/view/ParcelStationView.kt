@@ -4,7 +4,7 @@ import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.model.ParcelEntry
 import asagiribeta.serverMarket.util.ItemKey
-import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.TextFormat
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import net.minecraft.item.ItemStack
@@ -13,7 +13,7 @@ import net.minecraft.registry.Registries
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
 
 /**
  * 快递驿站视图
@@ -28,11 +28,9 @@ class ParcelStationView(private val gui: MarketGui) {
         gui.clearContent()
         gui.clearNav()
 
-        // 显示加载提示
-        setNavButton(46, Items.BOOK, Language.get("menu.loading")) {}
+        setNavButton(46, Items.BOOK, Text.translatable("servermarket.menu.loading")) {}
         buildNav()
 
-        // 异步加载包裹列表（合并相同物品）
         loadParcels()
     }
 
@@ -41,25 +39,23 @@ class ParcelStationView(private val gui: MarketGui) {
             .whenCompleteOnServerThread(gui.player.entityWorld.server) { list, _ ->
                 if (gui.mode != ViewMode.PARCEL_STATION) return@whenCompleteOnServerThread
 
-                    parcelEntries = list ?: emptyList()
-                    val totalPages = gui.pageCountOf(parcelEntries.size)
-                    gui.page = gui.clampPage(gui.page, totalPages)
+                parcelEntries = list ?: emptyList()
+                val totalPages = gui.pageCountOf(parcelEntries.size)
+                gui.page = gui.clampPage(gui.page, totalPages)
 
-                    gui.clearContent()
+                gui.clearContent()
 
-                    if (parcelEntries.isEmpty()) {
-                        // 显示空包裹提示
-                        val emptyItem = GuiElementBuilder(Items.BARRIER)
-                            .setName(Text.literal(Language.get("menu.parcel.empty")))
-                        gui.setSlot(22, emptyItem)
-                    } else {
-                        // 显示当前页的包裹
-                        gui.pageSlice(parcelEntries, gui.page).forEachIndexed { idx, entry ->
-                            gui.setSlot(idx, buildParcelElement(entry))
-                        }
+                if (parcelEntries.isEmpty()) {
+                    val emptyItem = GuiElementBuilder(Items.BARRIER)
+                        .setName(Text.translatable("servermarket.menu.parcel.empty"))
+                    gui.setSlot(22, emptyItem)
+                } else {
+                    gui.pageSlice(parcelEntries, gui.page).forEachIndexed { idx, entry ->
+                        gui.setSlot(idx, buildParcelElement(entry))
                     }
+                }
 
-                    buildNav()
+                buildNav()
             }
     }
 
@@ -68,19 +64,21 @@ class ParcelStationView(private val gui: MarketGui) {
         val stack = ItemKey.tryBuildFullStackFromSnbt(entry.nbt, entry.quantity) ?: run {
             val id = Identifier.tryParse(entry.itemId)
             val itemType = if (id != null && Registries.ITEM.containsId(id))
-                           Registries.ITEM.get(id) else Items.CHEST
+                Registries.ITEM.get(id) else Items.CHEST
             ItemStack(itemType, entry.quantity)
         }
 
         // 格式化时间
         val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm").format(Date(entry.timestamp))
 
+        val name = TextFormat.displayItemName(stack, entry.itemId)
+
         val element = GuiElementBuilder.from(stack)
-            .setName(Text.literal(entry.itemId))
-            .addLoreLine(Text.literal(Language.get("menu.parcel.reason", entry.reason)))
-            .addLoreLine(Text.literal(Language.get("menu.parcel.time", timeStr)))
-            .addLoreLine(Text.literal(Language.get("ui.quantity", entry.quantity)))
-            .addLoreLine(Text.literal("§a${Language.get("menu.parcel.click_tip")}"))
+            .setName(Text.literal(name))
+            .addLoreLine(Text.translatable("servermarket.menu.parcel.reason", entry.reason))
+            .addLoreLine(Text.translatable("servermarket.menu.parcel.time", timeStr))
+            .addLoreLine(Text.translatable("servermarket.ui.quantity", entry.quantity.toString()))
+            .addLoreLine(Text.translatable("servermarket.menu.parcel.click_tip").copy().formatted(net.minecraft.util.Formatting.GREEN))
             .setCallback { _, _, _ ->
                 handleParcelReceive(entry)
             }
@@ -91,7 +89,7 @@ class ParcelStationView(private val gui: MarketGui) {
     private fun buildNav() {
         val totalPages = gui.pageCountOf(parcelEntries.size)
 
-        setNavButton(45, Items.ARROW, Language.get("menu.prev")) {
+        setNavButton(45, Items.ARROW, Text.translatable("servermarket.menu.prev")) {
             if (gui.page > 0) {
                 gui.page--
                 show(false)
@@ -99,22 +97,22 @@ class ParcelStationView(private val gui: MarketGui) {
         }
 
         val helpItem = GuiElementBuilder(Items.BOOK)
-            .setName(Text.literal(Language.get("menu.parcel.title")))
-            .addLoreLine(Text.literal(Language.get("menu.parcel.tip1")))
-            .addLoreLine(Text.literal(Language.get("menu.parcel.tip2")))
-            .addLoreLine(Text.literal(Language.get("menu.parcel.tip3")))
-            .addLoreLine(Text.literal(Language.get("menu.parcel.tip4")))
+            .setName(Text.translatable("servermarket.menu.parcel.title"))
+            .addLoreLine(Text.translatable("servermarket.menu.parcel.tip1"))
+            .addLoreLine(Text.translatable("servermarket.menu.parcel.tip2"))
+            .addLoreLine(Text.translatable("servermarket.menu.parcel.tip3"))
+            .addLoreLine(Text.translatable("servermarket.menu.parcel.tip4"))
         gui.setSlot(46, helpItem)
 
-        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back_home")) {
+        setNavButton(47, Items.NETHER_STAR, Text.translatable("servermarket.menu.back_home")) {
             gui.showHome()
         }
 
-        setNavButton(49, Items.BARRIER, Language.get("menu.close")) {
+        setNavButton(49, Items.BARRIER, Text.translatable("servermarket.menu.close")) {
             gui.close()
         }
 
-        setNavButton(53, Items.ARROW, Language.get("menu.next", "${gui.page + 1}/$totalPages")) {
+        setNavButton(53, Items.ARROW, Text.translatable("servermarket.menu.next", "${gui.page + 1}/$totalPages")) {
             if (gui.page + 1 < totalPages) {
                 gui.page++
                 show(false)
@@ -125,7 +123,6 @@ class ParcelStationView(private val gui: MarketGui) {
     private fun handleParcelReceive(entry: ParcelEntry) {
         val player = gui.player
 
-        // 删除该玩家的所有相同物品的包裹
         ServerMarket.instance.parcelService.removeParcelsByItem(
             player.uuid,
             entry.itemId,
@@ -133,31 +130,28 @@ class ParcelStationView(private val gui: MarketGui) {
         ).whenComplete { count, _ ->
             gui.serverExecute {
                 if (count != null && count > 0) {
-                    // 发放物品
                     val stack = ItemKey.tryBuildFullStackFromSnbt(entry.nbt, entry.quantity) ?: run {
                         val id = Identifier.tryParse(entry.itemId)
                         val itemType = if (id != null && Registries.ITEM.containsId(id))
-                                       Registries.ITEM.get(id) else Items.AIR
+                            Registries.ITEM.get(id) else Items.AIR
                         ItemStack(itemType, entry.quantity)
                     }
                     player.giveItemStack(stack)
 
+                    val name = TextFormat.displayItemName(stack, entry.itemId)
+
                     player.sendMessage(
-                        Text.literal(Language.get(
-                            "menu.parcel.received",
+                        Text.translatable(
+                            "servermarket.menu.parcel.received",
                             entry.quantity,
-                            entry.itemId
-                        )),
+                            name
+                        ),
                         false
                     )
 
-                    // 刷新包裹列表
                     refreshAfterReceive()
                 } else {
-                    player.sendMessage(
-                        Text.literal(Language.get("menu.parcel.error")),
-                        false
-                    )
+                    player.sendMessage(Text.translatable("servermarket.menu.parcel.error"), false)
                 }
             }
         }
@@ -171,11 +165,10 @@ class ParcelStationView(private val gui: MarketGui) {
         }
     }
 
-    private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: String, callback: () -> Unit) {
+    private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: Text, callback: () -> Unit) {
         val element = GuiElementBuilder(item)
-            .setName(Text.literal(name))
+            .setName(name)
             .setCallback { _, _, _ -> callback() }
         gui.setSlot(slot, element)
     }
 }
-

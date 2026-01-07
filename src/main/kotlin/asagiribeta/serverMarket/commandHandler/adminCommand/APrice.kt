@@ -1,9 +1,7 @@
 package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
-import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.ItemKey
-import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.context.CommandContext
@@ -42,13 +40,13 @@ class APrice {
     private fun prepare(context: CommandContext<ServerCommandSource>): Prepared? {
         val source = context.source
         val player = source.player ?: run {
-            source.sendError(Text.literal(Language.get("command.aprice.player_only")))
+            source.sendError(Text.translatable("servermarket.command.aprice.player_only"))
             return null
         }
 
         val itemStack = player.mainHandStack
         if (itemStack.isEmpty) {
-            source.sendError(Text.literal(Language.get("command.aprice.hold_item")))
+            source.sendError(Text.translatable("servermarket.command.aprice.hold_item"))
             return null
         }
 
@@ -62,12 +60,14 @@ class APrice {
     // 提取公共完成回调，统一在主线程反馈结果
     private fun handleCompletion(prepared: Prepared, ex: Throwable?) {
         if (ex != null) {
-            prepared.source.sendError(Text.literal(Language.get("command.aprice.operation_failed")))
+            prepared.source.sendError(Text.translatable("servermarket.command.aprice.operation_failed"))
             ServerMarket.LOGGER.error("aprice命令执行失败", ex)
         } else {
             prepared.source.sendMessage(
-                Text.literal(
-                    Language.get("command.aprice.update_success", prepared.itemName, prepared.price)
+                Text.translatable(
+                    "servermarket.command.aprice.update_success",
+                    prepared.itemName,
+                    prepared.price
                 )
             )
         }

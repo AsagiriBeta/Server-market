@@ -1,9 +1,8 @@
 package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
-import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
-import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
@@ -38,7 +37,7 @@ class MAdd {
         val amount = DoubleArgumentType.getDouble(context, "amount")
         val server = context.source.server
         val targetPlayer = server.playerManager.getPlayer(targetName) ?: run {
-            context.source.sendError(Text.literal(Language.get("command.madd.player_offline")))
+            context.source.sendError(Text.translatable("servermarket.command.madd.player_offline"))
             return 0
         }
 
@@ -46,21 +45,22 @@ class MAdd {
         ServerMarket.instance.transferService.addBalance(targetPlayer.uuid, amount)
             .whenCompleteOnServerThread(server) { success, ex ->
                 if (ex != null) {
-                    context.source.sendError(Text.literal(Language.get("command.madd.failed")))
+                    context.source.sendError(Text.translatable("servermarket.command.madd.failed"))
                     ServerMarket.LOGGER.error("madd命令执行失败", ex)
                 } else if (success == true) {
                     val sign = if (amount >= 0) "+" else ""
+                    val formatted = sign + MoneyFormat.format(kotlin.math.abs(amount), 2)
+
                     context.source.sendMessage(
-                        Text.literal(Language.get("command.madd.success", targetPlayer.name.string, "$sign%.2f".format(amount)))
+                        Text.translatable("servermarket.command.madd.success", formatted, targetPlayer.name)
                     )
                     targetPlayer.sendMessage(
-                        Text.literal(Language.get("command.madd.received", "$sign%.2f".format(amount)))
+                        Text.translatable("servermarket.command.madd.received", formatted)
                     )
                 } else {
-                    context.source.sendError(Text.literal(Language.get("command.madd.failed")))
+                    context.source.sendError(Text.translatable("servermarket.command.madd.failed"))
                 }
             }
         return 1
     }
 }
-

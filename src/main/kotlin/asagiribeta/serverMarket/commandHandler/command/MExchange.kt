@@ -1,19 +1,17 @@
 package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.ServerMarket
-import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.ItemKey
-import com.mojang.brigadier.CommandDispatcher
+import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.IntegerArgumentType
-import com.mojang.brigadier.context.CommandContext
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
+import com.mojang.brigadier.context.CommandContext
 import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
-import asagiribeta.serverMarket.util.PermissionUtil
-import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class MExchange {
     // 构建 /svm exchange 子命令
@@ -28,18 +26,18 @@ class MExchange {
     private fun execute(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
         val player = source.player ?: run {
-            source.sendError(Text.literal(Language.get("command.mexchange.player_only")))
+            source.sendError(Text.translatable("servermarket.command.mexchange.player_only"))
             return 0
         }
         val quantity = IntegerArgumentType.getInteger(context, "quantity")
         if (quantity <= 0) {
-            source.sendError(Text.literal(Language.get("command.mexchange.invalid_amount")))
+            source.sendError(Text.translatable("servermarket.command.mexchange.invalid_amount"))
             return 0
         }
 
         val main = player.mainHandStack
         if (main.isEmpty) {
-            source.sendError(Text.literal(Language.get("command.mexchange.hold_item")))
+            source.sendError(Text.translatable("servermarket.command.mexchange.hold_item"))
             return 0
         }
 
@@ -54,7 +52,7 @@ class MExchange {
         }
         val totalAvailable = matchingStacks.sumOf { it.count }
         if (totalAvailable < quantity) {
-            source.sendError(Text.literal(Language.get("command.mexchange.insufficient_items", quantity)))
+            source.sendError(Text.translatable("servermarket.command.mexchange.insufficient_items", quantity))
             return 0
         }
 
@@ -64,12 +62,12 @@ class MExchange {
         ).whenCompleteOnServerThread(source.server) { totalGain, ex ->
             if (ex != null) {
                 ServerMarket.LOGGER.error("/mexchange 执行失败", ex)
-                source.sendError(Text.literal(Language.get("command.mexchange.failed")))
+                source.sendError(Text.translatable("servermarket.command.mexchange.failed"))
                 return@whenCompleteOnServerThread
             }
 
             if (totalGain == null) {
-                source.sendError(Text.literal(Language.get("command.mexchange.not_currency")))
+                source.sendError(Text.translatable("servermarket.command.mexchange.not_currency"))
                 return@whenCompleteOnServerThread
             }
 
@@ -83,14 +81,12 @@ class MExchange {
             }
 
             source.sendMessage(
-                    Text.literal(
-                        Language.get(
-                            "command.mexchange.success",
-                            quantity,
-                            itemName,
-                            String.format("%.2f", totalGain)
-                        )
-                    )
+                Text.translatable(
+                    "servermarket.command.mexchange.success",
+                    quantity,
+                    itemName,
+                    String.format("%.2f", totalGain)
+                )
             )
         }
         return 1

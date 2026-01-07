@@ -1,9 +1,9 @@
 package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
-import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.ItemKey
-import com.mojang.brigadier.CommandDispatcher
+import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
@@ -14,14 +14,12 @@ import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
-import asagiribeta.serverMarket.util.PermissionUtil
-import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class ACash {
     // 构建 /svm edit cash 子命令
     fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
         return CommandManager.literal("cash")
-            .requires(PermissionUtil.require("servermarket.admin.cash", 4))
+            .requires { source -> source.hasPermissionLevel(4) }
             // /svm edit cash get
             .then(CommandManager.literal("get").executes(this::executeGet))
             // /svm edit cash del
@@ -49,12 +47,12 @@ class ACash {
     // 提取的公用方法：要求执行者为玩家且主手持有物品，否则提示并返回 null
     private fun requireHeldItem(source: ServerCommandSource): ItemStack? {
         val player = source.player ?: run {
-            source.sendError(Text.literal(Language.get("command.acash.player_only")))
+            source.sendError(Text.translatable("servermarket.command.acash.player_only"))
             return null
         }
         val stack = player.mainHandStack
         if (stack.isEmpty) {
-            source.sendError(Text.literal(Language.get("command.acash.hold_item")))
+            source.sendError(Text.translatable("servermarket.command.acash.hold_item"))
             return null
         }
         return stack
@@ -64,7 +62,7 @@ class ACash {
         val source = context.source
         val value = DoubleArgumentType.getDouble(context, "value")
         if (value <= 0.0) {
-            source.sendError(Text.literal(Language.get("command.acash.non_positive_value")))
+            source.sendError(Text.translatable("servermarket.command.acash.non_positive_value"))
             return 0
         }
         val stack = requireHeldItem(source) ?: return 0
@@ -74,11 +72,11 @@ class ACash {
             .whenCompleteOnServerThread(source.server) { success, ex ->
                 if (ex != null) {
                     ServerMarket.LOGGER.error("acash 命令设置面值失败", ex)
-                    source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
+                    source.sendError(Text.translatable("servermarket.command.acash.operation_failed"))
                 } else if (success == true) {
-                    source.sendMessage(Text.literal(Language.get("command.acash.success", stack.name.string, value)))
+                    source.sendMessage(Text.translatable("servermarket.command.acash.success", stack.name, value))
                 } else {
-                    source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
+                    source.sendError(Text.translatable("servermarket.command.acash.operation_failed"))
                 }
             }
         return 1
@@ -94,11 +92,11 @@ class ACash {
             .whenCompleteOnServerThread(source.server) { value, ex ->
                 if (ex != null) {
                     ServerMarket.LOGGER.error("acash get 执行失败", ex)
-                    source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
+                    source.sendError(Text.translatable("servermarket.command.acash.operation_failed"))
                 } else if (value != null) {
-                    source.sendMessage(Text.literal(Language.get("command.acash.get.success", value)))
+                    source.sendMessage(Text.translatable("servermarket.command.acash.get.success", value))
                 } else {
-                    source.sendError(Text.literal(Language.get("command.acash.get.not_set")))
+                    source.sendError(Text.translatable("servermarket.command.acash.get.not_set"))
                 }
             }
         return 1
@@ -113,11 +111,11 @@ class ACash {
             .whenCompleteOnServerThread(source.server) { deleted, ex ->
                 if (ex != null) {
                     ServerMarket.LOGGER.error("acash del 执行失败", ex)
-                    source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
+                    source.sendError(Text.translatable("servermarket.command.acash.operation_failed"))
                 } else if (deleted == true) {
-                    source.sendMessage(Text.literal(Language.get("command.acash.del.success", stack.name.string)))
+                    source.sendMessage(Text.translatable("servermarket.command.acash.del.success", stack.name))
                 } else {
-                    source.sendError(Text.literal(Language.get("command.acash.del.not_set")))
+                    source.sendError(Text.translatable("servermarket.command.acash.del.not_set"))
                 }
             }
         return 1
@@ -140,26 +138,24 @@ class ACash {
         future.whenCompleteOnServerThread(source.server) { items, ex ->
             if (ex != null) {
                 ServerMarket.LOGGER.error("acash list 执行失败", ex)
-                source.sendError(Text.literal(Language.get("command.acash.operation_failed")))
+                source.sendError(Text.translatable("servermarket.command.acash.operation_failed"))
                 return@whenCompleteOnServerThread
             }
 
             val list = items ?: emptyList()
             if (list.isEmpty()) {
-                source.sendError(Text.literal(Language.get("command.acash.list.empty")))
+                source.sendError(Text.translatable("servermarket.command.acash.list.empty"))
                 return@whenCompleteOnServerThread
             }
 
-            source.sendMessage(Text.literal(Language.get("command.acash.list.title", list.size)))
+            source.sendMessage(Text.translatable("servermarket.command.acash.list.title", list.size))
             list.forEach { ci ->
                 source.sendMessage(
-                    Text.literal(
-                        Language.get(
-                            "command.acash.list.entry",
-                            ci.itemId,
-                            ci.nbt.ifEmpty { "<none>" },
-                            ci.value
-                        )
+                    Text.translatable(
+                        "servermarket.command.acash.list.entry",
+                        ci.itemId,
+                        ci.nbt.ifEmpty { "<none>" },
+                        ci.value
                     )
                 )
             }

@@ -1,13 +1,13 @@
 package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.ServerMarket
-import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.ItemKey
-import com.mojang.brigadier.CommandDispatcher
+import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
-import com.mojang.brigadier.context.CommandContext
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
+import com.mojang.brigadier.context.CommandContext
 import net.minecraft.item.ItemStack
 import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager.argument
@@ -15,8 +15,6 @@ import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
-import asagiribeta.serverMarket.util.PermissionUtil
-import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class MCash {
     // 构建 /svm cash 子命令
@@ -33,17 +31,17 @@ class MCash {
     private fun execute(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
         val player = source.player ?: run {
-            source.sendError(Text.literal(Language.get("command.mcash.player_only")))
+            source.sendError(Text.translatable("servermarket.command.mcash.player_only"))
             return 0
         }
         val value = DoubleArgumentType.getDouble(context, "value")
         val quantity = IntegerArgumentType.getInteger(context, "quantity")
         if (value <= 0.0) {
-            source.sendError(Text.literal(Language.get("command.mcash.invalid_value")))
+            source.sendError(Text.translatable("servermarket.command.mcash.invalid_value"))
             return 0
         }
         if (quantity <= 0) {
-            source.sendError(Text.literal(Language.get("command.mcash.invalid_quantity")))
+            source.sendError(Text.translatable("servermarket.command.mcash.invalid_quantity"))
             return 0
         }
 
@@ -52,49 +50,43 @@ class MCash {
         val uuid = player.uuid
         val totalCost = value * quantity
 
-        // Use CurrencyService to find and exchange currency
         currencyRepo.findByValueAsync(value)
             .whenCompleteOnServerThread(source.server) { mapping, ex ->
                 if (ex != null) {
                     ServerMarket.LOGGER.error("/mcash 查询失败", ex)
-                    source.sendError(Text.literal(Language.get("command.mcash.failed")))
+                    source.sendError(Text.translatable("servermarket.command.mcash.failed"))
                     return@whenCompleteOnServerThread
                 }
 
                 if (mapping == null) {
-                    source.sendError(Text.literal(Language.get("command.mcash.value_not_found", value)))
+                    source.sendError(Text.translatable("servermarket.command.mcash.value_not_found", value))
                     return@whenCompleteOnServerThread
                 }
 
-                // Use CurrencyService to exchange balance to currency
                 ServerMarket.instance.currencyService.exchangeBalanceToCurrency(
                     uuid, mapping.itemId, mapping.nbt, quantity
                 ).whenCompleteOnServerThread(source.server) { deducted, ex2 ->
                     if (ex2 != null) {
                         ServerMarket.LOGGER.error("/mcash 执行失败", ex2)
-                        source.sendError(Text.literal(Language.get("command.mcash.failed")))
+                        source.sendError(Text.translatable("servermarket.command.mcash.failed"))
                         return@whenCompleteOnServerThread
                     }
 
                     if (deducted == null) {
                         source.sendError(
-                            Text.literal(
-                                Language.get(
-                                    "command.mcash.insufficient_balance",
-                                    String.format("%.2f", totalCost)
-                                )
+                            Text.translatable(
+                                "servermarket.command.mcash.insufficient_balance",
+                                String.format("%.2f", totalCost)
                             )
                         )
                         return@whenCompleteOnServerThread
                     }
 
-                    // Give currency items to player
                     val id = Identifier.of(mapping.itemId)
                     val item = Registries.ITEM.get(id)
                     if (item.defaultStack.isEmpty) {
-                        // Refund if item is invalid
                         db.supplyAsync0 { db.addBalance(uuid, deducted) }
-                        source.sendError(Text.literal(Language.get("command.mcash.failed")))
+                        source.sendError(Text.translatable("servermarket.command.mcash.failed"))
                         return@whenCompleteOnServerThread
                     }
 
@@ -116,20 +108,17 @@ class MCash {
                             remaining -= give
                         }
                         source.sendMessage(
-                            Text.literal(
-                                Language.get(
-                                    "command.mcash.success",
-                                    quantity,
-                                    itemName,
-                                    String.format("%.2f", totalCost)
-                                )
+                            Text.translatable(
+                                "servermarket.command.mcash.success",
+                                quantity,
+                                itemName,
+                                String.format("%.2f", totalCost)
                             )
                         )
                     } catch (e: Exception) {
-                        // Refund on failure
                         db.supplyAsync0 { db.addBalance(uuid, deducted) }
                         ServerMarket.LOGGER.error("/mcash 物品发放失败，已退款", e)
-                        source.sendError(Text.literal(Language.get("command.mcash.failed")))
+                        source.sendError(Text.translatable("servermarket.command.mcash.failed"))
                     }
                 }
             }

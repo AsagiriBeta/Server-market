@@ -51,7 +51,7 @@ repositories {
     mavenCentral()
     // Lucko (fabric-permissions-api)
     maven("https://repo.lucko.me/")
-    // Nucleoid (sgui)
+    // Nucleoid (sgui, server-translations-api)
     maven("https://maven.nucleoid.xyz/")
     // Sonatype snapshots (only needed when using snapshot deps)
     maven("https://oss.sonatype.org/content/repositories/snapshots/")
@@ -74,6 +74,10 @@ dependencies {
     // Placeholder API (included)
     modImplementation("eu.pb4:placeholder-api:$placeholderApiVersion")
     include("eu.pb4:placeholder-api:$placeholderApiVersion")
+
+    // Server Translations API (included)
+    modImplementation("xyz.nucleoid:server-translations-api:2.5.2+1.21.9-pre3")
+    include("xyz.nucleoid:server-translations-api:2.5.2+1.21.9-pre3")
 
     // SQLite
     modImplementation("org.xerial:sqlite-jdbc:3.45.1.0")

@@ -1,8 +1,6 @@
 package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
-import asagiribeta.serverMarket.util.Language
-import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.registry.Registries
@@ -24,13 +22,13 @@ class APull {
     private fun execute(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
         val player = source.player ?: run {
-            source.sendError(Text.literal(Language.get("command.apull.player_only")))
+            source.sendError(Text.translatable("servermarket.command.apull.player_only"))
             return 0
         }
 
         val itemStack = player.mainHandStack
         if (itemStack.isEmpty) {
-            source.sendError(Text.literal(Language.get("command.apull.hold_item")))
+            source.sendError(Text.translatable("servermarket.command.apull.hold_item"))
             return 0
         }
 
@@ -42,22 +40,22 @@ class APull {
         db.supplyAsync { repo.hasSystemItem(itemId, nbt) }
             .whenCompleteOnServerThread(source.server) { exists, ex ->
                 if (ex != null) {
-                    source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
+                    source.sendError(Text.translatable("servermarket.command.apull.operation_failed"))
                     ServerMarket.LOGGER.error("apull命令执行失败", ex)
                     return@whenCompleteOnServerThread
                 }
                 if (exists != true) {
-                    source.sendError(Text.literal(Language.get("command.apull.not_listed")))
+                    source.sendError(Text.translatable("servermarket.command.apull.not_listed"))
                     return@whenCompleteOnServerThread
                 }
 
                 db.runAsync { repo.removeSystemItem(itemId, nbt) }
                     .whenCompleteOnServerThread(source.server) { _, ex2 ->
                         if (ex2 != null) {
-                            source.sendError(Text.literal(Language.get("command.apull.operation_failed")))
+                            source.sendError(Text.translatable("servermarket.command.apull.operation_failed"))
                             ServerMarket.LOGGER.error("apull命令删除失败", ex2)
                         } else {
-                            source.sendMessage(Text.literal(Language.get("command.apull.success", itemStack.name.string)))
+                            source.sendMessage(Text.translatable("servermarket.command.apull.success", itemStack.name))
                         }
                     }
             }

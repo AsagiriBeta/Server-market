@@ -1,9 +1,8 @@
 package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.ServerMarket
-import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.model.PurchaseResult
-import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
@@ -17,6 +16,7 @@ import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.TextFormat
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import asagiribeta.serverMarket.util.CommandSuggestions
 import net.minecraft.command.argument.IdentifierArgumentType
@@ -65,79 +65,78 @@ class MBuy {
             seller = null
         ).whenCompleteOnServerThread(context.source.server) { result, ex ->
             if (ex != null) {
-                context.source.sendError(Text.literal(Language.get("command.mbuy.error")))
+                context.source.sendError(Text.translatable("servermarket.command.mbuy.error"))
                 ServerMarket.LOGGER.error("MBuy命令执行失败", ex)
                 return@whenCompleteOnServerThread
             }
 
             when (result) {
                 null -> {
-                    context.source.sendError(Text.literal(Language.get("command.mbuy.error")))
+                    context.source.sendError(Text.translatable("servermarket.command.mbuy.error"))
                 }
                 is PurchaseResult.Success -> {
-                        // Give items to player
-                        for ((pid, nbt, amount) in result.items) {
-                            val stack = buildStackFromRecord(pid, nbt, amount)
-                            player.giveItemStack(stack)
+                    // Give items to player and derive a localized display name from the first returned stack
+                    var firstDisplayName: String? = null
+                    for ((pid, nbt, amount) in result.items) {
+                        val stack = buildStackFromRecord(pid, nbt, amount)
+                        if (firstDisplayName == null) {
+                            firstDisplayName = TextFormat.displayItemName(stack, pid)
                         }
-                        context.source.sendMessage(
-                            Text.literal(
-                                Language.get(
-                                    "command.mbuy.success",
-                                    quantity,
-                                    itemId,
-                                    "%.2f".format(result.totalCost)
-                                )
-                            )
-                        )
+                        player.giveItemStack(stack)
                     }
-                    is PurchaseResult.InsufficientFunds -> {
-                        context.source.sendError(
-                            Text.literal(
-                                Language.get(
-                                    "command.mbuy.insufficient_funds",
-                                    "%.2f".format(result.required)
-                                )
-                            )
+
+                    val displayName = firstDisplayName ?: TextFormat.displayItemName(ItemStack.EMPTY, itemId)
+
+                    context.source.sendMessage(
+                        Text.translatable(
+                            "servermarket.command.mbuy.success",
+                            quantity,
+                            displayName,
+                            MoneyFormat.format(result.totalCost, 2)
                         )
-                    }
-                    is PurchaseResult.InsufficientStock -> {
-                        context.source.sendError(
-                            Text.literal(
-                                Language.get(
-                                    "command.mbuy.insufficient_stock",
-                                    result.available
-                                )
-                            )
-                        )
-                    }
-                    is PurchaseResult.LimitExceeded -> {
-                        context.source.sendError(
-                            Text.literal(
-                                Language.get(
-                                    "command.mbuy.limit_exceeded",
-                                    result.remaining
-                                )
-                            )
-                        )
-                    }
-                    is PurchaseResult.NotFound -> {
-                        context.source.sendError(
-                            Text.literal(Language.get("command.mbuy.not_found"))
-                        )
-                    }
-                    is PurchaseResult.CannotBuyOwnItem -> {
-                        context.source.sendError(
-                            Text.literal(Language.get("command.mbuy.cannot_buy_own_item"))
-                        )
-                    }
-                    is PurchaseResult.Error -> {
-                        context.source.sendError(
-                            Text.literal(Language.get("command.mbuy.error"))
-                        )
-                        ServerMarket.LOGGER.error("购买失败: ${result.message}")
-                    }
+                    )
                 }
+                is PurchaseResult.InsufficientFunds -> {
+                    context.source.sendError(
+                        Text.translatable(
+                            "servermarket.command.mbuy.insufficient_funds",
+                            MoneyFormat.format(result.required, 2)
+                        )
+                    )
+                }
+                is PurchaseResult.InsufficientStock -> {
+                    context.source.sendError(
+                        Text.translatable(
+                            "servermarket.command.mbuy.insufficient_stock",
+                            result.available
+                        )
+                    )
+                }
+                is PurchaseResult.LimitExceeded -> {
+                    context.source.sendError(
+                        Text.translatable(
+                            "servermarket.command.mbuy.limit_exceeded",
+                            result.remaining
+                        )
+                    )
+                }
+                is PurchaseResult.NotFound -> {
+                    context.source.sendError(
+                        Text.translatable("servermarket.command.mbuy.not_found")
+                    )
+                }
+                is PurchaseResult.CannotBuyOwnItem -> {
+                    context.source.sendError(
+                        Text.translatable("servermarket.command.mbuy.cannot_buy_own_item")
+                    )
+                }
+                is PurchaseResult.Error -> {
+                    context.source.sendError(
+                        Text.translatable("servermarket.command.mbuy.error")
+                    )
+                    ServerMarket.LOGGER.error("购买失败: ${result.message}")
+                }
+            }
         }
         return 1
     }
@@ -157,80 +156,82 @@ class MBuy {
             seller = seller
         ).whenCompleteOnServerThread(context.source.server) { result, ex ->
             if (ex != null) {
-                context.source.sendError(Text.literal(Language.get("command.mbuy.error")))
+                context.source.sendError(Text.translatable("servermarket.command.mbuy.error"))
                 ServerMarket.LOGGER.error("MBuy命令执行失败(带卖家)", ex)
                 return@whenCompleteOnServerThread
             }
 
             when (result) {
                 null -> {
-                    context.source.sendError(Text.literal(Language.get("command.mbuy.error")))
+                    context.source.sendError(Text.translatable("servermarket.command.mbuy.error"))
                 }
                 is PurchaseResult.Success -> {
-                        for ((pid, nbt, amount) in result.items) {
-                            val stack = buildStackFromRecord(pid, nbt, amount)
-                            player.giveItemStack(stack)
+                    var firstDisplayName: String? = null
+                    for ((pid, nbt, amount) in result.items) {
+                        val stack = buildStackFromRecord(pid, nbt, amount)
+                        if (firstDisplayName == null) {
+                            firstDisplayName = TextFormat.displayItemName(stack, pid)
                         }
-                        context.source.sendMessage(
-                            Text.literal(
-                                Language.get(
-                                    "command.mbuy.success",
-                                    quantity,
-                                    "$itemId@$seller",
-                                    "%.2f".format(result.totalCost)
-                                )
-                            )
-                        )
+                        player.giveItemStack(stack)
                     }
-                    is PurchaseResult.InsufficientFunds -> {
-                        context.source.sendError(
-                            Text.literal(
-                                Language.get(
-                                    "command.mbuy.insufficient_funds",
-                                    "%.2f".format(result.required)
-                                )
-                            )
-                        )
+
+                    val displayName = if (seller.isNotBlank()) {
+                        (firstDisplayName ?: TextFormat.displayItemName(ItemStack.EMPTY, itemId)) + "@" + seller
+                    } else {
+                        firstDisplayName ?: TextFormat.displayItemName(ItemStack.EMPTY, itemId)
                     }
-                    is PurchaseResult.InsufficientStock -> {
-                        context.source.sendError(
-                            Text.literal(
-                                Language.get(
-                                    "command.mbuy.insufficient_stock",
-                                    result.available
-                                )
-                            )
+
+                    context.source.sendMessage(
+                        Text.translatable(
+                            "servermarket.command.mbuy.success",
+                            quantity,
+                            displayName,
+                            MoneyFormat.format(result.totalCost, 2)
                         )
-                    }
-                    is PurchaseResult.LimitExceeded -> {
-                        context.source.sendError(
-                            Text.literal(
-                                Language.get(
-                                    "command.mbuy.limit_exceeded",
-                                    result.remaining
-                                )
-                            )
-                        )
-                    }
-                    is PurchaseResult.NotFound -> {
-                        context.source.sendError(
-                            Text.literal(Language.get("command.mbuy.not_found"))
-                        )
-                    }
-                    is PurchaseResult.CannotBuyOwnItem -> {
-                        context.source.sendError(
-                            Text.literal(Language.get("command.mbuy.cannot_buy_own_item"))
-                        )
-                    }
-                    is PurchaseResult.Error -> {
-                        context.source.sendError(
-                            Text.literal(Language.get("command.mbuy.error"))
-                        )
-                        ServerMarket.LOGGER.error("购买失败: ${result.message}")
-                    }
+                    )
                 }
+                is PurchaseResult.InsufficientFunds -> {
+                    context.source.sendError(
+                        Text.translatable(
+                            "servermarket.command.mbuy.insufficient_funds",
+                            MoneyFormat.format(result.required, 2)
+                        )
+                    )
+                }
+                is PurchaseResult.InsufficientStock -> {
+                    context.source.sendError(
+                        Text.translatable(
+                            "servermarket.command.mbuy.insufficient_stock",
+                            result.available
+                        )
+                    )
+                }
+                is PurchaseResult.LimitExceeded -> {
+                    context.source.sendError(
+                        Text.translatable(
+                            "servermarket.command.mbuy.limit_exceeded",
+                            result.remaining
+                        )
+                    )
+                }
+                is PurchaseResult.NotFound -> {
+                    context.source.sendError(
+                        Text.translatable("servermarket.command.mbuy.not_found")
+                    )
+                }
+                is PurchaseResult.CannotBuyOwnItem -> {
+                    context.source.sendError(
+                        Text.translatable("servermarket.command.mbuy.cannot_buy_own_item")
+                    )
+                }
+                is PurchaseResult.Error -> {
+                    context.source.sendError(
+                        Text.translatable("servermarket.command.mbuy.error")
+                    )
+                    ServerMarket.LOGGER.error("购买失败: ${result.message}")
+                }
+            }
         }
         return 1
     }
 }
-

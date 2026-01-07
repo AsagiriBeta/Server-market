@@ -5,7 +5,8 @@ import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.model.PurchaseMenuEntry
 import asagiribeta.serverMarket.model.SellToBuyerResult
 import asagiribeta.serverMarket.util.ItemKey
-import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.MoneyFormat
+import asagiribeta.serverMarket.util.TextFormat
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import eu.pb4.sgui.api.ClickType
 import eu.pb4.sgui.api.elements.GuiElementBuilder
@@ -14,7 +15,6 @@ import net.minecraft.item.Items
 import net.minecraft.registry.Registries
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
-import java.util.*
 import kotlin.math.min
 
 /**
@@ -31,7 +31,7 @@ class PurchaseListView(private val gui: MarketGui) {
         gui.clearNav()
 
         // 显示加载提示
-        setNavButton(46, Items.BOOK, Language.get("menu.loading")) {}
+        setNavButton(46, Items.BOOK, Text.translatable("servermarket.menu.loading")) {}
         buildNav()
 
         // 异步加载收购列表
@@ -110,12 +110,14 @@ class PurchaseListView(private val gui: MarketGui) {
             "${entry.targetAmount - entry.currentAmount}/${entry.targetAmount}"
         } else "∞"
 
+        val name = TextFormat.displayItemName(stack, entry.itemId)
+
         val element = GuiElementBuilder.from(stack)
-            .setName(Text.literal(entry.itemId))
-            .addLoreLine(Text.literal(Language.get("menu.purchase.buyer", entry.buyerName)))
-            .addLoreLine(Text.literal(Language.get("menu.purchase.price", String.format(Locale.ROOT, "%.2f", entry.price))))
-            .addLoreLine(Text.literal(Language.get("menu.purchase.limit", if (entry.buyerName == "SERVER") limitStr else remainingStr)))
-            .addLoreLine(Text.literal(Language.get("menu.purchase.click_tip")))
+            .setName(Text.literal(name))
+            .addLoreLine(Text.translatable("servermarket.menu.purchase.buyer", entry.buyerName))
+            .addLoreLine(Text.translatable("servermarket.menu.purchase.price", MoneyFormat.format(entry.price, 2)))
+            .addLoreLine(Text.translatable("servermarket.menu.purchase.limit", if (entry.buyerName == "SERVER") limitStr else remainingStr))
+            .addLoreLine(Text.translatable("servermarket.menu.purchase.click_tip"))
             .setCallback { _, clickType, _ ->
                 val sellAll = clickType == ClickType.MOUSE_RIGHT || clickType == ClickType.MOUSE_RIGHT_SHIFT
                 handleSellToPurchase(entry, sellAll)
@@ -127,7 +129,7 @@ class PurchaseListView(private val gui: MarketGui) {
     private fun buildNav() {
         val totalPages = gui.pageCountOf(purchaseEntries.size)
 
-        setNavButton(45, Items.ARROW, Language.get("menu.prev")) {
+        setNavButton(45, Items.ARROW, Text.translatable("servermarket.menu.prev")) {
             if (gui.page > 0) {
                 gui.page--
                 show(false)
@@ -135,22 +137,22 @@ class PurchaseListView(private val gui: MarketGui) {
         }
 
         val helpItem = GuiElementBuilder(Items.BOOK)
-            .setName(Text.literal(Language.get("menu.purchase_list.title")))
-            .addLoreLine(Text.literal(Language.get("menu.purchase_list.tip1")))
-            .addLoreLine(Text.literal(Language.get("menu.purchase_list.tip2")))
-            .addLoreLine(Text.literal(Language.get("menu.purchase_list.tip3")))
-            .addLoreLine(Text.literal(Language.get("menu.purchase_list.tip4")))
+            .setName(Text.translatable("servermarket.menu.purchase_list.title"))
+            .addLoreLine(Text.translatable("servermarket.menu.purchase_list.tip1"))
+            .addLoreLine(Text.translatable("servermarket.menu.purchase_list.tip2"))
+            .addLoreLine(Text.translatable("servermarket.menu.purchase_list.tip3"))
+            .addLoreLine(Text.translatable("servermarket.menu.purchase_list.tip4"))
         gui.setSlot(46, helpItem)
 
-        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back_home")) {
+        setNavButton(47, Items.NETHER_STAR, Text.translatable("servermarket.menu.back_home")) {
             gui.showHome()
         }
 
-        setNavButton(49, Items.BARRIER, Language.get("menu.close")) {
+        setNavButton(49, Items.BARRIER, Text.translatable("servermarket.menu.close")) {
             gui.close()
         }
 
-        setNavButton(53, Items.ARROW, Language.get("menu.next", "${gui.page + 1}/$totalPages")) {
+        setNavButton(53, Items.ARROW, Text.translatable("servermarket.menu.next", "${gui.page + 1}/$totalPages")) {
             if (gui.page + 1 < totalPages) {
                 gui.page++
                 show(false)
@@ -171,10 +173,7 @@ class PurchaseListView(private val gui: MarketGui) {
 
         val totalAvailable = allStacks.sumOf { it.count }
         if (totalAvailable < desired) {
-            player.sendMessage(
-                Text.literal(Language.get("menu.purchase.not_enough_items")),
-                false
-            )
+            player.sendMessage(Text.translatable("servermarket.menu.purchase.not_enough_items"), false)
             return
         }
 
@@ -202,12 +201,12 @@ class PurchaseListView(private val gui: MarketGui) {
                         }
 
                         player.sendMessage(
-                            Text.literal(Language.get(
-                                "menu.purchase.sell_ok",
+                            Text.translatable(
+                                "servermarket.menu.purchase.sell_ok",
                                 result.amount,
                                 itemId,
-                                "%.2f".format(result.totalEarned)
-                            )),
+                                MoneyFormat.format(result.totalEarned, 2)
+                            ),
                             false
                         )
 
@@ -215,45 +214,23 @@ class PurchaseListView(private val gui: MarketGui) {
                     }
 
                     SellToBuyerResult.NotFound -> {
-                        player.sendMessage(
-                            Text.literal(Language.get("menu.purchase.error")),
-                            false
-                        )
-                    }
-
-                    is SellToBuyerResult.LimitExceeded -> {
-                        player.sendMessage(
-                            Text.literal(Language.get("menu.purchase.limit_exceeded")),
-                            false
-                        )
-                    }
-
-                    is SellToBuyerResult.InsufficientFunds -> {
-                        player.sendMessage(
-                            Text.literal(Language.get("menu.purchase.buyer_no_money")),
-                            false
-                        )
+                        player.sendMessage(Text.translatable("servermarket.menu.purchase.error"), false)
                     }
 
                     SellToBuyerResult.InsufficientItems -> {
-                        player.sendMessage(
-                            Text.literal(Language.get("menu.purchase.not_enough_items")),
-                            false
-                        )
+                        player.sendMessage(Text.translatable("servermarket.menu.purchase.not_enough_items"), false)
                     }
 
-                    is SellToBuyerResult.Error -> {
-                        player.sendMessage(
-                            Text.literal(Language.get("menu.purchase.error")),
-                            false
-                        )
+                    is SellToBuyerResult.InsufficientFunds -> {
+                        player.sendMessage(Text.translatable("servermarket.menu.purchase.buyer_no_money"), false)
                     }
 
-                    null -> {
-                        player.sendMessage(
-                            Text.literal(Language.get("menu.purchase.error")),
-                            false
-                        )
+                    is SellToBuyerResult.LimitExceeded -> {
+                        player.sendMessage(Text.translatable("servermarket.menu.purchase.limit_exceeded"), false)
+                    }
+
+                    is SellToBuyerResult.Error, null -> {
+                        player.sendMessage(Text.translatable("servermarket.menu.purchase.error"), false)
                     }
                 }
             }
@@ -261,18 +238,15 @@ class PurchaseListView(private val gui: MarketGui) {
     }
 
     private fun refreshAfterSell() {
-        if (gui.mode == ViewMode.PURCHASE_LIST) {
-            val oldPage = gui.page
-            show(resetPage = false)
-            gui.page = oldPage.coerceAtMost(gui.pageCountOf(purchaseEntries.size) - 1)
-        }
+        if (gui.mode != ViewMode.PURCHASE_LIST) return
+        // Reload list and view.
+        show(false)
     }
 
-    private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: String, callback: () -> Unit) {
+    private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: Text, callback: () -> Unit) {
         val element = GuiElementBuilder(item)
-            .setName(Text.literal(name))
+            .setName(name)
             .setCallback { _, _, _ -> callback() }
         gui.setSlot(slot, element)
     }
 }
-

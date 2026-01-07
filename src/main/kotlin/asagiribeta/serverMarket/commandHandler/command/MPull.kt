@@ -1,6 +1,5 @@
 package asagiribeta.serverMarket.commandHandler.command
 
-import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.server.command.ServerCommandSource
@@ -8,10 +7,8 @@ import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.ServerMarket
 import net.minecraft.registry.Registries
-import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.PermissionUtil
-import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class MPull {
@@ -25,13 +22,13 @@ class MPull {
     fun execute(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
         val player = source.player ?: run {
-            source.sendError(Text.literal(Language.get("command.mpull.player_only")))
+            source.sendError(Text.translatable("servermarket.command.mpull.player_only"))
             return 0
         }
 
         val itemStack = player.mainHandStack
         if (itemStack.isEmpty) {
-            source.sendError(Text.literal(Language.get("command.mpull.hold_item")))
+            source.sendError(Text.translatable("servermarket.command.mpull.hold_item"))
             return 0
         }
 
@@ -47,14 +44,14 @@ class MPull {
             quantity = Int.MAX_VALUE  // Remove all
         ).whenCompleteOnServerThread(source.server) { returnedQuantity, ex ->
             if (ex != null) {
-                source.sendError(Text.literal(Language.get("command.mpull.operation_failed")))
+                source.sendError(Text.translatable("servermarket.command.mpull.operation_failed"))
                 ServerMarket.LOGGER.error("mpull命令执行失败", ex)
                 return@whenCompleteOnServerThread
             }
 
             val qty = returnedQuantity ?: 0
             if (qty <= 0) {
-                source.sendError(Text.literal(Language.get("command.mpull.not_listed")))
+                source.sendError(Text.translatable("servermarket.command.mpull.not_listed"))
                 return@whenCompleteOnServerThread
             }
 
@@ -63,8 +60,10 @@ class MPull {
             player.giveItemStack(returnStack)
 
             source.sendMessage(
-                Text.literal(
-                    Language.get("command.mpull.success", itemName, qty)
+                Text.translatable(
+                    "servermarket.command.mpull.success",
+                    itemName,
+                    qty
                 )
             )
         }

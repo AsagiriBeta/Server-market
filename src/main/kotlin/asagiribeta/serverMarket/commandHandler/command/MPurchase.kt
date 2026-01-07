@@ -2,7 +2,7 @@ package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.ItemKey
-import asagiribeta.serverMarket.util.Language
+import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.PermissionUtil
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.DoubleArgumentType
@@ -17,8 +17,6 @@ import net.minecraft.text.Text
 
 /**
  * 玩家收购命令：/svm purchase <price> <amount>
- *
- * 玩家可以设置收购订单，根据手持物品设置收购价格和目标数量
  */
 class MPurchase {
     fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
@@ -35,7 +33,7 @@ class MPurchase {
 
     private fun execute(context: CommandContext<ServerCommandSource>): Int {
         val player = context.source.player ?: run {
-            context.source.sendError(Text.literal(Language.get("command.mpurchase.player_only")))
+            context.source.sendError(Text.translatable("servermarket.command.mpurchase.player_only"))
             return 0
         }
 
@@ -44,7 +42,7 @@ class MPurchase {
 
         val mainHandStack = player.mainHandStack
         if (mainHandStack.isEmpty) {
-            context.source.sendError(Text.literal(Language.get("command.mpurchase.hold_item")))
+            context.source.sendError(Text.translatable("servermarket.command.mpurchase.hold_item"))
             return 0
         }
 
@@ -64,14 +62,17 @@ class MPurchase {
             )
         }.whenCompleteOnServerThread(context.source.server) { _, ex ->
             if (ex != null) {
-                context.source.sendError(Text.literal(Language.get("command.mpurchase.failed")))
+                context.source.sendError(Text.translatable("servermarket.command.mpurchase.failed"))
                 ServerMarket.LOGGER.error("添加收购订单失败", ex)
                 return@whenCompleteOnServerThread
             }
 
             context.source.sendMessage(
-                Text.literal(
-                    Language.get("command.mpurchase.success", itemName, "%.2f".format(price), amount)
+                Text.translatable(
+                    "servermarket.command.mpurchase.success",
+                    itemName,
+                    MoneyFormat.format(price, 2),
+                    amount
                 )
             )
         }
@@ -79,4 +80,3 @@ class MPurchase {
         return 1
     }
 }
-

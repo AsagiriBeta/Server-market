@@ -1,13 +1,10 @@
 package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.menu.MarketGui
-import asagiribeta.serverMarket.util.Language
-import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.context.CommandContext
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
-import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.text.Text
 import asagiribeta.serverMarket.util.PermissionUtil
 
@@ -20,14 +17,14 @@ class MMenu {
     }
 
     private fun openMenu(ctx: CommandContext<ServerCommandSource>): Int {
-        val player = ctx.source.player as? ServerPlayerEntity ?: run {
-            ctx.source.sendError(Text.literal(Language.get("error.player_only")))
+        val player = try {
+            ctx.source.playerOrThrow
+        } catch (_: Exception) {
+            ctx.source.sendError(Text.translatable("servermarket.error.player_only"))
             return 0
         }
 
-        // 使用新的基于 sgui 的 GUI
         MarketGui(player).open()
-
         return 1
     }
 }

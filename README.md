@@ -27,10 +27,13 @@ Player:
 ```bash
 /svm money
 /svm buy <qty> <item> [seller]
-/svm sell <qty>
+/svm sell <price>
+/svm restock <qty>
 /svm menu
 /svm purchase <price> <amount>
+/svm order <price> <amount>
 /svm selltopurchase <quantity>
+/svm supply <quantity>
 ```
 
 Admin:
@@ -46,6 +49,7 @@ Admin:
 
 This mod bundles **Placeholder API** and registers:
 - `%server-market:balance%`
+- `%server-market:balance_short%`
 - `%server-market:parcel_count%`
 - `%server-market:player_name%`
 

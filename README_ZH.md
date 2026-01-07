@@ -27,10 +27,13 @@
 ```bash
 /svm money
 /svm buy <数量> <物品> [卖家]
-/svm sell <数量>
+/svm sell <价格>
+/svm restock <数量>
 /svm menu
 /svm purchase <价格> <数量>
+/svm order <价格> <数量>
 /svm selltopurchase <数量>
+/svm supply <数量>
 ```
 
 管理员：
@@ -46,6 +49,7 @@
 
 本模组已内置 **Placeholder API**，并提供：
 - `%server-market:balance%`
+- `%server-market:balance_short%`
 - `%server-market:parcel_count%`
 - `%server-market:player_name%`
 

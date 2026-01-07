@@ -5,7 +5,6 @@ import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.menu.builder.GuiElementBuilders
 import asagiribeta.serverMarket.menu.builder.GuiElementBuilders.setPlayerSkin
 import asagiribeta.serverMarket.repository.SellerMenuEntry
-import asagiribeta.serverMarket.util.Language
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import net.minecraft.item.Items
@@ -24,11 +23,9 @@ class SellerListView(private val gui: MarketGui) {
         gui.clearContent()
         gui.clearNav()
 
-        // 显示加载提示
-        setNavButton(46, Items.BOOK, Language.get("menu.loading")) {}
+        setNavButton(46, Items.BOOK, Text.translatable("servermarket.menu.loading")) {}
         buildNav()
 
-        // 异步加载卖家列表
         loadSellerList()
     }
 
@@ -57,8 +54,8 @@ class SellerListView(private val gui: MarketGui) {
         val item = GuiElementBuilders.createSellerIcon(entry)
         val element = GuiElementBuilder(item)
             .setName(Text.literal(entry.sellerName))
-            .addLoreLine(Text.literal(Language.get("menu.seller.items", entry.itemCount)))
-            .addLoreLine(Text.literal(Language.get("menu.seller.open_shop")))
+            .addLoreLine(Text.translatable("servermarket.menu.seller.items", entry.itemCount))
+            .addLoreLine(Text.translatable("servermarket.menu.seller.open_shop"))
             .setCallback { _, _, _ ->
                 gui.showSellerShop(entry.sellerId, true)
             }
@@ -75,7 +72,7 @@ class SellerListView(private val gui: MarketGui) {
     private fun buildNav() {
         val totalPages = gui.pageCountOf(sellerEntries.size)
 
-        setNavButton(45, Items.ARROW, Language.get("menu.prev")) {
+        setNavButton(45, Items.ARROW, Text.translatable("servermarket.menu.prev")) {
             if (gui.page > 0) {
                 gui.page--
                 show(false)
@@ -83,22 +80,22 @@ class SellerListView(private val gui: MarketGui) {
         }
 
         val helpItem = GuiElementBuilder(Items.BOOK)
-            .setName(Text.literal(Language.get("menu.seller_list.title")))
-            .addLoreLine(Text.literal(Language.get("menu.seller_list.tip1")))
-            .addLoreLine(Text.literal(Language.get("menu.seller_list.tip2")))
-            .addLoreLine(Text.literal(Language.get("menu.seller_list.tip3")))
-            .addLoreLine(Text.literal(Language.get("menu.seller_list.tip4")))
+            .setName(Text.translatable("servermarket.menu.seller_list.title"))
+            .addLoreLine(Text.translatable("servermarket.menu.seller_list.tip1"))
+            .addLoreLine(Text.translatable("servermarket.menu.seller_list.tip2"))
+            .addLoreLine(Text.translatable("servermarket.menu.seller_list.tip3"))
+            .addLoreLine(Text.translatable("servermarket.menu.seller_list.tip4"))
         gui.setSlot(46, helpItem)
 
-        setNavButton(47, Items.NETHER_STAR, Language.get("menu.back_home")) {
+        setNavButton(47, Items.NETHER_STAR, Text.translatable("servermarket.menu.back_home")) {
             gui.showHome()
         }
 
-        setNavButton(49, Items.BARRIER, Language.get("menu.close")) {
+        setNavButton(49, Items.BARRIER, Text.translatable("servermarket.menu.close")) {
             gui.close()
         }
 
-        setNavButton(53, Items.ARROW, Language.get("menu.next", "${gui.page + 1}/$totalPages")) {
+        setNavButton(53, Items.ARROW, Text.translatable("servermarket.menu.next", "${gui.page + 1}/$totalPages")) {
             if (gui.page + 1 < totalPages) {
                 gui.page++
                 show(false)
@@ -106,11 +103,10 @@ class SellerListView(private val gui: MarketGui) {
         }
     }
 
-    private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: String, callback: () -> Unit) {
+    private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: Text, callback: () -> Unit) {
         val element = GuiElementBuilder(item)
-            .setName(Text.literal(name))
+            .setName(name)
             .setCallback { _, _, _ -> callback() }
         gui.setSlot(slot, element)
     }
 }
-
