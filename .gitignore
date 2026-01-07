@@ -1,3 +1,48 @@
+# Gradle / Kotlin / Loom (Fabric)
+.gradle/
+**/.gradle/
+build/
+**/build/
+out/
+**/out/
+/bin/
+
+# Loom/Minecraft dev runtime
+run/
+**/run/
+logs/
+**/logs/
+
+# IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# JetBrains / Gradle tooling caches
+# (kept explicit to avoid accidentally ignoring sources)
+**/.kotlin/
+**/.classpath
+**/.project
+**/.settings/
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Local databases / generated data
+identifier.sqlite
+*.sqlite
+*.sqlite-journal
+*.db
+
+# Optional: local env files
+.env
+.env.*
+
+# --- legacy rules kept (if any file paths overlap, Git ignores duplicates) ---
 # 项目排除路径
 /.gradle/
 /build/
@@ -7,4 +52,4 @@
 /.idea/
 
 # macOS
-.DS_Store
+# (duplicate removed; .DS_Store is already ignored above)
