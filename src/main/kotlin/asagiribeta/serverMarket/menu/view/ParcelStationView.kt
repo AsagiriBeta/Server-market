@@ -73,9 +73,16 @@ class ParcelStationView(private val gui: MarketGui) {
 
         val name = TextFormat.displayItemName(stack, entry.itemId)
 
+        // reason 既要兼容旧数据（直接存中文/英文），也要支持新数据（存 translation key）
+        val reasonText = if (entry.reason.startsWith("servermarket.")) {
+            Text.translatable(entry.reason)
+        } else {
+            Text.literal(entry.reason)
+        }
+
         val element = GuiElementBuilder.from(stack)
             .setName(Text.literal(name))
-            .addLoreLine(Text.translatable("servermarket.menu.parcel.reason", entry.reason))
+            .addLoreLine(Text.translatable("servermarket.menu.parcel.reason", reasonText))
             .addLoreLine(Text.translatable("servermarket.menu.parcel.time", timeStr))
             .addLoreLine(Text.translatable("servermarket.ui.quantity", entry.quantity.toString()))
             .addLoreLine(Text.translatable("servermarket.menu.parcel.click_tip").copy().formatted(net.minecraft.util.Formatting.GREEN))
@@ -122,15 +129,16 @@ class ParcelStationView(private val gui: MarketGui) {
 
     private fun handleParcelReceive(entry: ParcelEntry) {
         val player = gui.player
+        val normalizedNbt = ItemKey.normalizeSnbt(entry.nbt)
 
         ServerMarket.instance.parcelService.removeParcelsByItem(
             player.uuid,
             entry.itemId,
-            entry.nbt
+            normalizedNbt
         ).whenComplete { count, _ ->
             gui.serverExecute {
                 if (count != null && count > 0) {
-                    val stack = ItemKey.tryBuildFullStackFromSnbt(entry.nbt, entry.quantity) ?: run {
+                    val stack = ItemKey.tryBuildFullStackFromSnbt(normalizedNbt, entry.quantity) ?: run {
                         val id = Identifier.tryParse(entry.itemId)
                         val itemType = if (id != null && Registries.ITEM.containsId(id))
                             Registries.ITEM.get(id) else Items.AIR

@@ -1,5 +1,6 @@
 package asagiribeta.serverMarket.repository
 
+import asagiribeta.serverMarket.util.ItemKey
 import java.util.*
 
 /**
@@ -32,6 +33,7 @@ class MarketRepository(private val database: Database) {
      * @param limitPerDay 每日限购（-1 表示无限制）
      */
     fun addSystemItem(itemId: String, nbt: String, price: Double, limitPerDay: Int) {
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
         val sql = if (database.isMySQL) {
             """
             INSERT INTO system_market(item_id, nbt, price, limit_per_day)
@@ -51,7 +53,7 @@ class MarketRepository(private val database: Database) {
         }
         database.executeUpdate(sql) { ps ->
             ps.setString(1, itemId)
-            ps.setString(2, nbt)
+            ps.setString(2, normalizedNbt)
             ps.setDouble(3, price)
             ps.setInt(4, limitPerDay)
         }
@@ -61,9 +63,10 @@ class MarketRepository(private val database: Database) {
      * 移除系统商品
      */
     fun removeSystemItem(itemId: String, nbt: String) {
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
         database.executeUpdate("DELETE FROM system_market WHERE item_id = ? AND nbt = ?") { ps ->
             ps.setString(1, itemId)
-            ps.setString(2, nbt)
+            ps.setString(2, normalizedNbt)
         }
     }
 
@@ -71,13 +74,11 @@ class MarketRepository(private val database: Database) {
      * 检查系统商品是否存在
      */
     fun hasSystemItem(itemId: String, nbt: String): Boolean {
-        return database.connection.prepareStatement(
-            "SELECT 1 FROM system_market WHERE item_id = ? AND nbt = ?"
-        ).use { ps ->
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
+        val sql = "SELECT 1 FROM system_market WHERE item_id = ? AND nbt = ?"
+        return database.queryExists(sql) { ps ->
             ps.setString(1, itemId)
-            ps.setString(2, nbt)
-            val rs = ps.executeQuery()
-            rs.next()
+            ps.setString(2, normalizedNbt)
         }
     }
 
@@ -85,27 +86,26 @@ class MarketRepository(private val database: Database) {
      * 读取系统商品每日限购（-1 表示无限制；不存在则返回 -1）
      */
     fun getSystemLimitPerDay(itemId: String, nbt: String): Int {
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
         val sql = "SELECT limit_per_day FROM system_market WHERE item_id = ? AND nbt = ? LIMIT 1"
-        return database.connection.prepareStatement(sql).use { ps ->
+        return database.queryIntOne(sql, { ps ->
             ps.setString(1, itemId)
-            ps.setString(2, nbt)
-            val rs = ps.executeQuery()
-            if (rs.next()) rs.getInt(1) else -1
-        }
+            ps.setString(2, normalizedNbt)
+        }, defaultValue = -1)
     }
 
     /**
      * 获取所有系统商品
      */
     fun getSystemItems(): List<MarketItem> {
-        return database.connection.prepareStatement("""
+        val sql = """
             SELECT item_id, nbt, price, seller AS seller_name, quantity
             FROM system_market
             ORDER BY item_id, nbt
-        """).use { ps ->
-            val rs = ps.executeQuery()
+        """.trimIndent()
+        return database.query(sql, { /* no params */ }) { rs ->
             queryMapper.mapToMarketItems(rs)
-        }
+        } ?: emptyList()
     }
 
     // ============== 系统商品限购管理 ==============
@@ -114,18 +114,17 @@ class MarketRepository(private val database: Database) {
      * 系统商品：查询指定日期某玩家已购买数量
      */
     fun getSystemPurchasedOn(date: String, playerUuid: UUID, itemId: String, nbt: String): Int {
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
         val sql = """
             SELECT purchased FROM system_daily_purchase
             WHERE date = ? AND player_uuid = ? AND item_id = ? AND nbt = ?
         """.trimIndent()
-        return database.connection.prepareStatement(sql).use { ps ->
+        return database.queryIntOne(sql, { ps ->
             ps.setString(1, date)
             ps.setString(2, playerUuid.toString())
             ps.setString(3, itemId)
-            ps.setString(4, nbt)
-            val rs = ps.executeQuery()
-            if (rs.next()) rs.getInt(1) else 0
-        }
+            ps.setString(4, normalizedNbt)
+        }, defaultValue = 0)
     }
 
     /**
@@ -163,6 +162,7 @@ class MarketRepository(private val database: Database) {
      * 添加玩家商品或更新价格
      */
     fun addPlayerItem(sellerUuid: UUID, sellerName: String, itemId: String, nbt: String, price: Double) {
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
         val sql = if (database.isMySQL) {
             """
             INSERT INTO player_market(seller, seller_name, item_id, nbt, price, quantity)
@@ -180,7 +180,7 @@ class MarketRepository(private val database: Database) {
             ps.setString(1, sellerUuid.toString())
             ps.setString(2, sellerName)
             ps.setString(3, itemId)
-            ps.setString(4, nbt)
+            ps.setString(4, normalizedNbt)
             ps.setDouble(5, price)
         }
     }
@@ -189,6 +189,7 @@ class MarketRepository(private val database: Database) {
      * 更新玩家商品价格
      */
     fun updatePlayerItemPrice(sellerUuid: UUID, itemId: String, nbt: String, newPrice: Double) {
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
         database.executeUpdate("""
             UPDATE player_market 
             SET price = ?
@@ -197,7 +198,7 @@ class MarketRepository(private val database: Database) {
             ps.setDouble(1, newPrice)
             ps.setString(2, sellerUuid.toString())
             ps.setString(3, itemId)
-            ps.setString(4, nbt)
+            ps.setString(4, normalizedNbt)
         }
     }
 
@@ -205,6 +206,7 @@ class MarketRepository(private val database: Database) {
      * 增加玩家商品库存
      */
     fun incrementPlayerItemQuantity(sellerUuid: UUID, itemId: String, nbt: String, quantity: Int) {
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
         database.executeUpdate("""
             UPDATE player_market 
             SET quantity = quantity + ?
@@ -213,7 +215,7 @@ class MarketRepository(private val database: Database) {
             ps.setInt(1, quantity)
             ps.setString(2, sellerUuid.toString())
             ps.setString(3, itemId)
-            ps.setString(4, nbt)
+            ps.setString(4, normalizedNbt)
         }
     }
 
@@ -221,7 +223,8 @@ class MarketRepository(private val database: Database) {
      * 移除玩家商品并返回当前库存
      */
     fun removePlayerItem(sellerUuid: UUID, itemId: String, nbt: String): Int {
-        val quantity = getPlayerItemQuantity(sellerUuid, itemId, nbt)
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
+        val quantity = getPlayerItemQuantity(sellerUuid, itemId, normalizedNbt)
 
         database.executeUpdate("""
             DELETE FROM player_market 
@@ -229,42 +232,36 @@ class MarketRepository(private val database: Database) {
         """) { ps ->
             ps.setString(1, sellerUuid.toString())
             ps.setString(2, itemId)
-            ps.setString(3, nbt)
+            ps.setString(3, normalizedNbt)
         }
         return quantity
     }
 
-    /**
-     * 获取玩家商品库存
-     */
     private fun getPlayerItemQuantity(sellerUuid: UUID, itemId: String, nbt: String): Int {
-        return database.connection.prepareStatement("""
-            SELECT quantity 
-            FROM player_market 
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
+        val sql = """
+            SELECT quantity
+            FROM player_market
             WHERE seller = ? AND item_id = ? AND nbt = ?
-        """).use { ps ->
+        """.trimIndent()
+        return database.queryIntOne(sql, { ps ->
             ps.setString(1, sellerUuid.toString())
             ps.setString(2, itemId)
-            ps.setString(3, nbt)
-            val rs = ps.executeQuery()
-            if (rs.next()) rs.getInt("quantity") else 0
-        }
+            ps.setString(3, normalizedNbt)
+        }, defaultValue = 0)
     }
 
-    /**
-     * 检查玩家商品是否存在
-     */
     fun hasPlayerItem(sellerUuid: UUID, itemId: String, nbt: String): Boolean {
-        return database.connection.prepareStatement("""
-            SELECT 1 
-            FROM player_market 
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
+        val sql = """
+            SELECT 1
+            FROM player_market
             WHERE seller = ? AND item_id = ? AND nbt = ?
-        """).use { ps ->
+        """.trimIndent()
+        return database.queryExists(sql) { ps ->
             ps.setString(1, sellerUuid.toString())
             ps.setString(2, itemId)
-            ps.setString(3, nbt)
-            val rs = ps.executeQuery()
-            rs.next()
+            ps.setString(3, normalizedNbt)
         }
     }
 
@@ -272,16 +269,17 @@ class MarketRepository(private val database: Database) {
      * 获取玩家的所有商品
      */
     fun getPlayerItems(sellerUuid: String): List<MarketItem> {
-        return database.connection.prepareStatement("""
+        val sql = """
             SELECT item_id, nbt, seller_name, price, quantity 
             FROM player_market 
             WHERE seller = ?
             ORDER BY item_id, nbt
-        """).use { ps ->
+        """.trimIndent()
+        return database.query(sql, { ps ->
             ps.setString(1, sellerUuid)
-            val rs = ps.executeQuery()
+        }) { rs ->
             queryMapper.mapToMarketItems(rs)
-        }
+        } ?: emptyList()
     }
 
     // ============== 搜索功能（委托给 MarketSearchService） ==============

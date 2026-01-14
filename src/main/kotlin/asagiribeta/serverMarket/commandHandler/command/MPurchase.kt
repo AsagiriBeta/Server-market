@@ -19,16 +19,21 @@ import net.minecraft.text.Text
  * 玩家收购命令：/svm purchase <price> <amount>
  */
 class MPurchase {
+    /**
+     * Builds the argument subtree (price -> amount) for use by both /svm purchase and its alias.
+     */
+    fun buildArgs(): com.mojang.brigadier.builder.ArgumentBuilder<ServerCommandSource, *> {
+        return argument("price", DoubleArgumentType.doubleArg(0.01))
+            .then(
+                argument("amount", IntegerArgumentType.integer(1))
+                    .executes(this::execute)
+            )
+    }
+
     fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
         return literal("purchase")
             .requires(PermissionUtil.requirePlayer("servermarket.command.purchase", 0))
-            .then(
-                argument("price", DoubleArgumentType.doubleArg(0.01))
-                    .then(
-                        argument("amount", IntegerArgumentType.integer(1))
-                            .executes(this::execute)
-                    )
-            )
+            .then(buildArgs())
     }
 
     private fun execute(context: CommandContext<ServerCommandSource>): Int {
@@ -48,7 +53,7 @@ class MPurchase {
 
         val itemName = mainHandStack.name.string
         val itemId = Registries.ITEM.getId(mainHandStack.item).toString()
-        val snbt = ItemKey.snbtOf(mainHandStack)
+        val snbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(mainHandStack))
 
         // 添加收购订单
         ServerMarket.instance.database.supplyAsync {
@@ -63,7 +68,7 @@ class MPurchase {
         }.whenCompleteOnServerThread(context.source.server) { _, ex ->
             if (ex != null) {
                 context.source.sendError(Text.translatable("servermarket.command.mpurchase.failed"))
-                ServerMarket.LOGGER.error("添加收购订单失败", ex)
+                ServerMarket.LOGGER.error("/svm purchase-order create failed", ex)
                 return@whenCompleteOnServerThread
             }
 

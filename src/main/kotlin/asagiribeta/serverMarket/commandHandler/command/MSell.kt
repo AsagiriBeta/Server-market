@@ -38,11 +38,13 @@ class MSell {
 
         val itemName = mainHandStack.name.string
         val itemId = Registries.ITEM.getId(mainHandStack.item).toString()
-        val snbt = ItemKey.snbtOf(mainHandStack)
+        val snbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(mainHandStack))
 
         // Check inventory for sufficient items
         val allStacks = (0 until player.inventory.size()).map { player.inventory.getStack(it) }.filter {
-            !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == snbt
+            !it.isEmpty &&
+                Registries.ITEM.getId(it.item).toString() == itemId &&
+                ItemKey.normalizeSnbt(ItemKey.snbtOf(it)) == snbt
         }
 
         val totalAvailable = allStacks.sumOf { it.count }
@@ -62,7 +64,7 @@ class MSell {
         ).whenCompleteOnServerThread(context.source.server) { result, ex ->
             if (ex != null) {
                 context.source.sendError(Text.translatable("servermarket.command.mrestock.operation_failed"))
-                ServerMarket.LOGGER.error("mrestock命令执行失败", ex)
+                ServerMarket.LOGGER.error("/svm restock failed", ex)
                 return@whenCompleteOnServerThread
             }
 
@@ -93,7 +95,7 @@ class MSell {
                 }
                 is SellResult.Error -> {
                     context.source.sendError(Text.translatable("servermarket.command.mrestock.operation_failed"))
-                    ServerMarket.LOGGER.error("补货失败: ${result.message}")
+                    ServerMarket.LOGGER.error("/svm restock error: {}", result.message)
                 }
                 else -> {
                     context.source.sendError(Text.translatable("servermarket.command.mrestock.operation_failed"))

@@ -67,6 +67,17 @@ class MarketService(private val database: Database) {
             return PurchaseResult.NotFound
         }
 
+        // If multiple NBT variants exist for the same item id, do NOT guess.
+        // Players should use GUI to pick the exact variant.
+        val variantCount = items.asSequence()
+            .map { it.nbt }
+            .map { asagiribeta.serverMarket.util.ItemKey.normalizeSnbt(it) }
+            .distinct()
+            .count()
+        if (variantCount > 1) {
+            return PurchaseResult.AmbiguousVariants(itemId = itemId, variantCount = variantCount)
+        }
+
         // 2. 检查是否尝试购买自己的商品（防止旅行者背包等容器物品刷物品的漏洞）
         val hasOwnItems = items.any { entry ->
             entry.sellerName != "SERVER" &&
@@ -196,6 +207,146 @@ class MarketService(private val database: Database) {
     }
 
     /**
+     * Purchase a specific variant of an item (itemId + normalized NBT).
+     *
+     * This is intended for GUI clicks where the player selects a concrete product entry.
+     */
+    fun purchaseItemVariant(
+        playerUuid: UUID,
+        playerName: String,
+        itemId: String,
+        nbt: String,
+        quantity: Int,
+        seller: String? = null
+    ): CompletableFuture<PurchaseResult> {
+        return database.supplyAsync {
+            try {
+                doPurchaseItemVariant(playerUuid, playerName, itemId, nbt, quantity, seller)
+            } catch (e: Exception) {
+                PurchaseResult.Error(e.message ?: "未知错误")
+            }
+        }
+    }
+
+    private fun doPurchaseItemVariant(
+        playerUuid: UUID,
+        playerName: String,
+        itemId: String,
+        nbt: String,
+        quantity: Int,
+        seller: String?
+    ): PurchaseResult {
+        val today = LocalDate.now().toString()
+        val normalizedNbt = asagiribeta.serverMarket.util.ItemKey.normalizeSnbt(nbt)
+
+        // 1) fetch candidates (respect seller filter if present)
+        val candidates = if (seller == null) {
+            marketRepo.searchForTransaction(itemId)
+        } else {
+            marketRepo.searchForTransaction(itemId, seller)
+        }
+
+        // 2) keep only the exact variant
+        val items = candidates.filter {
+            asagiribeta.serverMarket.util.ItemKey.normalizeSnbt(it.nbt) == normalizedNbt
+        }
+
+        if (items.isEmpty()) return PurchaseResult.NotFound
+
+        // 3) prevent buying own items
+        val hasOwnItems = items.any { entry ->
+            entry.sellerName != "SERVER" &&
+                try { UUID.fromString(entry.sellerName) == playerUuid } catch (_: Exception) { false }
+        }
+        if (hasOwnItems) return PurchaseResult.CannotBuyOwnItem
+
+        // 4) compute availability (system limits / player stock)
+        var totalAvailable = 0
+        for (entry in items) {
+            if (entry.sellerName == "SERVER") {
+                val limit = marketRepo.getSystemLimitPerDay(entry.itemId, entry.nbt)
+                if (limit < 0) {
+                    totalAvailable = Int.MAX_VALUE
+                    break
+                } else {
+                    val purchased = marketRepo.getSystemPurchasedOn(today, playerUuid, entry.itemId, entry.nbt)
+                    val remaining = (limit - purchased).coerceAtLeast(0)
+                    totalAvailable = totalAvailable.saturatingAdd(remaining)
+                }
+            } else {
+                totalAvailable = if (totalAvailable == Int.MAX_VALUE) Int.MAX_VALUE else totalAvailable.saturatingAdd(entry.quantity)
+            }
+        }
+        if (totalAvailable < quantity) return PurchaseResult.InsufficientStock(totalAvailable)
+
+        // 5) plan purchase (still ordered by price among same variant)
+        var remaining = quantity
+        var totalCost = 0.0
+        val purchaseList = mutableListOf<Pair<MarketItem, Int>>()
+        for (entry in items) {
+            if (remaining <= 0) break
+
+            val purchaseAmount = if (entry.sellerName == "SERVER") {
+                val limit = marketRepo.getSystemLimitPerDay(entry.itemId, entry.nbt)
+                if (limit < 0) remaining else {
+                    val purchased = marketRepo.getSystemPurchasedOn(today, playerUuid, entry.itemId, entry.nbt)
+                    val allowed = (limit - purchased).coerceAtLeast(0)
+                    minOf(remaining, allowed)
+                }
+            } else {
+                minOf(remaining, entry.quantity)
+            }
+
+            if (purchaseAmount <= 0) continue
+            totalCost += entry.price * purchaseAmount
+            purchaseList.add(entry to purchaseAmount)
+            remaining -= purchaseAmount
+        }
+
+        // 6) verify balance
+        val balance = database.getBalance(playerUuid)
+        if (balance < totalCost) return PurchaseResult.InsufficientFunds(totalCost)
+
+        // 7) execute transfer + inventory updates
+        database.transfer(playerUuid, UUID(0, 0), totalCost)
+        val dtg = System.currentTimeMillis()
+        historyRepo.postHistory(
+            dtg = dtg,
+            fromId = playerUuid,
+            fromType = "player",
+            fromName = playerName,
+            toId = UUID(0, 0),
+            toType = "system",
+            toName = "MARKET",
+            price = totalCost,
+            item = "$itemId x$quantity"
+        )
+
+        for ((marketItem, amount) in purchaseList) {
+            if (marketItem.sellerName != "SERVER") {
+                marketRepo.incrementPlayerItemQuantity(UUID.fromString(marketItem.sellerName), marketItem.itemId, marketItem.nbt, -amount)
+                database.transfer(UUID(0, 0), UUID.fromString(marketItem.sellerName), marketItem.price * amount)
+                historyRepo.postHistory(
+                    dtg = dtg,
+                    fromId = UUID(0, 0),
+                    fromType = "system",
+                    fromName = "MARKET",
+                    toId = UUID.fromString(marketItem.sellerName),
+                    toType = "player",
+                    toName = marketItem.sellerName,
+                    price = marketItem.price * amount,
+                    item = "${marketItem.itemId} x$amount"
+                )
+            } else {
+                marketRepo.incrementSystemPurchasedOn(today, playerUuid, marketItem.itemId, marketItem.nbt, amount)
+            }
+        }
+
+        val itemsToGive = purchaseList.map { Triple(it.first.itemId, it.first.nbt, it.second) }
+        return PurchaseResult.Success(totalCost, quantity, itemsToGive)
+    }
+
+    /**
      * 上架/补货商品到玩家市场
      *
      * @param playerUuid 玩家UUID
@@ -283,4 +434,3 @@ private fun Int.saturatingAdd(other: Int): Int {
         if (result > Int.MAX_VALUE) Int.MAX_VALUE else result.toInt()
     }
 }
-

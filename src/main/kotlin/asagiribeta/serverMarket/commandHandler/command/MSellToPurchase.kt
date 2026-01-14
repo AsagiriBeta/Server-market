@@ -5,6 +5,7 @@ import asagiribeta.serverMarket.model.SellToBuyerResult
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.InventoryQuery
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
@@ -44,13 +45,11 @@ class MSellToPurchase {
 
         val itemName = mainHandStack.name.string
         val itemId = Registries.ITEM.getId(mainHandStack.item).toString()
-        val snbt = ItemKey.snbtOf(mainHandStack)
+        val snbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(mainHandStack))
 
-        val allStacks = (0 until player.inventory.size()).map { player.inventory.getStack(it) }.filter {
-            !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == snbt
-        }
+        val allStacks = InventoryQuery.findMatchingStacks(player, itemId, snbt)
 
-        val totalAvailable = allStacks.sumOf { it.count }
+        val totalAvailable = InventoryQuery.countTotal(allStacks)
         if (totalAvailable < quantity) {
             context.source.sendError(Text.translatable("servermarket.command.mselltopurchase.insufficient_items", quantity))
             return 0
@@ -66,7 +65,7 @@ class MSellToPurchase {
         ).whenCompleteOnServerThread(context.source.server) { result: SellToBuyerResult?, ex ->
             if (ex != null) {
                 context.source.sendError(Text.translatable("servermarket.command.mselltopurchase.failed"))
-                ServerMarket.LOGGER.error("出售失败", ex)
+                ServerMarket.LOGGER.error("/svm selltopurchase failed", ex)
                 return@whenCompleteOnServerThread
             }
 
@@ -115,7 +114,7 @@ class MSellToPurchase {
 
                 is SellToBuyerResult.Error -> {
                     context.source.sendError(Text.translatable("servermarket.command.mselltopurchase.error"))
-                    ServerMarket.LOGGER.error("出售错误: ${result.message}")
+                    ServerMarket.LOGGER.error("/svm selltopurchase error: {}", result.message)
                 }
 
                 null -> {

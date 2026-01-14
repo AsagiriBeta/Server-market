@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.PermissionUtil
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.DoubleArgumentType
@@ -53,13 +54,13 @@ class MCash {
         currencyRepo.findByValueAsync(value)
             .whenCompleteOnServerThread(source.server) { mapping, ex ->
                 if (ex != null) {
-                    ServerMarket.LOGGER.error("/mcash 查询失败", ex)
+                    ServerMarket.LOGGER.error("/svm cash lookup failed", ex)
                     source.sendError(Text.translatable("servermarket.command.mcash.failed"))
                     return@whenCompleteOnServerThread
                 }
 
                 if (mapping == null) {
-                    source.sendError(Text.translatable("servermarket.command.mcash.value_not_found", value))
+                    source.sendError(Text.translatable("servermarket.command.mcash.value_not_found", MoneyFormat.format(value, 2)))
                     return@whenCompleteOnServerThread
                 }
 
@@ -67,7 +68,7 @@ class MCash {
                     uuid, mapping.itemId, mapping.nbt, quantity
                 ).whenCompleteOnServerThread(source.server) { deducted, ex2 ->
                     if (ex2 != null) {
-                        ServerMarket.LOGGER.error("/mcash 执行失败", ex2)
+                        ServerMarket.LOGGER.error("/svm cash execution failed", ex2)
                         source.sendError(Text.translatable("servermarket.command.mcash.failed"))
                         return@whenCompleteOnServerThread
                     }
@@ -76,7 +77,7 @@ class MCash {
                         source.sendError(
                             Text.translatable(
                                 "servermarket.command.mcash.insufficient_balance",
-                                String.format("%.2f", totalCost)
+                                MoneyFormat.format(totalCost, 2)
                             )
                         )
                         return@whenCompleteOnServerThread
@@ -112,12 +113,12 @@ class MCash {
                                 "servermarket.command.mcash.success",
                                 quantity,
                                 itemName,
-                                String.format("%.2f", totalCost)
+                                MoneyFormat.format(totalCost, 2)
                             )
                         )
                     } catch (e: Exception) {
                         db.supplyAsync0 { db.addBalance(uuid, deducted) }
-                        ServerMarket.LOGGER.error("/mcash 物品发放失败，已退款", e)
+                        ServerMarket.LOGGER.error("/svm cash item delivery failed; refunded", e)
                         source.sendError(Text.translatable("servermarket.command.mcash.failed"))
                     }
                 }

@@ -51,7 +51,7 @@ class MSet {
             .whenCompleteOnServerThread(server) { success, ex ->
                 if (ex != null) {
                     context.source.sendError(Text.translatable("servermarket.command.mset.failed"))
-                    ServerMarket.LOGGER.error("mset命令执行失败", ex)
+                    ServerMarket.LOGGER.error("/svm admin set failed", ex)
                 } else if (success == true) {
                     context.source.sendMessage(
                         Text.translatable("servermarket.command.mset.success", targetPlayer.name, MoneyFormat.format(amount, 2))

@@ -2,7 +2,6 @@ package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.ItemKey
-import asagiribeta.serverMarket.util.PermissionUtil
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
@@ -71,7 +70,7 @@ class ACash {
         ServerMarket.instance.currencyService.setCurrencyValue(itemId, snbt, value)
             .whenCompleteOnServerThread(source.server) { success, ex ->
                 if (ex != null) {
-                    ServerMarket.LOGGER.error("acash 命令设置面值失败", ex)
+                    ServerMarket.LOGGER.error("/svm admin cash set-value failed", ex)
                     source.sendError(Text.translatable("servermarket.command.acash.operation_failed"))
                 } else if (success == true) {
                     source.sendMessage(Text.translatable("servermarket.command.acash.success", stack.name, value))
@@ -91,7 +90,7 @@ class ACash {
         repo.getCurrencyValueAsync(itemId, snbt)
             .whenCompleteOnServerThread(source.server) { value, ex ->
                 if (ex != null) {
-                    ServerMarket.LOGGER.error("acash get 执行失败", ex)
+                    ServerMarket.LOGGER.error("/svm admin cash get failed", ex)
                     source.sendError(Text.translatable("servermarket.command.acash.operation_failed"))
                 } else if (value != null) {
                     source.sendMessage(Text.translatable("servermarket.command.acash.get.success", value))
@@ -110,7 +109,7 @@ class ACash {
         ServerMarket.instance.currencyService.removeCurrency(itemId, snbt)
             .whenCompleteOnServerThread(source.server) { deleted, ex ->
                 if (ex != null) {
-                    ServerMarket.LOGGER.error("acash del 执行失败", ex)
+                    ServerMarket.LOGGER.error("/svm admin cash del failed", ex)
                     source.sendError(Text.translatable("servermarket.command.acash.operation_failed"))
                 } else if (deleted == true) {
                     source.sendMessage(Text.translatable("servermarket.command.acash.del.success", stack.name))
@@ -137,7 +136,7 @@ class ACash {
         }
         future.whenCompleteOnServerThread(source.server) { items, ex ->
             if (ex != null) {
-                ServerMarket.LOGGER.error("acash list 执行失败", ex)
+                ServerMarket.LOGGER.error("/svm admin cash list failed", ex)
                 source.sendError(Text.translatable("servermarket.command.acash.operation_failed"))
                 return@whenCompleteOnServerThread
             }
@@ -165,7 +164,7 @@ class ACash {
 
     private fun getItemSignature(stack: ItemStack): Pair<String, String> {
         val itemId = Registries.ITEM.getId(stack.item).toString()
-        val snbt = ItemKey.snbtOf(stack)
+        val snbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(stack))
         return itemId to snbt
     }
 }

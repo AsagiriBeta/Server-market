@@ -55,7 +55,7 @@ class CurrencyRepository(private val database: Database) {
                 findValueByNormalizedMatch(itemId, ItemKey.normalizeSnbt(nbtSnbt))
             }
         } catch (e: Exception) {
-            ServerMarket.LOGGER.error("查询实体货币面值失败 item=$itemId", e)
+            ServerMarket.LOGGER.error("Failed to query currency value. item={}", itemId, e)
             null
         }
     }
@@ -80,7 +80,7 @@ class CurrencyRepository(private val database: Database) {
                 candidate
             }
         } catch (e: Exception) {
-            ServerMarket.LOGGER.error("归一化匹配实体货币失败 item=$itemId", e)
+            ServerMarket.LOGGER.error("Failed to normalize-match currency value. item={}", itemId, e)
             null
         }
     }
@@ -109,7 +109,7 @@ class CurrencyRepository(private val database: Database) {
                 ps.executeUpdate() > 0
             }
         } catch (e: Exception) {
-            ServerMarket.LOGGER.error("删除实体货币配置失败 item=$itemId", e)
+            ServerMarket.LOGGER.error("Failed to delete currency mapping. item={}", itemId, e)
             false
         }
     }

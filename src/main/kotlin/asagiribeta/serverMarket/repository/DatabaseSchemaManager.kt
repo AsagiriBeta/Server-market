@@ -45,7 +45,7 @@ internal class DatabaseSchemaManager(
                 }
             }
         } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("索引检查/创建失败", e)
+            ServerMarket.LOGGER.error("Index check/create failed", e)
         }
     }
 
@@ -70,7 +70,7 @@ internal class DatabaseSchemaManager(
 
             if (indexName !in existingIndices) {
                 st.execute(createSQL)
-                ServerMarket.LOGGER.info("已创建索引: $indexName")
+                ServerMarket.LOGGER.info("Created index: {}", indexName)
             }
         }
     }
@@ -80,7 +80,7 @@ internal class DatabaseSchemaManager(
         st.execute("CREATE INDEX IF NOT EXISTS idx_currency_item ON currency_items(item_id, nbt)")
         st.execute("CREATE INDEX IF NOT EXISTS idx_system_item ON system_market(item_id, nbt)")
         st.execute("CREATE INDEX IF NOT EXISTS idx_purchase_date ON system_daily_purchase(date, player_uuid)")
-        ServerMarket.LOGGER.info("已确保 SQLite 关键索引存在")
+        ServerMarket.LOGGER.info("Ensured SQLite indices exist")
     }
 
     private fun createTablesMySQL() {
@@ -457,4 +457,3 @@ internal class DatabaseSchemaManager(
         st.execute("CREATE INDEX IF NOT EXISTS idx_parcel_recipient_time ON parcels(recipient_uuid, timestamp)")
     }
 }
-

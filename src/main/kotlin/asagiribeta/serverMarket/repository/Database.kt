@@ -135,7 +135,7 @@ class Database {
             try {
                 block(rawConnection)
             } catch (e: Exception) {
-                ServerMarket.LOGGER.error("异步数据库任务执行失败", e)
+                ServerMarket.LOGGER.error("Async database task failed", e)
                 throw e
             }
         }, executor)
@@ -148,7 +148,7 @@ class Database {
             try {
                 block(rawConnection)
             } catch (e: Exception) {
-                ServerMarket.LOGGER.error("异步数据库任务执行失败", e)
+                ServerMarket.LOGGER.error("Async database task failed", e)
                 throw e
             }
         }, executor)
@@ -193,16 +193,8 @@ class Database {
 
     // 兼容旧用法：执行查询并返回 uuid 列（用于 MarketRepository 的名称->UUID 解析）
     internal fun executeQuery(sql: String, parameterSetter: (PreparedStatement) -> Unit): String? {
-        return try {
-            connection.prepareStatement(sql).use { ps ->
-                parameterSetter(ps)
-                ps.executeQuery().use { rs ->
-                    if (rs.next()) rs.getString("uuid") else null
-                }
-            }
-        } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("执行SQL查询失败: $sql", e)
-            null
+        return runQuery(connection, sql, parameterSetter) { rs ->
+            if (rs.next()) rs.getString("uuid") else null
         }
     }
 
@@ -211,15 +203,7 @@ class Database {
         binder: (PreparedStatement) -> Unit,
         mapper: (ResultSet) -> T
     ): CompletableFuture<T?> = supplyAsync {
-        try {
-            it.prepareStatement(sql).use { ps ->
-                binder(ps)
-                ps.executeQuery().use { rs -> mapper(rs) }
-            }
-        } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("执行SQL查询失败: $sql", e)
-            null
-        }
+        runQuery(it, sql, binder, mapper)
     }
 
     @Suppress("SqlSourceToSinkFlow")
@@ -230,7 +214,7 @@ class Database {
                 ps.executeUpdate()
             }
         } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("执行SQL更新失败: $sql", e)
+            ServerMarket.LOGGER.error("SQL update failed: {}", sql, e)
             throw e
         }
     }
@@ -243,10 +227,57 @@ class Database {
                 ps.executeUpdate()
             }
         } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("执行SQL更新失败: $sql", e)
+            ServerMarket.LOGGER.error("SQL update failed: {}", sql, e)
             throw e
         }
     }
+
+    private fun <T> runQuery(
+        conn: Connection,
+        sql: String,
+        binder: (PreparedStatement) -> Unit,
+        mapper: (ResultSet) -> T
+    ): T? {
+        return try {
+            conn.prepareStatement(sql).use { ps ->
+                binder(ps)
+                ps.executeQuery().use { rs -> mapper(rs) }
+            }
+        } catch (e: SQLException) {
+            ServerMarket.LOGGER.error("SQL query failed: {}", sql, e)
+            null
+        }
+    }
+
+    internal fun <T> query(
+        sql: String,
+        binder: (PreparedStatement) -> Unit,
+        mapper: (ResultSet) -> T
+    ): T? {
+        return runQuery(connection, sql, binder, mapper)
+    }
+
+    internal fun <T> queryOne(
+        sql: String,
+        binder: (PreparedStatement) -> Unit,
+        mapper: (ResultSet) -> T
+    ): T? = query(sql, binder, mapper)
+
+    internal fun queryExists(
+        sql: String,
+        binder: (PreparedStatement) -> Unit
+    ): Boolean = queryOne(sql, binder) { rs -> rs.next() } ?: false
+
+    internal fun queryIntOne(
+        sql: String,
+        binder: (PreparedStatement) -> Unit,
+        defaultValue: Int
+    ): Int = queryOne(sql, binder) { rs -> if (rs.next()) rs.getInt(1) else defaultValue } ?: defaultValue
+
+    internal fun queryDoubleOne(
+        sql: String,
+        binder: (PreparedStatement) -> Unit
+    ): Double? = queryOne(sql, binder) { rs -> if (rs.next()) rs.getDouble(1) else null }
 
     // ============== 资源释放 ==============
 
@@ -254,16 +285,16 @@ class Database {
         executor.execute {
             try {
                 connection.close()
-                ServerMarket.LOGGER.info("数据库连接已释放")
+                ServerMarket.LOGGER.info("Database connection released")
             } catch (e: SQLException) {
-                ServerMarket.LOGGER.error("关闭连接时发生错误", e)
+                ServerMarket.LOGGER.error("Error while closing database connection", e)
             }
         }
 
         executor.shutdown()
         try {
             if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-                ServerMarket.LOGGER.warn("等待数据库线程关闭连接超时，尝试强制关闭")
+                ServerMarket.LOGGER.warn("Timed out waiting for database thread shutdown; forcing shutdown")
                 executor.shutdownNow()
             }
         } catch (_: InterruptedException) {

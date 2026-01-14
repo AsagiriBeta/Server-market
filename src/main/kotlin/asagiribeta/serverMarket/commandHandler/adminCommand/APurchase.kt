@@ -16,7 +16,7 @@ import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 
 /**
- * 管理员系统收购命令：/svm edit purchase <price> [limit]
+ * 管理员系统收购命令：/svm edit purchase <price> `[limit]`
  *
  * 根据手持物品设置系统收购，可设置每日限额
  */
@@ -59,7 +59,7 @@ class APurchase {
 
         val itemName = mainHandStack.name.string
         val itemId = Registries.ITEM.getId(mainHandStack.item).toString()
-        val snbt = ItemKey.snbtOf(mainHandStack)
+        val snbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(mainHandStack))
 
         // 添加系统收购
         ServerMarket.instance.database.supplyAsync {
@@ -74,7 +74,7 @@ class APurchase {
         }.whenCompleteOnServerThread(context.source.server) { existed, ex ->
             if (ex != null) {
                 context.source.sendError(Text.translatable("servermarket.command.apurchase.failed"))
-                ServerMarket.LOGGER.error("设置系统收购失败", ex)
+                ServerMarket.LOGGER.error("/svm admin purchase failed", ex)
                 return@whenCompleteOnServerThread
             }
 

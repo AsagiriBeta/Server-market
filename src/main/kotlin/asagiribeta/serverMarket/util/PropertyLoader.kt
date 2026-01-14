@@ -23,7 +23,7 @@ class PropertyLoader(private val properties: Properties) {
         }
         val v = raw.toDoubleOrNull()
         return if (v == null) {
-            ServerMarket.LOGGER.warn("Config key '{}' value '{}' 非法，使用默认 {}", key, raw, default)
+            ServerMarket.LOGGER.warn("Config key '{}' value '{}' is invalid; using default {}", key, raw, default)
             properties.setProperty(key, default.toString())
             changed = true
             default
@@ -42,7 +42,7 @@ class PropertyLoader(private val properties: Properties) {
         }
         val v = raw.toIntOrNull()
         return if (v == null) {
-            ServerMarket.LOGGER.warn("Config key '{}' value '{}' 非法，使用默认 {}", key, raw, default)
+            ServerMarket.LOGGER.warn("Config key '{}' value '{}' is invalid; using default {}", key, raw, default)
             properties.setProperty(key, default.toString())
             changed = true
             default
@@ -62,7 +62,7 @@ class PropertyLoader(private val properties: Properties) {
         return when (raw.lowercase()) {
             "true", "false" -> raw.toBoolean()
             else -> {
-                ServerMarket.LOGGER.warn("Config key '{}' value '{}' 非法，使用默认 {}", key, raw, default)
+                ServerMarket.LOGGER.warn("Config key '{}' value '{}' is invalid; using default {}", key, raw, default)
                 properties.setProperty(key, default.toString())
                 changed = true
                 default
@@ -114,4 +114,3 @@ class PropertyLoader(private val properties: Properties) {
         properties.setProperty(key, value)
     }
 }
-

@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.MoneyFormat
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.context.CommandContext
@@ -52,7 +53,7 @@ class APrice {
 
         val price = DoubleArgumentType.getDouble(context, "price")
         val itemId = Registries.ITEM.getId(itemStack.item).toString()
-        val nbt = ItemKey.snbtOf(itemStack)
+        val nbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(itemStack))
         val itemName = itemStack.name.string
         return Prepared(source, itemName, itemId, nbt, price)
     }
@@ -61,13 +62,13 @@ class APrice {
     private fun handleCompletion(prepared: Prepared, ex: Throwable?) {
         if (ex != null) {
             prepared.source.sendError(Text.translatable("servermarket.command.aprice.operation_failed"))
-            ServerMarket.LOGGER.error("aprice命令执行失败", ex)
+            ServerMarket.LOGGER.error("/svm admin price failed", ex)
         } else {
             prepared.source.sendMessage(
                 Text.translatable(
                     "servermarket.command.aprice.update_success",
                     prepared.itemName,
-                    prepared.price
+                    MoneyFormat.format(prepared.price, 2)
                 )
             )
         }

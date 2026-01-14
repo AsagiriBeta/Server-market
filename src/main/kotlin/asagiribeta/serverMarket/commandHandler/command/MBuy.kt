@@ -51,6 +51,37 @@ class MBuy {
         return stack
     }
 
+    private fun handlePurchaseSuccess(
+        player: net.minecraft.server.network.ServerPlayerEntity,
+        context: CommandContext<ServerCommandSource>,
+        itemId: String,
+        quantity: Int,
+        result: PurchaseResult.Success,
+        seller: String?
+    ) {
+        // Give items to player and derive a localized display name from the first returned stack
+        var firstDisplayName: String? = null
+        for ((pid, nbt, amount) in result.items) {
+            val stack = buildStackFromRecord(pid, nbt, amount)
+            if (firstDisplayName == null) {
+                firstDisplayName = TextFormat.displayItemName(stack, pid)
+            }
+            player.giveItemStack(stack)
+        }
+
+        val baseName = firstDisplayName ?: TextFormat.displayItemName(ItemStack.EMPTY, itemId)
+        val displayName = if (!seller.isNullOrBlank()) "$baseName@$seller" else baseName
+
+        context.source.sendMessage(
+            Text.translatable(
+                "servermarket.command.mbuy.success",
+                quantity,
+                displayName,
+                MoneyFormat.format(result.totalCost, 2)
+            )
+        )
+    }
+
     private fun executeBuy(context: CommandContext<ServerCommandSource>): Int {
         val player = context.source.player ?: return 0
         val quantity = DoubleArgumentType.getDouble(context, "quantity").toInt()
@@ -66,7 +97,7 @@ class MBuy {
         ).whenCompleteOnServerThread(context.source.server) { result, ex ->
             if (ex != null) {
                 context.source.sendError(Text.translatable("servermarket.command.mbuy.error"))
-                ServerMarket.LOGGER.error("MBuy命令执行失败", ex)
+                ServerMarket.LOGGER.error("/svm buy failed", ex)
                 return@whenCompleteOnServerThread
             }
 
@@ -75,25 +106,13 @@ class MBuy {
                     context.source.sendError(Text.translatable("servermarket.command.mbuy.error"))
                 }
                 is PurchaseResult.Success -> {
-                    // Give items to player and derive a localized display name from the first returned stack
-                    var firstDisplayName: String? = null
-                    for ((pid, nbt, amount) in result.items) {
-                        val stack = buildStackFromRecord(pid, nbt, amount)
-                        if (firstDisplayName == null) {
-                            firstDisplayName = TextFormat.displayItemName(stack, pid)
-                        }
-                        player.giveItemStack(stack)
-                    }
-
-                    val displayName = firstDisplayName ?: TextFormat.displayItemName(ItemStack.EMPTY, itemId)
-
-                    context.source.sendMessage(
-                        Text.translatable(
-                            "servermarket.command.mbuy.success",
-                            quantity,
-                            displayName,
-                            MoneyFormat.format(result.totalCost, 2)
-                        )
+                    handlePurchaseSuccess(
+                        player = player,
+                        context = context,
+                        itemId = itemId,
+                        quantity = quantity,
+                        result = result,
+                        seller = null
                     )
                 }
                 is PurchaseResult.InsufficientFunds -> {
@@ -134,7 +153,16 @@ class MBuy {
                     context.source.sendError(
                         Text.translatable("servermarket.command.mbuy.error")
                     )
-                    ServerMarket.LOGGER.error("购买失败: ${result.message}")
+                    ServerMarket.LOGGER.error("/svm buy error: {}", result.message)
+                }
+                is PurchaseResult.AmbiguousVariants -> {
+                    context.source.sendError(
+                        Text.translatable(
+                            "servermarket.command.mbuy.ambiguous_variants",
+                            result.itemId,
+                            result.variantCount
+                        )
+                    )
                 }
             }
         }
@@ -157,7 +185,7 @@ class MBuy {
         ).whenCompleteOnServerThread(context.source.server) { result, ex ->
             if (ex != null) {
                 context.source.sendError(Text.translatable("servermarket.command.mbuy.error"))
-                ServerMarket.LOGGER.error("MBuy命令执行失败(带卖家)", ex)
+                ServerMarket.LOGGER.error("/svm buy failed (with seller)", ex)
                 return@whenCompleteOnServerThread
             }
 
@@ -165,31 +193,18 @@ class MBuy {
                 null -> {
                     context.source.sendError(Text.translatable("servermarket.command.mbuy.error"))
                 }
+
                 is PurchaseResult.Success -> {
-                    var firstDisplayName: String? = null
-                    for ((pid, nbt, amount) in result.items) {
-                        val stack = buildStackFromRecord(pid, nbt, amount)
-                        if (firstDisplayName == null) {
-                            firstDisplayName = TextFormat.displayItemName(stack, pid)
-                        }
-                        player.giveItemStack(stack)
-                    }
-
-                    val displayName = if (seller.isNotBlank()) {
-                        (firstDisplayName ?: TextFormat.displayItemName(ItemStack.EMPTY, itemId)) + "@" + seller
-                    } else {
-                        firstDisplayName ?: TextFormat.displayItemName(ItemStack.EMPTY, itemId)
-                    }
-
-                    context.source.sendMessage(
-                        Text.translatable(
-                            "servermarket.command.mbuy.success",
-                            quantity,
-                            displayName,
-                            MoneyFormat.format(result.totalCost, 2)
-                        )
+                    handlePurchaseSuccess(
+                        player = player,
+                        context = context,
+                        itemId = itemId,
+                        quantity = quantity,
+                        result = result,
+                        seller = seller
                     )
                 }
+
                 is PurchaseResult.InsufficientFunds -> {
                     context.source.sendError(
                         Text.translatable(
@@ -198,6 +213,7 @@ class MBuy {
                         )
                     )
                 }
+
                 is PurchaseResult.InsufficientStock -> {
                     context.source.sendError(
                         Text.translatable(
@@ -206,6 +222,7 @@ class MBuy {
                         )
                     )
                 }
+
                 is PurchaseResult.LimitExceeded -> {
                     context.source.sendError(
                         Text.translatable(
@@ -214,24 +231,32 @@ class MBuy {
                         )
                     )
                 }
+
                 is PurchaseResult.NotFound -> {
-                    context.source.sendError(
-                        Text.translatable("servermarket.command.mbuy.not_found")
-                    )
+                    context.source.sendError(Text.translatable("servermarket.command.mbuy.not_found"))
                 }
+
                 is PurchaseResult.CannotBuyOwnItem -> {
-                    context.source.sendError(
-                        Text.translatable("servermarket.command.mbuy.cannot_buy_own_item")
-                    )
+                    context.source.sendError(Text.translatable("servermarket.command.mbuy.cannot_buy_own_item"))
                 }
+
                 is PurchaseResult.Error -> {
+                    context.source.sendError(Text.translatable("servermarket.command.mbuy.error"))
+                    ServerMarket.LOGGER.error("/svm buy error: {}", result.message)
+                }
+
+                is PurchaseResult.AmbiguousVariants -> {
                     context.source.sendError(
-                        Text.translatable("servermarket.command.mbuy.error")
+                        Text.translatable(
+                            "servermarket.command.mbuy.ambiguous_variants",
+                            result.itemId,
+                            result.variantCount
+                        )
                     )
-                    ServerMarket.LOGGER.error("购买失败: ${result.message}")
                 }
             }
         }
+
         return 1
     }
 }

@@ -46,7 +46,7 @@ class MSearch {
             .whenCompleteOnServerThread(source.server) { items, ex ->
                 if (ex != null) {
                     source.sendError(Text.translatable("servermarket.command.msearch.search_failed"))
-                    ServerMarket.LOGGER.error("msearch命令执行失败", ex)
+                    ServerMarket.LOGGER.error("/svm search failed", ex)
                     return@whenCompleteOnServerThread
                 }
 

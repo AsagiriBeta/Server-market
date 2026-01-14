@@ -3,15 +3,12 @@ package asagiribeta.serverMarket.menu.view
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.repository.PlayerPurchaseEntry
-import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.ItemStackFactory
 import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.TextFormat
 import eu.pb4.sgui.api.elements.GuiElementBuilder
-import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
-import net.minecraft.registry.Registries
 import net.minecraft.text.Text
-import net.minecraft.util.Identifier
 
 /**
  * 我的收购视图 - 玩家管理自己的收购订单
@@ -42,29 +39,23 @@ class MyPurchaseView(private val gui: MarketGui) {
                     if (gui.mode != ViewMode.MY_PURCHASE) return@serverExecute
 
                     myPurchases = list ?: emptyList()
-                    val totalPages = gui.pageCountOf(myPurchases.size)
-                    gui.page = gui.clampPage(gui.page, totalPages)
-
-                    gui.clearContent()
-
-                    // 显示当前页的收购订单
-                    gui.pageSlice(myPurchases, gui.page).forEachIndexed { idx, entry ->
-                        gui.setSlot(idx, buildPurchaseElement(entry))
-                    }
-
-                    buildNav()
+                    gui.renderPagedContent(
+                        list = myPurchases,
+                        buildElement = { entry -> buildPurchaseElement(entry) },
+                        buildNav = { buildNav() }
+                    )
                 }
             }
     }
 
     private fun buildPurchaseElement(entry: PlayerPurchaseEntry): GuiElementBuilder {
         // 构建物品栈
-        val stack = ItemKey.tryBuildFullStackFromSnbt(entry.nbt, 1) ?: run {
-            val id = Identifier.tryParse(entry.itemId)
-            val itemType = if (id != null && Registries.ITEM.containsId(id))
-                           Registries.ITEM.get(id) else Items.STONE
-            ItemStack(itemType)
-        }
+        val stack = ItemStackFactory.forDisplay(
+            itemId = entry.itemId,
+            snbt = entry.nbt,
+            count = 1,
+            fallbackItem = Items.STONE
+        )
 
         val progressPercent = if (entry.targetAmount > 0) {
             (entry.currentAmount * 100.0 / entry.targetAmount).toInt()
@@ -109,12 +100,12 @@ class MyPurchaseView(private val gui: MarketGui) {
 
             gui.serverExecute {
                 // In cancel callback / response message, use localized display name
-                val stack = ItemKey.tryBuildFullStackFromSnbt(entry.nbt, 1) ?: run {
-                    val id = Identifier.tryParse(entry.itemId)
-                    val itemType = if (id != null && Registries.ITEM.containsId(id))
-                                   Registries.ITEM.get(id) else Items.STONE
-                    ItemStack(itemType)
-                }
+                val stack = ItemStackFactory.forDisplay(
+                    itemId = entry.itemId,
+                    snbt = entry.nbt,
+                    count = 1,
+                    fallbackItem = Items.STONE
+                )
 
                 gui.player.sendMessage(
                     Text.translatable("servermarket.menu.mypurchase.cancel_success", TextFormat.displayItemName(stack, entry.itemId)),

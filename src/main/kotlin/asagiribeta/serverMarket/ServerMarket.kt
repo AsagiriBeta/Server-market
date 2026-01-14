@@ -83,7 +83,7 @@ class ServerMarket : ModInitializer {
                     database.upsertPlayerName(uuid, name)
                 }
             }.exceptionally { e ->
-                LOGGER.error("玩家进服时数据库初始化失败 UUID: {} Name: {}", uuid, name, e)
+                LOGGER.error("Failed to initialize player data on join. uuid={} name={}", uuid, name, e)
                 null
             }
         }
@@ -98,7 +98,7 @@ class ServerMarket : ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register { handler, _ ->
             val uuid = handler.player.uuid
             database.runAsync { database.syncSave(uuid) }.exceptionally { e ->
-                LOGGER.warn("玩家离线时保存数据失败 UUID: {}", uuid, e)
+                LOGGER.warn("Failed to save player data on disconnect. uuid={}", uuid, e)
                 null
             }
         }

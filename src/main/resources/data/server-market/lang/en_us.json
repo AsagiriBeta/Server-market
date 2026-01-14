@@ -120,6 +120,7 @@
   "servermarket.command.mbuy.error": "Failed to buy",
   "servermarket.command.mbuy.limit_exceeded": "Purchase limit exceeded (remaining %d)",
   "servermarket.command.mbuy.cannot_buy_own_item": "You can't buy your own item",
+  "servermarket.command.mbuy.ambiguous_variants": "Multiple variants exist for %s (%s variants). Please use /svm menu to choose the exact variant.",
 
   "servermarket.command.mpull.player_only": "Only players can execute this command",
   "servermarket.command.mpull.hold_item": "Hold the item you want to unlist",
@@ -268,6 +269,10 @@
   "servermarket.menu.parcel.click_tip": "Click to claim",
   "servermarket.menu.parcel.received": "Claimed %d %s",
   "servermarket.menu.parcel.error": "Failed to claim parcel",
+
+  "servermarket.parcel.reason.purchase": "Purchase item",
+  "servermarket.parcel.reason.unlist": "Unlisted from shop",
+  "servermarket.parcel.reason.unlist_all": "Unlisted (all) from shop",
 
   "servermarket.menu.purchase.limit": "Limit: %s",
   "servermarket.menu.cannot_buy_own_item": "You can't buy your own item"

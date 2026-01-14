@@ -72,9 +72,9 @@ class ConfigManager(private val configFile: File = File("config/server-market/co
                 saveConfig()
             }
 
-            ServerMarket.LOGGER.info("配置文件加载成功")
+            ServerMarket.LOGGER.info("Configuration loaded successfully")
         } catch (e: Exception) {
-            ServerMarket.LOGGER.error("加载配置文件失败", e)
+            ServerMarket.LOGGER.error("Failed to load configuration", e)
             setDefaults()
         }
     }
@@ -93,8 +93,7 @@ class ConfigManager(private val configFile: File = File("config/server-market/co
                 properties.store(it, "Server Market Configuration")
             }
         } catch (e: Exception) {
-            ServerMarket.LOGGER.error("保存配置文件失败", e)
+            ServerMarket.LOGGER.error("Failed to save configuration", e)
         }
     }
 }
-

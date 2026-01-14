@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.service
 
 import asagiribeta.serverMarket.model.*
 import asagiribeta.serverMarket.repository.Database
+import asagiribeta.serverMarket.util.ItemKey
 import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
@@ -19,7 +20,6 @@ import java.util.concurrent.CompletableFuture
 class PurchaseService(private val database: Database) {
 
     private val purchaseRepo = database.purchaseRepository
-    private val parcelRepo = database.parcelRepository
 
     /**
      * 玩家向收购者出售物品（异步）
@@ -61,10 +61,11 @@ class PurchaseService(private val database: Database) {
         buyerFilter: String?
     ): SellToBuyerResult {
         val today = LocalDate.now().toString()
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
 
         // 1. 查询收购订单（优先系统，然后玩家）
         val systemOrder = if (buyerFilter == null || buyerFilter == "SERVER") {
-            purchaseRepo.getSystemPurchaseOrder(itemId, nbt)
+            purchaseRepo.getSystemPurchaseOrder(itemId, normalizedNbt)
         } else null
 
         val playerOrders = if (buyerFilter != "SERVER") {
@@ -72,12 +73,12 @@ class PurchaseService(private val database: Database) {
                 // 指定玩家
                 val uuid = try { UUID.fromString(buyerFilter) } catch (_: Exception) { null }
                 if (uuid != null) {
-                    val order = purchaseRepo.getPlayerPurchaseOrder(uuid, itemId, nbt)
+                    val order = purchaseRepo.getPlayerPurchaseOrder(uuid, itemId, normalizedNbt)
                     if (order != null) listOf(order) else emptyList()
                 } else emptyList()
             } else {
                 // 查询所有玩家收购订单
-                purchaseRepo.getPlayerPurchaseOrders(itemId, nbt).map {
+                purchaseRepo.getPlayerPurchaseOrders(itemId, normalizedNbt).map {
                     PurchaseOrder(
                         itemId = it.itemId,
                         nbt = it.nbt,
@@ -101,7 +102,7 @@ class PurchaseService(private val database: Database) {
         var actualQuantity = quantity
         if (order.isSystemBuyer && order.hasLimitPerDay) {
             val limit = order.limitPerDay
-            val sold = purchaseRepo.getSystemSoldOn(today, sellerUuid, itemId, nbt)
+            val sold = purchaseRepo.getSystemSoldOn(today, sellerUuid, itemId, normalizedNbt)
             val remaining = (limit - sold).coerceAtLeast(0)
 
             if (remaining <= 0) {
@@ -114,8 +115,8 @@ class PurchaseService(private val database: Database) {
         // 4. 检查玩家收购订单的剩余需求量
         if (!order.isSystemBuyer) {
             val buyerUuid = order.buyerUuid ?: return SellToBuyerResult.Error("无效的收购者UUID")
-            val current = purchaseRepo.getPlayerPurchaseCurrentAmount(buyerUuid, itemId, nbt)
-            val target = purchaseRepo.getPlayerPurchaseTargetAmount(buyerUuid, itemId, nbt)
+            val current = purchaseRepo.getPlayerPurchaseCurrentAmount(buyerUuid, itemId, normalizedNbt)
+            val target = purchaseRepo.getPlayerPurchaseTargetAmount(buyerUuid, itemId, normalizedNbt)
             val remaining = (target - current).coerceAtLeast(0)
 
             if (remaining <= 0) {
@@ -146,16 +147,16 @@ class PurchaseService(private val database: Database) {
                 database.addBalance(buyerUuid, -totalEarned)
 
                 // 增加玩家收购订单的当前数量
-                purchaseRepo.incrementPlayerPurchaseAmount(buyerUuid, itemId, nbt, actualQuantity)
+                purchaseRepo.incrementPlayerPurchaseAmount(buyerUuid, itemId, normalizedNbt, actualQuantity)
 
-                // 将物品发送到快递驿站
+                // 将物品发送到快递驿站（reason 存储为翻译 key，避免英文环境显示中文）
                 database.parcelRepository.addParcel(
                     recipientUuid = buyerUuid,
                     recipientName = order.buyerName,
                     itemId = itemId,
-                    nbt = nbt,
+                    nbt = normalizedNbt,
                     quantity = actualQuantity,
-                    reason = "收购物品"
+                    reason = "servermarket.parcel.reason.purchase"
                 )
             }
 
@@ -164,7 +165,7 @@ class PurchaseService(private val database: Database) {
 
             // 记录限额（系统收购）
             if (order.isSystemBuyer && order.hasLimitPerDay) {
-                purchaseRepo.incrementSystemSoldOn(today, sellerUuid, itemId, nbt, actualQuantity)
+                purchaseRepo.incrementSystemSoldOn(today, sellerUuid, itemId, normalizedNbt, actualQuantity)
             }
 
             // 记录交易历史
@@ -187,4 +188,3 @@ class PurchaseService(private val database: Database) {
         }
     }
 }
-

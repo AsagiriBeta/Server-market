@@ -54,7 +54,7 @@ object Config {
                 // 如果发现缺失或非法的键，写回文件补全
                 if (loader.changed) {
                     saveConfig()
-                    ServerMarket.LOGGER.info("配置文件已补全缺失/修复非法项并保存")
+                    ServerMarket.LOGGER.info("Configuration file was updated (missing/invalid keys fixed and saved)")
                 } else {
                     ServerMarket.LOGGER.info("Configuration loaded successfully (storage: {})", storageType)
                 }

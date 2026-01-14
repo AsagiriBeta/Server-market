@@ -1,6 +1,7 @@
 package asagiribeta.serverMarket.repository
 
 import asagiribeta.serverMarket.model.ParcelEntry
+import asagiribeta.serverMarket.util.ItemKey
 import java.sql.Connection
 import java.util.UUID
 
@@ -25,6 +26,7 @@ class ParcelRepository(private val db: Database) {
         quantity: Int,
         reason: String
     ): Long {
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
         val sql = """
             INSERT INTO parcels (recipient_uuid, recipient_name, item_id, nbt, quantity, timestamp, reason)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -34,7 +36,7 @@ class ParcelRepository(private val db: Database) {
             ps.setString(1, recipientUuid.toString())
             ps.setString(2, recipientName)
             ps.setString(3, itemId)
-            ps.setString(4, nbt)
+            ps.setString(4, normalizedNbt)
             ps.setInt(5, quantity)
             ps.setLong(6, System.currentTimeMillis())
             ps.setString(7, reason)
@@ -91,11 +93,11 @@ class ParcelRepository(private val db: Database) {
         // 先获取所有包裹
         val allParcels = getParcelsForPlayer(uuid)
 
-        // 按 itemId + nbt 分组合并
+        // 按 itemId + nbt 分组合并（nbt 使用 normalize，避免字符串差异导致无法合并）
         val mergedMap = mutableMapOf<Pair<String, String>, MutableList<ParcelEntry>>()
 
         for (parcel in allParcels) {
-            val key = Pair(parcel.itemId, parcel.nbt)
+            val key = Pair(parcel.itemId, ItemKey.normalizeSnbt(parcel.nbt))
             mergedMap.getOrPut(key) { mutableListOf() }.add(parcel)
         }
 
@@ -126,11 +128,12 @@ class ParcelRepository(private val db: Database) {
      * 删除指定玩家的指定物品的所有包裹
      */
     fun removeParcelsByItem(uuid: UUID, itemId: String, nbt: String): Int {
+        val normalizedNbt = ItemKey.normalizeSnbt(nbt)
         val sql = "DELETE FROM parcels WHERE recipient_uuid = ? AND item_id = ? AND nbt = ?"
         connection.prepareStatement(sql).use { ps ->
             ps.setString(1, uuid.toString())
             ps.setString(2, itemId)
-            ps.setString(3, nbt)
+            ps.setString(3, normalizedNbt)
             return ps.executeUpdate()
         }
     }
@@ -179,4 +182,3 @@ class ParcelRepository(private val db: Database) {
         }
     }
 }
-

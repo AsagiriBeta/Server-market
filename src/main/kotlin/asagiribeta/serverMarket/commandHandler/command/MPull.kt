@@ -33,7 +33,7 @@ class MPull {
         }
 
         val itemId = Registries.ITEM.getId(itemStack.item).toString()
-        val nbt = ItemKey.snbtOf(itemStack)
+        val nbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(itemStack))
         val itemName = itemStack.name.string
 
         // Use MarketService to remove item from sale
@@ -45,7 +45,7 @@ class MPull {
         ).whenCompleteOnServerThread(source.server) { returnedQuantity, ex ->
             if (ex != null) {
                 source.sendError(Text.translatable("servermarket.command.mpull.operation_failed"))
-                ServerMarket.LOGGER.error("mpull命令执行失败", ex)
+                ServerMarket.LOGGER.error("/svm pull failed", ex)
                 return@whenCompleteOnServerThread
             }
 

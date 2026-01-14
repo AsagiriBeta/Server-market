@@ -180,7 +180,7 @@ class MyShopDetailView(private val gui: MarketGui) {
                 item.itemId,
                 item.nbt,
                 actualAmount,
-                Text.translatable("servermarket.menu.myshop.detail.unlist_reason").string
+                "servermarket.parcel.reason.unlist"
             )
 
             gui.serverExecute {
@@ -320,7 +320,7 @@ class MyShopDetailView(private val gui: MarketGui) {
                     item.itemId,
                     item.nbt,
                     quantity,
-                    Text.translatable("servermarket.menu.myshop.detail.unlist_all_reason").string
+                    "servermarket.parcel.reason.unlist_all"
                 )
             }
 

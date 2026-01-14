@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.PermissionUtil
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.IntegerArgumentType
@@ -43,12 +44,14 @@ class MExchange {
 
         val itemName = main.name.string
         val itemId = Registries.ITEM.getId(main.item).toString()
-        val nbt = ItemKey.snbtOf(main)
+        val nbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(main))
 
         // First check inventory for sufficient items
         val inv = player.inventory
         val matchingStacks = (0 until inv.size()).map { inv.getStack(it) }.filter {
-            !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == nbt
+            !it.isEmpty &&
+                Registries.ITEM.getId(it.item).toString() == itemId &&
+                ItemKey.normalizeSnbt(ItemKey.snbtOf(it)) == nbt
         }
         val totalAvailable = matchingStacks.sumOf { it.count }
         if (totalAvailable < quantity) {
@@ -61,7 +64,7 @@ class MExchange {
             player.uuid, itemId, nbt, quantity
         ).whenCompleteOnServerThread(source.server) { totalGain, ex ->
             if (ex != null) {
-                ServerMarket.LOGGER.error("/mexchange 执行失败", ex)
+                ServerMarket.LOGGER.error("/svm exchange failed", ex)
                 source.sendError(Text.translatable("servermarket.command.mexchange.failed"))
                 return@whenCompleteOnServerThread
             }
@@ -85,7 +88,7 @@ class MExchange {
                     "servermarket.command.mexchange.success",
                     quantity,
                     itemName,
-                    String.format("%.2f", totalGain)
+                    MoneyFormat.format(totalGain, 2)
                 )
             )
         }

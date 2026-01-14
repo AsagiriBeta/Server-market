@@ -99,7 +99,7 @@ internal class BalanceRepository(
     fun getBalance(uuid: UUID): Double = try {
         queryBalance(uuid)
     } catch (e: SQLException) {
-        ServerMarket.LOGGER.error("查询余额失败 UUID: $uuid", e)
+        ServerMarket.LOGGER.error("Failed to query balance. uuid={}", uuid, e)
         0.0
     }
 
@@ -114,7 +114,7 @@ internal class BalanceRepository(
                 addBalanceSQLite(uuid, amount)
             }
         } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("更新余额失败 UUID: $uuid 金额: $amount", e)
+            ServerMarket.LOGGER.error("Failed to update balance. uuid={} amount={}", uuid, amount, e)
             throw e
         }
     }
@@ -175,7 +175,7 @@ internal class BalanceRepository(
                 setBalanceSQLite(uuid, amount)
             }
         } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("设置余额失败 UUID: $uuid 金额: $amount", e)
+            ServerMarket.LOGGER.error("Failed to set balance. uuid={} amount={}", uuid, amount, e)
             throw e
         }
     }
@@ -298,7 +298,7 @@ internal class BalanceRepository(
             try {
                 connection.rollback()
             } catch (_: SQLException) {}
-            ServerMarket.LOGGER.error("转账失败 UUID: $fromUuid -> $toUuid 金额: $amount", e)
+            ServerMarket.LOGGER.error("Transfer failed. from={} to={} amount={}", fromUuid, toUuid, amount, e)
             throw e
         } finally {
             try {
@@ -312,9 +312,9 @@ internal class BalanceRepository(
     fun syncSave(uuid: UUID) {
         try {
             if (!connection.autoCommit) connection.commit()
-            ServerMarket.LOGGER.debug("已保存玩家数据 UUID: {}", uuid.toString())
+            ServerMarket.LOGGER.debug("Player data saved. uuid={}", uuid.toString())
         } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("保存数据失败 UUID: $uuid", e)
+            ServerMarket.LOGGER.error("Failed to save player data. uuid={}", uuid, e)
         }
     }
 
@@ -332,7 +332,7 @@ internal class BalanceRepository(
                 }
             }
         } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("检查玩家存在性失败 UUID: $uuid", e)
+            ServerMarket.LOGGER.error("Failed to check player existence. uuid={}", uuid, e)
             false
         }
     }
@@ -362,7 +362,7 @@ internal class BalanceRepository(
             }
             connection.commit()
         } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("初始化余额失败 UUID: $uuid", e)
+            ServerMarket.LOGGER.error("Failed to initialize balance. uuid={}", uuid, e)
             throw e
         } finally {
             connection.autoCommit = originalAutoCommit
@@ -392,7 +392,7 @@ internal class BalanceRepository(
                 }
             }
         } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("更新玩家名失败 UUID: $uuid Name: $playerName", e)
+            ServerMarket.LOGGER.error("Failed to update player name. uuid={} name={}", uuid, playerName, e)
         }
     }
 
@@ -410,9 +410,8 @@ internal class BalanceRepository(
                 ps.executeQuery().use { rs -> resultBlock(rs) }
             }
         } catch (e: SQLException) {
-            ServerMarket.LOGGER.error("执行SQL查询失败: $sql", e)
+            ServerMarket.LOGGER.error("SQL query failed: {}", sql, e)
             null
         }
     }
 }
-

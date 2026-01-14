@@ -5,6 +5,8 @@ import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.model.PurchaseMenuEntry
 import asagiribeta.serverMarket.model.SellToBuyerResult
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.ItemStackFactory
+import asagiribeta.serverMarket.util.InventoryQuery
 import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.TextFormat
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
@@ -12,9 +14,7 @@ import eu.pb4.sgui.api.ClickType
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
-import net.minecraft.registry.Registries
 import net.minecraft.text.Text
-import net.minecraft.util.Identifier
 import kotlin.math.min
 
 /**
@@ -31,7 +31,7 @@ class PurchaseListView(private val gui: MarketGui) {
         gui.clearNav()
 
         // 显示加载提示
-        setNavButton(46, Items.BOOK, Text.translatable("servermarket.menu.loading")) {}
+        gui.setNavButton(46, Items.BOOK, Text.translatable("servermarket.menu.loading")) {}
         buildNav()
 
         // 异步加载收购列表
@@ -81,29 +81,23 @@ class PurchaseListView(private val gui: MarketGui) {
         }.whenCompleteOnServerThread(gui.player.entityWorld.server) { list, _ ->
             if (gui.mode != ViewMode.PURCHASE_LIST) return@whenCompleteOnServerThread
 
-                purchaseEntries = list ?: emptyList()
-                val totalPages = gui.pageCountOf(purchaseEntries.size)
-                gui.page = gui.clampPage(gui.page, totalPages)
-
-                gui.clearContent()
-
-                // 显示当前页的收购订单
-                gui.pageSlice(purchaseEntries, gui.page).forEachIndexed { idx, entry ->
-                    gui.setSlot(idx, buildPurchaseElement(entry))
-                }
-
-                buildNav()
+            purchaseEntries = list ?: emptyList()
+            gui.renderPagedContent(
+                list = purchaseEntries,
+                buildElement = { entry -> buildPurchaseElement(entry) },
+                buildNav = { buildNav() }
+            )
         }
     }
 
     private fun buildPurchaseElement(entry: PurchaseMenuEntry): GuiElementBuilder {
         // 构建物品栈
-        val stack = ItemKey.tryBuildFullStackFromSnbt(entry.nbt, 1) ?: run {
-            val id = Identifier.tryParse(entry.itemId)
-            val itemType = if (id != null && Registries.ITEM.containsId(id))
-                           Registries.ITEM.get(id) else Items.STONE
-            ItemStack(itemType)
-        }
+        val stack = ItemStackFactory.forDisplay(
+            itemId = entry.itemId,
+            snbt = entry.nbt,
+            count = 1,
+            fallbackItem = Items.STONE
+        )
 
         val limitStr = if (entry.limitPerDay < 0) "∞" else entry.limitPerDay.toString()
         val remainingStr = if (entry.targetAmount > 0) {
@@ -129,49 +123,30 @@ class PurchaseListView(private val gui: MarketGui) {
     private fun buildNav() {
         val totalPages = gui.pageCountOf(purchaseEntries.size)
 
-        setNavButton(45, Items.ARROW, Text.translatable("servermarket.menu.prev")) {
-            if (gui.page > 0) {
-                gui.page--
-                show(false)
-            }
-        }
-
         val helpItem = GuiElementBuilder(Items.BOOK)
             .setName(Text.translatable("servermarket.menu.purchase_list.title"))
             .addLoreLine(Text.translatable("servermarket.menu.purchase_list.tip1"))
             .addLoreLine(Text.translatable("servermarket.menu.purchase_list.tip2"))
             .addLoreLine(Text.translatable("servermarket.menu.purchase_list.tip3"))
             .addLoreLine(Text.translatable("servermarket.menu.purchase_list.tip4"))
-        gui.setSlot(46, helpItem)
 
-        setNavButton(47, Items.NETHER_STAR, Text.translatable("servermarket.menu.back_home")) {
-            gui.showHome()
-        }
-
-        setNavButton(49, Items.BARRIER, Text.translatable("servermarket.menu.close")) {
-            gui.close()
-        }
-
-        setNavButton(53, Items.ARROW, Text.translatable("servermarket.menu.next", "${gui.page + 1}/$totalPages")) {
-            if (gui.page + 1 < totalPages) {
-                gui.page++
-                show(false)
-            }
-        }
+        gui.setStandardNavForListView(
+            totalPages = totalPages,
+            helpItem = helpItem,
+            refresh = { show(false) }
+        )
     }
 
     private fun handleSellToPurchase(entry: PurchaseMenuEntry, sellAll: Boolean) {
         val player = gui.player
         val desired = if (sellAll) 64 else 1
         val itemId = entry.itemId
-        val nbt = entry.nbt
+        val nbt = ItemKey.normalizeSnbt(entry.nbt)
 
-        // 检查玩家背包中的物品数量
-        val allStacks = (0 until player.inventory.size()).map { player.inventory.getStack(it) }.filter {
-            !it.isEmpty && Registries.ITEM.getId(it.item).toString() == itemId && ItemKey.snbtOf(it) == nbt
-        }
+        // 检查玩家背包中的物品数量（NBT 需要 normalize，否则会出现“看似同 NBT 但字符串不同”导致匹配错误）
+        val allStacks = InventoryQuery.findMatchingStacks(player, itemId, nbt)
 
-        val totalAvailable = allStacks.sumOf { it.count }
+        val totalAvailable = InventoryQuery.countTotal(allStacks)
         if (totalAvailable < desired) {
             player.sendMessage(Text.translatable("servermarket.menu.purchase.not_enough_items"), false)
             return
@@ -200,11 +175,17 @@ class PurchaseListView(private val gui: MarketGui) {
                             remaining -= deduct
                         }
 
+                        // 用展示名而不是 minecraft:id
+                        val name = TextFormat.displayItemName(
+                            ItemKey.tryBuildFullStackFromSnbt(nbt, 1) ?: ItemStack.EMPTY,
+                            itemId
+                        )
+
                         player.sendMessage(
                             Text.translatable(
                                 "servermarket.menu.purchase.sell_ok",
                                 result.amount,
-                                itemId,
+                                name,
                                 MoneyFormat.format(result.totalEarned, 2)
                             ),
                             false
@@ -241,12 +222,5 @@ class PurchaseListView(private val gui: MarketGui) {
         if (gui.mode != ViewMode.PURCHASE_LIST) return
         // Reload list and view.
         show(false)
-    }
-
-    private fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: Text, callback: () -> Unit) {
-        val element = GuiElementBuilder(item)
-            .setName(name)
-            .setCallback { _, _, _ -> callback() }
-        gui.setSlot(slot, element)
     }
 }

@@ -161,6 +161,7 @@
   "servermarket.command.mbuy.not_found": "该物品暂无出售",
   "servermarket.command.mbuy.cannot_buy_own_item": "不能购买自己上架的物品",
   "servermarket.command.mbuy.error": "购买失败",
+  "servermarket.command.mbuy.ambiguous_variants": "%s 存在多个 NBT 变体（%s 种），请使用 /svm menu 在 GUI 中选择具体的变体后购买。",
 
   "servermarket.command.mpull.player_only": "该命令只能由玩家执行",
   "servermarket.command.mpull.hold_item": "请手持要下架的物品",
@@ -246,6 +247,10 @@
   "servermarket.menu.parcel.click_tip": "点击领取",
   "servermarket.menu.parcel.received": "已领取 %d 个 %s",
   "servermarket.menu.parcel.error": "领取失败",
+
+  "servermarket.parcel.reason.purchase": "收购物品",
+  "servermarket.parcel.reason.unlist": "从店铺下架",
+  "servermarket.parcel.reason.unlist_all": "从店铺全部下架",
 
   "servermarket.command": "命令",
   "servermarket.command.money": "余额",

@@ -68,7 +68,7 @@ class MPay {
         ).whenCompleteOnServerThread(context.source.server) { result, ex ->
             if (ex != null) {
                 context.source.sendError(Text.translatable("servermarket.command.mpay.transfer_failed"))
-                ServerMarket.LOGGER.error("mpay命令执行失败", ex)
+                ServerMarket.LOGGER.error("/svm pay failed", ex)
                 return@whenCompleteOnServerThread
             }
 
@@ -97,7 +97,7 @@ class MPay {
                 }
                 is TransferService.TransferResult.Error -> {
                     context.source.sendError(Text.translatable("servermarket.command.mpay.transfer_failed"))
-                    ServerMarket.LOGGER.error("转账失败: ${result.message}")
+                    ServerMarket.LOGGER.error("/svm pay error: {}", result.message)
                 }
             }
         }

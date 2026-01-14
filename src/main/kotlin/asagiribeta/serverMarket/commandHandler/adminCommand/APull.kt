@@ -33,7 +33,7 @@ class APull {
         }
 
         val itemId = Registries.ITEM.getId(itemStack.item).toString()
-        val nbt = ItemKey.snbtOf(itemStack)
+        val nbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(itemStack))
         val db = ServerMarket.instance.database
         val repo = db.marketRepository
 
@@ -41,7 +41,7 @@ class APull {
             .whenCompleteOnServerThread(source.server) { exists, ex ->
                 if (ex != null) {
                     source.sendError(Text.translatable("servermarket.command.apull.operation_failed"))
-                    ServerMarket.LOGGER.error("apull命令执行失败", ex)
+                    ServerMarket.LOGGER.error("/svm admin pull failed", ex)
                     return@whenCompleteOnServerThread
                 }
                 if (exists != true) {
@@ -53,7 +53,7 @@ class APull {
                     .whenCompleteOnServerThread(source.server) { _, ex2 ->
                         if (ex2 != null) {
                             source.sendError(Text.translatable("servermarket.command.apull.operation_failed"))
-                            ServerMarket.LOGGER.error("apull命令删除失败", ex2)
+                            ServerMarket.LOGGER.error("/svm admin pull delete failed", ex2)
                         } else {
                             source.sendMessage(Text.translatable("servermarket.command.apull.success", itemStack.name))
                         }

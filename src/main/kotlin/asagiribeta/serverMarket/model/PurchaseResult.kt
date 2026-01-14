@@ -49,5 +49,14 @@ sealed class PurchaseResult {
      * @property message 错误消息
      */
     data class Error(val message: String) : PurchaseResult()
-}
 
+    /**
+     * 购买的物品存在模糊的 NBT 变体
+     * @property itemId 物品 ID
+     * @property variantCount 变体数量
+     */
+    data class AmbiguousVariants(
+        val itemId: String,
+        val variantCount: Int
+    ) : PurchaseResult()
+}

@@ -81,8 +81,11 @@ class Command {
             .then(MMenu().buildSubCommand())
             // /svm purchase - 设置收购订单
             .then(MPurchase().buildSubCommand())
-            // /svm order - alias to /svm purchase
-            .then(CommandManager.literal("order").then(MPurchase().buildSubCommand()))
+            // /svm order - alias to /svm purchase (keep suggestions identical: /svm order <price> <amount>)
+            .then(CommandManager.literal("order")
+                .requires(PermissionUtil.requirePlayer("servermarket.command.purchase", 0))
+                .then(MPurchase().buildArgs())
+            )
             // /svm selltopurchase - 向收购者出售物品
             .then(MSellToPurchase().buildSubCommand())
             // /svm supply - alias to /svm selltopurchase

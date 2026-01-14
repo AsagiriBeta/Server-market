@@ -40,7 +40,7 @@ class MPrice {
 
         val db = ServerMarket.instance.database
         val itemId = Registries.ITEM.getId(itemStack.item).toString()
-        val nbt = ItemKey.snbtOf(itemStack)
+        val nbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(itemStack))
 
         db.supplyAsync { _ ->
             val marketRepo = db.marketRepository
@@ -60,7 +60,7 @@ class MPrice {
         }.whenCompleteOnServerThread(source.server) { op, err ->
             if (err != null) {
                 source.sendError(Text.translatable("servermarket.command.msell.operation_failed"))
-                ServerMarket.LOGGER.error("msell命令执行失败", err)
+                ServerMarket.LOGGER.error("/svm sell failed", err)
                 return@whenCompleteOnServerThread
             }
 

@@ -5,6 +5,7 @@ import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.model.PurchaseResult
 import asagiribeta.serverMarket.repository.MarketMenuEntry
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.ItemStackFactory
 import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.TextFormat
 import eu.pb4.sgui.api.ClickType
@@ -61,12 +62,12 @@ class SellerShopView(private val gui: MarketGui) {
 
     private fun buildProductElement(entry: MarketMenuEntry): GuiElementBuilder {
         // 构建商品物品栈
-        val stack = ItemKey.tryBuildFullStackFromSnbt(entry.nbt, 1) ?: run {
-            val id = Identifier.tryParse(entry.itemId)
-            val itemType = if (id != null && Registries.ITEM.containsId(id))
-                           Registries.ITEM.get(id) else Items.STONE
-            ItemStack(itemType)
-        }
+        val stack = ItemStackFactory.forDisplay(
+            itemId = entry.itemId,
+            snbt = entry.nbt,
+            count = 1,
+            fallbackItem = Items.STONE
+        )
 
         val stockStr = if (entry.isSystem && entry.quantity < 0) "∞" else entry.quantity.toString()
         val name = TextFormat.displayItemName(stack, entry.itemId)
@@ -129,11 +130,12 @@ class SellerShopView(private val gui: MarketGui) {
             entry.itemId
         )
 
-        // 使用 MarketService 处理购买逻辑
-        ServerMarket.instance.marketService.purchaseItem(
+        // 使用 MarketService 处理购买逻辑（GUI 端必须严格按 NBT 购买）
+        ServerMarket.instance.marketService.purchaseItemVariant(
             playerUuid = player.uuid,
             playerName = player.name.string,
             itemId = entry.itemId,
+            nbt = entry.nbt,
             quantity = desired,
             seller = entry.sellerId
         ).whenComplete { result, _ ->
@@ -189,6 +191,19 @@ class SellerShopView(private val gui: MarketGui) {
 
                     is PurchaseResult.Error -> {
                         player.sendMessage(Text.translatable("servermarket.menu.buy_error"), false)
+                    }
+
+                    is PurchaseResult.AmbiguousVariants -> {
+                        // Should normally not happen when buying from a concrete GUI slot,
+                        // but keep it safe in case of legacy/duplicate entries.
+                        player.sendMessage(
+                            Text.translatable(
+                                "servermarket.command.mbuy.ambiguous_variants",
+                                result.itemId,
+                                result.variantCount
+                            ),
+                            false
+                        )
                     }
                 }
             }

@@ -104,4 +104,97 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
     internal fun showMyPurchase(resetPage: Boolean = true) {
         myPurchaseView.show(resetPage)
     }
+
+    /**
+     * Render a paginated list into the content area (0..PAGE_SIZE-1).
+     *
+     * This centralizes the common pattern used by many views:
+     * - compute total pages
+     * - clamp current page index
+     * - clear content slots
+     * - render the current page slice
+     */
+    internal fun <T> renderPagedContent(
+        list: List<T>,
+        buildElement: (T) -> eu.pb4.sgui.api.elements.GuiElementBuilder,
+        buildNav: () -> Unit
+    ) {
+        val totalPages = pageCountOf(list.size)
+        page = clampPage(page, totalPages)
+
+        clearContent()
+
+        pageSlice(list, page).forEachIndexed { idx, entry ->
+            setSlot(idx, buildElement(entry))
+        }
+
+        buildNav()
+    }
+
+    internal fun setNavButton(slot: Int, item: net.minecraft.item.Item, name: Text, callback: () -> Unit) {
+        val element = eu.pb4.sgui.api.elements.GuiElementBuilder(item)
+            .setName(name)
+            .setCallback { _, _, _ -> callback() }
+        setSlot(slot, element)
+    }
+
+    /**
+     * Common navigation bar controls shared by list-like views.
+     */
+    internal fun setStandardNav(
+        totalPages: Int,
+        helpItem: eu.pb4.sgui.api.elements.GuiElementBuilder,
+        onPrev: () -> Unit,
+        onHome: () -> Unit,
+        onClose: () -> Unit,
+        onNext: () -> Unit
+    ) {
+        // Prev (45)
+        setNavButton(45, net.minecraft.item.Items.ARROW, Text.translatable("servermarket.menu.prev"), onPrev)
+
+        // Help/info (46)
+        setSlot(46, helpItem)
+
+        // Home (47)
+        setNavButton(47, net.minecraft.item.Items.NETHER_STAR, Text.translatable("servermarket.menu.back_home"), onHome)
+
+        // Close (49)
+        setNavButton(49, net.minecraft.item.Items.BARRIER, Text.translatable("servermarket.menu.close"), onClose)
+
+        // Next (53)
+        setNavButton(
+            53,
+            net.minecraft.item.Items.ARROW,
+            Text.translatable("servermarket.menu.next", "${page + 1}/$totalPages"),
+            onNext
+        )
+    }
+
+    /**
+     * Standard navigation for list-like views where prev/next just flips [page] and reruns the view.
+     */
+    internal fun setStandardNavForListView(
+        totalPages: Int,
+        helpItem: eu.pb4.sgui.api.elements.GuiElementBuilder,
+        refresh: () -> Unit
+    ) {
+        setStandardNav(
+            totalPages = totalPages,
+            helpItem = helpItem,
+            onPrev = {
+                if (page > 0) {
+                    page--
+                    refresh()
+                }
+            },
+            onHome = { showHome() },
+            onClose = { close() },
+            onNext = {
+                if (page + 1 < totalPages) {
+                    page++
+                    refresh()
+                }
+            }
+        )
+    }
 }

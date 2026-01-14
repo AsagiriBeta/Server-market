@@ -98,7 +98,7 @@ class CurrencyService(private val database: Database) {
         return currencyRepo.upsertCurrencyAsync(itemId, nbt, value)
             .thenApply { true }
             .exceptionally { e ->
-                ServerMarket.LOGGER.error("设置货币面值失败 item=$itemId value=$value", e)
+                ServerMarket.LOGGER.error("Failed to set currency value. item={} value={}", itemId, value, e)
                 false
             }
     }
@@ -116,9 +116,8 @@ class CurrencyService(private val database: Database) {
         return database.supplyAsync {
             currencyRepo.deleteCurrency(itemId, nbt)
         }.exceptionally { e ->
-            ServerMarket.LOGGER.error("移除货币配置失败 item=$itemId", e)
+            ServerMarket.LOGGER.error("Failed to remove currency mapping. item={}", itemId, e)
             false
         }
     }
 }
-

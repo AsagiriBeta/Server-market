@@ -13,6 +13,5 @@ data class ParcelEntry(
     val nbt: String,
     val quantity: Int,
     val timestamp: Long,
-    val reason: String  // 说明：例如"收购物品", "市场购买" 等
+    val reason: String  // reason key (e.g. "servermarket.parcel.reason.purchase"); legacy data may store plain text
 )
-

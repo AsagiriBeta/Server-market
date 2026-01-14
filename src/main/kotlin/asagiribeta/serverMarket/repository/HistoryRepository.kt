@@ -75,7 +75,7 @@ class HistoryRepository(private val database: Database) {
                     }
                 }
             } catch (e: Exception) {
-                ServerMarket.LOGGER.warn("写入 XConomy 交易记录失败（已忽略，不影响交易）", e)
+                ServerMarket.LOGGER.warn("Failed to write XConomy transaction record (ignored; does not affect the trade)", e)
             }
         }
     }

@@ -46,7 +46,7 @@ class MAdd {
             .whenCompleteOnServerThread(server) { success, ex ->
                 if (ex != null) {
                     context.source.sendError(Text.translatable("servermarket.command.madd.failed"))
-                    ServerMarket.LOGGER.error("madd命令执行失败", ex)
+                    ServerMarket.LOGGER.error("/svm admin add failed", ex)
                 } else if (success == true) {
                     val sign = if (amount >= 0) "+" else ""
                     val formatted = sign + MoneyFormat.format(kotlin.math.abs(amount), 2)

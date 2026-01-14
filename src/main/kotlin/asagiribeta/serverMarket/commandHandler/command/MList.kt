@@ -47,7 +47,7 @@ class MList {
         }.whenCompleteOnServerThread(source.server) { items, ex ->
             if (ex != null) {
                 source.sendError(Text.translatable("servermarket.command.mlist.query_failed"))
-                ServerMarket.LOGGER.error("mlist命令执行失败", ex)
+                ServerMarket.LOGGER.error("/svm list failed", ex)
                 return@whenCompleteOnServerThread
             }
 
