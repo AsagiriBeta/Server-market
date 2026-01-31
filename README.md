@@ -25,25 +25,56 @@ Optional:
 
 Player:
 ```bash
+/svm
+/svm menu
+
 /svm money
-/svm buy <qty> <item> [seller]
+/svm balance
+
+/svm pay <player> <amount>
+
 /svm sell <price>
 /svm restock <qty>
-/svm menu
-/svm purchase <price> <amount>
+/svm pull
+
+/svm list
+/svm search <keyword>
+
+/svm buy <qty> <item> [seller]
+
+/svm cash <amount>
+/svm exchange <amount>
+
 /svm order <price> <amount>
-/svm selltopurchase <quantity>
 /svm supply <quantity>
 ```
 
 Admin:
 ```bash
-/svm edit set <player> <amount>
-/svm edit price <price> [limit]
-/svm edit cash <value>
-/svm edit purchase <price> [limit]
-/svm edit reload
+/svm admin balance <player>
+/svm admin set <player> <amount>
+/svm admin add <player> <amount>
+
+/svm admin price <price> [limit]
+/svm admin pull
+/svm admin purchase <price> [limit]
+
+/svm admin cash get
+/svm admin cash del
+/svm admin cash list [item]
+/svm admin cash <value>
+
+/svm admin rank
+/svm admin reload
 ```
+
+## Updates
+
+- Command wording updated:
+  - purchase order: `/svm purchase` -> `/svm order`
+  - sell to buyer: `/svm selltopurchase` -> `/svm supply`
+- Removed command group: `/svm edit` (admin commands are now under `/svm admin`).
+- Deprecated: `/svm admin lang`
 
 ## Placeholder API
 
@@ -52,6 +83,9 @@ This mod bundles **Placeholder API** and registers:
 - `%server-market:balance_short%`
 - `%server-market:parcel_count%`
 - `%server-market:player_name%`
+- `%server-market:top_name:<rank>%` (rank 1-10)
+- `%server-market:top_balance:<rank>%` (rank 1-10)
+- `%server-market:top_balance_short:<rank>%` (rank 1-10)
 
 ## Integration API
 

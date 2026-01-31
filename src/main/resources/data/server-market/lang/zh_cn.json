@@ -275,5 +275,16 @@
   "servermarket.admin.purchase": "系统收购",
   "servermarket.admin.pull": "管理下架",
   "servermarket.admin.reload": "重载",
-  "servermarket.admin.lang": "语言"
+  "servermarket.admin.lang": "语言",
+  "servermarket.admin.balance": "余额查询",
+
+  "servermarket.command.mbalance.player_not_found": "未找到玩家（该玩家需要至少进过一次服务器）",
+  "servermarket.command.mbalance.failed": "余额查询失败",
+  "servermarket.command.mbalance.success": "%s（%s）余额: %s",
+
+  "servermarket.menu.balance_rank.title": "余额排行榜",
+  "servermarket.menu.balance_rank.tip1": "按余额从高到低排序",
+  "servermarket.menu.balance_rank.tip2": "箭头：翻页",
+  "servermarket.menu.balance_rank.balance": "余额: %s",
+  "servermarket.menu.balance_rank.uuid": "UUID: %s"
 }

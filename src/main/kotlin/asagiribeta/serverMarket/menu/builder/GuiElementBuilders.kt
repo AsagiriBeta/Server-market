@@ -22,29 +22,25 @@ object GuiElementBuilders {
 
 
     /**
-     * 获取玩家的 GameProfile（用于显示玩家头像）
+     * 获取玩家 GameProfile（通过 UUID + 名称）
      */
-    fun obtainPlayerGameProfile(
-        player: ServerPlayerEntity,
-        entry: SellerMenuEntry
+    fun obtainProfileByUuid(
+        viewer: ServerPlayerEntity,
+        uuid: UUID,
+        name: String
     ): GameProfile? {
-        if (entry.sellerId.equals("SERVER", ignoreCase = true)) return null
-        val uuid = try { UUID.fromString(entry.sellerId) } catch (_: Exception) { return null }
-        val server = player.entityWorld.server
-
         val now = System.currentTimeMillis()
         profileCache[uuid]?.let { cached ->
             if (now - cached.atMs <= PROFILE_CACHE_MS) return cached.profile
         }
 
-        // 优先获取在线玩家的 GameProfile
+        val server = viewer.entityWorld.server
         val online = server.playerManager.getPlayer(uuid)
         if (online != null) {
             profileCache[uuid] = CachedProfile(online.gameProfile, now)
             return online.gameProfile
         }
 
-        // 其次尝试通过 GameProfileResolver 获取（可能命中磁盘缓存或在线解析）
         val resolved = try {
             server.apiServices.profileResolver().getProfileById(uuid).orElse(null)
         } catch (_: Exception) {
@@ -55,7 +51,19 @@ object GuiElementBuilders {
             return resolved
         }
 
-        return GameProfile(uuid, entry.sellerName).also { profileCache[uuid] = CachedProfile(it, now) }
+        return GameProfile(uuid, name).also { profileCache[uuid] = CachedProfile(it, now) }
+    }
+
+    /**
+     * 获取玩家的 GameProfile（用于显示玩家头像）
+     */
+    fun obtainPlayerGameProfile(
+        player: ServerPlayerEntity,
+        entry: SellerMenuEntry
+    ): GameProfile? {
+        if (entry.sellerId.equals("SERVER", ignoreCase = true)) return null
+        val uuid = try { UUID.fromString(entry.sellerId) } catch (_: Exception) { return null }
+        return obtainProfileByUuid(player, uuid, entry.sellerName)
     }
 
     /**
@@ -77,4 +85,3 @@ object GuiElementBuilders {
         return if (entry.sellerId == "SERVER") Items.NETHER_STAR else Items.PLAYER_HEAD
     }
 }
-

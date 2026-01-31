@@ -50,4 +50,46 @@ object CommandSuggestions {
         }
         builder.buildFuture()
     }
+
+    @Volatile private var cachedPlayerNames: List<String> = emptyList()
+    private val lastPlayerRefreshNanos = AtomicLong(0)
+
+    private fun refreshPlayerCacheIfStale() {
+        val now = System.nanoTime()
+        val last = lastPlayerRefreshNanos.get()
+        if (now - last < REFRESH_INTERVAL_NANOS) return
+        if (!lastPlayerRefreshNanos.compareAndSet(last, now)) return
+
+        val db = ServerMarket.instance.database
+        db.supplyAsync { db.playerLookupService.getDistinctPlayerNames(limit = 2000) }
+            .exceptionally { emptyList() }
+            .thenAccept { names -> if (names != null) cachedPlayerNames = names }
+    }
+
+    /**
+     * Player name suggestions backed by the balance table.
+     * This includes players who have joined the server before (their balance row exists).
+     */
+    val PLAYER_NAME_SUGGESTIONS: SuggestionProvider<ServerCommandSource> = SuggestionProvider { ctx, builder ->
+        val remaining = builder.remaining.lowercase()
+
+        // Deduplicate by lowercase to avoid showing the same name twice with different casing
+        val seen = HashSet<String>(256)
+
+        fun trySuggest(name: String) {
+            val key = name.lowercase()
+            if (!seen.add(key)) return
+            if (remaining.isEmpty() || key.contains(remaining)) builder.suggest(name)
+        }
+
+        // 1) Online players first
+        val online = ctx.source.server.playerManager.playerNames
+        online.forEach(::trySuggest)
+
+        // 2) Cached DB names (non-blocking)
+        refreshPlayerCacheIfStale()
+        cachedPlayerNames.forEach(::trySuggest)
+
+        builder.buildFuture()
+    }
 }

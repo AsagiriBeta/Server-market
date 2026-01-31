@@ -10,6 +10,6 @@ enum class ViewMode {
     PURCHASE_LIST,  // 收购列表
     PARCEL_STATION, // 快递驿站
     MY_SHOP,        // 我的店铺
-    MY_PURCHASE     // 我的收购
+    MY_PURCHASE,    // 我的收购
+    BALANCE_RANK    // 余额排行
 }
-

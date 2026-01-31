@@ -25,25 +25,56 @@
 
 玩家：
 ```bash
+/svm
+/svm menu
+
 /svm money
-/svm buy <数量> <物品> [卖家]
+/svm balance
+
+/svm pay <玩家> <金额>
+
 /svm sell <价格>
 /svm restock <数量>
-/svm menu
-/svm purchase <价格> <数量>
+/svm pull
+
+/svm list
+/svm search <关键词>
+
+/svm buy <数量> <物品> [卖家]
+
+/svm cash <金额>
+/svm exchange <金额>
+
 /svm order <价格> <数量>
-/svm selltopurchase <数量>
 /svm supply <数量>
 ```
 
 管理员：
 ```bash
-/svm edit set <玩家> <金额>
-/svm edit price <价格> [限购]
-/svm edit cash <面值>
-/svm edit purchase <价格> [限额]
-/svm edit reload
+/svm admin balance <玩家>
+/svm admin set <玩家> <金额>
+/svm admin add <玩家> <金额>
+
+/svm admin price <价格> [限购]
+/svm admin pull
+/svm admin purchase <价格> [限额]
+
+/svm admin cash get
+/svm admin cash del
+/svm admin cash list [物品]
+/svm admin cash <面值>
+
+/svm admin rank
+/svm admin reload
 ```
+
+## 更新
+
+- 命令用词调整：
+  - 收购订单：`/svm purchase` -> `/svm order`
+  - 向收购者出售：`/svm selltopurchase` -> `/svm supply`
+- 已移除命令组：`/svm edit`（管理员命令统一使用 `/svm admin`）。
+- 已废弃：`/svm admin lang`
 
 ## Placeholder API
 
@@ -52,6 +83,9 @@
 - `%server-market:balance_short%`
 - `%server-market:parcel_count%`
 - `%server-market:player_name%`
+- `%server-market:top_name:<rank>%`（名次 1-10）
+- `%server-market:top_balance:<rank>%`（名次 1-10）
+- `%server-market:top_balance_short:<rank>%`（名次 1-10）
 
 ## 联动 API
 

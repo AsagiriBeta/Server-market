@@ -1,6 +1,7 @@
 package asagiribeta.serverMarket.integration
 
 import asagiribeta.serverMarket.ServerMarket
+import asagiribeta.serverMarket.repository.BalanceRepository
 import asagiribeta.serverMarket.util.MoneyFormat
 import eu.pb4.placeholders.api.PlaceholderContext
 import eu.pb4.placeholders.api.PlaceholderResult
@@ -13,6 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 object PlaceholderIntegration {
     private const val REFRESH_INTERVAL_MS = 1000L
+    private const val TOP_BALANCE_LIMIT = 10
 
     private data class Cached<T>(val value: T, val atMs: Long)
 
@@ -20,6 +22,9 @@ object PlaceholderIntegration {
     private val parcelCountCache = ConcurrentHashMap<UUID, Cached<Int>>()
     private val refreshingBalance = ConcurrentHashMap<UUID, AtomicBoolean>()
     private val refreshingParcels = ConcurrentHashMap<UUID, AtomicBoolean>()
+    @Volatile
+    private var topBalanceCache: Cached<List<BalanceRepository.BalanceRankEntry>>? = null
+    private val refreshingTopBalances = AtomicBoolean(false)
 
     fun register() {
         // %server-market:balance% (requires player)
@@ -50,9 +55,55 @@ object PlaceholderIntegration {
             val player = ctx.player ?: return@register PlaceholderResult.invalid("No player")
             PlaceholderResult.value(player.name)
         }
+
+        // %server-market:top_name:<rank>% (rank 1-10)
+        Placeholders.register(Identifier.of("server-market", "top_name")) { _, arg ->
+            val rank = parseRank(arg) ?: return@register PlaceholderResult.invalid("Invalid rank")
+            val list = getTopBalancesCached(TOP_BALANCE_LIMIT) ?: return@register PlaceholderResult.value("...")
+            val entry = list.getOrNull(rank - 1) ?: return@register PlaceholderResult.value("-")
+            PlaceholderResult.value(entry.name.ifBlank { entry.uuid.toString() })
+        }
+
+        // %server-market:top_balance:<rank>% (rank 1-10)
+        Placeholders.register(Identifier.of("server-market", "top_balance")) { _, arg ->
+            val rank = parseRank(arg) ?: return@register PlaceholderResult.invalid("Invalid rank")
+            val list = getTopBalancesCached(TOP_BALANCE_LIMIT) ?: return@register PlaceholderResult.value("...")
+            val entry = list.getOrNull(rank - 1) ?: return@register PlaceholderResult.value("-")
+            PlaceholderResult.value(MoneyFormat.format(entry.balance, 2))
+        }
+
+        // %server-market:top_balance_short:<rank>% (rank 1-10)
+        Placeholders.register(Identifier.of("server-market", "top_balance_short")) { _, arg ->
+            val rank = parseRank(arg) ?: return@register PlaceholderResult.invalid("Invalid rank")
+            val list = getTopBalancesCached(TOP_BALANCE_LIMIT) ?: return@register PlaceholderResult.value("...")
+            val entry = list.getOrNull(rank - 1) ?: return@register PlaceholderResult.value("-")
+            PlaceholderResult.value(MoneyFormat.formatShort(entry.balance))
+        }
     }
 
     fun parse(input: Text, ctx: PlaceholderContext): Text = Placeholders.parseText(input, ctx)
+
+    private fun parseRank(arg: String?): Int? {
+        val rank = arg?.toIntOrNull() ?: return null
+        return if (rank in 1..TOP_BALANCE_LIMIT) rank else null
+    }
+
+    private fun getTopBalancesCached(limit: Int): List<BalanceRepository.BalanceRankEntry>? {
+        val now = System.currentTimeMillis()
+        val cached = topBalanceCache
+        if (cached != null && now - cached.atMs <= REFRESH_INTERVAL_MS) return cached.value
+
+        if (refreshingTopBalances.compareAndSet(false, true)) {
+            ServerMarket.instance.database.supplyAsync0 {
+                ServerMarket.instance.database.getTopBalances(limit)
+            }.whenComplete { v, _ ->
+                if (v != null) topBalanceCache = Cached(v, System.currentTimeMillis())
+                refreshingTopBalances.set(false)
+            }
+        }
+
+        return cached?.value
+    }
 
     private fun getBalanceCached(uuid: UUID): Double? {
         val now = System.currentTimeMillis()

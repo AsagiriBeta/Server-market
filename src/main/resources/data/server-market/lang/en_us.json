@@ -152,6 +152,7 @@
   "servermarket.admin.pull": "Admin Unlist",
   "servermarket.admin.reload": "Reload",
   "servermarket.admin.lang": "Language",
+  "servermarket.admin.balance": "Check Balance",
 
   "servermarket.ui.seller": " | Seller: %s",
   "servermarket.ui.price": " | Price: %s",
@@ -275,5 +276,15 @@
   "servermarket.parcel.reason.unlist_all": "Unlisted (all) from shop",
 
   "servermarket.menu.purchase.limit": "Limit: %s",
-  "servermarket.menu.cannot_buy_own_item": "You can't buy your own item"
+  "servermarket.menu.cannot_buy_own_item": "You can't buy your own item",
+
+  "servermarket.command.mbalance.player_not_found": "Player not found (must have joined the server at least once)",
+  "servermarket.command.mbalance.failed": "Failed to query balance",
+  "servermarket.command.mbalance.success": "%s (%s) balance: %s",
+
+  "servermarket.menu.balance_rank.title": "Balance Leaderboard",
+  "servermarket.menu.balance_rank.tip1": "Sorted by balance (high to low)",
+  "servermarket.menu.balance_rank.tip2": "Arrow: page",
+  "servermarket.menu.balance_rank.balance": "Balance: %s",
+  "servermarket.menu.balance_rank.uuid": "UUID: %s"
 }

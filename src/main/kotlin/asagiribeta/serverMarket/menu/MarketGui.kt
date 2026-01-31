@@ -30,6 +30,7 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
     private val myShopView = MyShopView(this)
     private val myShopDetailView = MyShopDetailView(this)
     private val myPurchaseView = MyPurchaseView(this)
+    private val balanceRankView = BalanceRankView(this)
 
     init {
         this.title = Text.translatable("servermarket.menu.title")
@@ -103,6 +104,10 @@ class MarketGui(player: ServerPlayerEntity) : SimpleGui(ScreenHandlerType.GENERI
 
     internal fun showMyPurchase(resetPage: Boolean = true) {
         myPurchaseView.show(resetPage)
+    }
+
+    internal fun showBalanceRank(resetPage: Boolean = true) {
+        balanceRankView.show(resetPage)
     }
 
     /**

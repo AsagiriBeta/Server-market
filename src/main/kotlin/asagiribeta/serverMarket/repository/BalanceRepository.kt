@@ -27,6 +27,7 @@ internal class BalanceRepository(
     private val connection: Connection,
     private val isMySQL: Boolean
 ) {
+    data class BalanceRankEntry(val uuid: UUID, val name: String, val balance: Double)
 
     // XConomy 兼容（MySQL模式）
     private val xcoPlayerTable = Config.xconomyPlayerTable
@@ -103,6 +104,39 @@ internal class BalanceRepository(
         0.0
     }
 
+    fun getTopBalances(limit: Int): List<BalanceRankEntry> {
+        val safeLimit = limit.coerceIn(1, 100)
+        val sql = if (isMySQL) {
+            "SELECT UID AS uuid, player AS name, balance AS balance FROM $xcoPlayerTable " +
+                "WHERE hidden = 0 ORDER BY balance DESC LIMIT ?"
+        } else {
+            "SELECT uid AS uuid, player AS name, balance AS balance FROM $sqliteBalanceTable " +
+                "WHERE uid != ? ORDER BY balance DESC LIMIT ?"
+        }
+
+        return try {
+            connection.prepareStatement(sql).use { ps ->
+                var index = 1
+                if (!isMySQL) {
+                    ps.setString(index++, UUID(0, 0).toString())
+                }
+                ps.setInt(index, safeLimit)
+                ps.executeQuery().use { rs ->
+                    val result = mutableListOf<BalanceRankEntry>()
+                    while (rs.next()) {
+                        val uuid = UUID.fromString(rs.getString("uuid"))
+                        val name = rs.getString("name") ?: ""
+                        val balance = rs.getDouble("balance")
+                        result.add(BalanceRankEntry(uuid, name, balance))
+                    }
+                    result
+                }
+            }
+        } catch (e: SQLException) {
+            ServerMarket.LOGGER.error("Failed to query top balances. limit={}", safeLimit, e)
+            emptyList()
+        }
+    }
 
     // ============== 余额修改 ==============
 

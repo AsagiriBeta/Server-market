@@ -6,6 +6,8 @@ import asagiribeta.serverMarket.commandHandler.adminCommand.APrice
 import asagiribeta.serverMarket.commandHandler.adminCommand.APull
 import asagiribeta.serverMarket.commandHandler.adminCommand.APurchase
 import asagiribeta.serverMarket.commandHandler.adminCommand.MAdd
+import asagiribeta.serverMarket.commandHandler.adminCommand.MBalance
+import asagiribeta.serverMarket.commandHandler.adminCommand.MBalanceRank
 import asagiribeta.serverMarket.commandHandler.adminCommand.MLang
 import asagiribeta.serverMarket.commandHandler.adminCommand.MReload
 import asagiribeta.serverMarket.commandHandler.adminCommand.MSet
@@ -79,20 +81,14 @@ class Command {
             .then(MExchange().buildSubCommand())
             // /svm menu - 打开GUI
             .then(MMenu().buildSubCommand())
-            // /svm purchase - 设置收购订单
-            .then(MPurchase().buildSubCommand())
-            // /svm order - alias to /svm purchase (keep suggestions identical: /svm order <price> <amount>)
+            // /svm order - 设置收购订单
             .then(CommandManager.literal("order")
                 .requires(PermissionUtil.requirePlayer("servermarket.command.purchase", 0))
                 .then(MPurchase().buildArgs())
             )
-            // /svm selltopurchase - 向收购者出售物品
-            .then(MSellToPurchase().buildSubCommand())
-            // /svm supply - alias to /svm selltopurchase
+            // /svm supply - 向收购者出售物品
             .then(CommandManager.literal("supply").then(MSellToPurchase().buildSubCommand()))
-            // 管理员命令子节点：/svm edit
-            .then(buildAdminNode("edit"))
-            // /svm admin - alias to /svm edit
+            // 管理员命令子节点：/svm admin
             .then(buildAdminNode("admin"))
 
         dispatcher.register(svmRoot)
@@ -101,21 +97,25 @@ class Command {
     private fun buildAdminNode(literal: String): com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> {
         return CommandManager.literal(literal)
             .requires(PermissionUtil.require("servermarket.admin", 4))
-            // /svm edit set - 设置余额
+            // /svm admin balance - 查询玩家余额（支持离线）
+            .then(MBalance().buildSubCommand())
+            // /svm admin set - 设置余额
             .then(MSet().buildSubCommand())
-            // /svm edit add - 增加余额
+            // /svm admin add - 增加余额
             .then(MAdd().buildSubCommand())
-            // /svm edit price - 设置系统价格
+            // /svm admin price - 设置系统价格
             .then(APrice().buildSubCommand())
-            // /svm edit pull - 下架系统商品
+            // /svm admin pull - 下架系统商品
             .then(APull().buildSubCommand())
-            // /svm edit cash - 管理现金物品
+            // /svm admin cash - 管理现金物品
             .then(ACash().buildSubCommand())
-            // /svm edit purchase - 设置系统收购
+            // /svm admin purchase - 设置系统收购
             .then(APurchase().buildSubCommand())
-            // /svm edit lang - 切换语言
+            // /svm admin lang - 切换语言
             .then(MLang().buildSubCommand())
-            // /svm edit reload - 重载配置
+            // /svm admin rank - 余额排行
+            .then(MBalanceRank().buildSubCommand())
+            // /svm admin reload - 重载配置
             .then(MReload().buildSubCommand())
     }
 

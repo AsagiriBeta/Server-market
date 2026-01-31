@@ -34,6 +34,8 @@ class Database {
     internal val purchaseRepository = PurchaseRepository(this)
     internal val parcelRepository = ParcelRepository(this)
 
+    internal val playerLookupService = PlayerLookupService(this)
+
     // 余额仓库需要在 init 后初始化
     private val balanceRepository: BalanceRepository by lazy {
         BalanceRepository(connection, isMySQL)
@@ -163,6 +165,9 @@ class Database {
     internal fun isSystem(uuid: UUID): Boolean = balanceRepository.isSystem(uuid)
 
     internal fun getBalance(uuid: UUID): Double = balanceRepository.getBalance(uuid)
+
+    internal fun getTopBalances(limit: Int): List<BalanceRepository.BalanceRankEntry> =
+        balanceRepository.getTopBalances(limit)
 
     @Suppress("unused") // 在 MarketService 的 lambda 中使用
     internal fun addBalance(uuid: UUID, amount: Double) = balanceRepository.addBalance(uuid, amount)
