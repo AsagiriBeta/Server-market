@@ -1,108 +1,56 @@
 # Server Market
 
-[中文文档](./README_ZH.md)
+[中文说明](./README_ZH.md)
 
-A Fabric mod providing player economy + item market (GUI + commands) for Minecraft servers.
+Currency and market mod for Minecraft Fabric servers (GUI + commands).
 
-## Requirements
+## Supported versions
 
-Required:
-- Fabric Permissions API **0.5.0**
-- Fabric Language Kotlin **1.13.8+kotlin.2.3.0**
+Run `./gradlew buildAll` on `master` to produce **6 JARs** covering **Minecraft 1.20 – 1.21.11**:
 
-Optional:
-- LuckPerms (recommended) for permission management
+| Artifact suffix | Minecraft range |
+|---|---|
+| `Server-market_1_20_4-*.jar` | 1.20 – 1.20.4 |
+| `Server-market_1_20_6-*.jar` | 1.20.5 – 1.20.6 |
+| `Server-market_1_21_1-*.jar` | 1.21 – 1.21.1 |
+| `Server-market_1_21_5-*.jar` | 1.21.2 – 1.21.5 |
+| `Server-market_1_21_8-*.jar` | 1.21.6 – 1.21.8 |
+| `Server-market_1_21_11-*.jar` | 1.21.9 – 1.21.11 |
 
-## Features
+Build everything:
 
-- Player balance (transfer / trading)
-- Player market + system shop
-- Purchase orders (players/admins) + parcel station delivery
-- Optional physical-currency items
-- SQLite (default) / MySQL (optional, with XConomy record writing)
-
-## Commands
-
-Player:
 ```bash
-/svm
-/svm menu
-
-/svm money
-/svm balance
-
-/svm pay <player> <amount>
-
-/svm sell <price>
-/svm restock <qty>
-/svm pull
-
-/svm list
-/svm search <keyword>
-
-/svm buy <qty> <item> [seller]
-
-/svm cash <amount>
-/svm exchange <amount>
-
-/svm order <price> <amount>
-/svm supply <quantity>
+./gradlew buildAll
 ```
 
-Admin:
+Build one group:
+
 ```bash
-/svm admin balance <player>
-/svm admin set <player> <amount>
-/svm admin add <player> <amount>
-
-/svm admin price <price> [limit]
-/svm admin pull
-/svm admin purchase <price> [limit]
-
-/svm admin cash get
-/svm admin cash del
-/svm admin cash list [item]
-/svm admin cash <value>
-
-/svm admin rank
-/svm admin reload
+./gradlew build -Pmc_group=1_21_11
 ```
 
-## Updates
+## Admin balance commands
 
-- Command wording updated:
-  - purchase order: `/svm purchase` -> `/svm order`
-  - sell to buyer: `/svm selltopurchase` -> `/svm supply`
-- Removed command group: `/svm edit` (admin commands are now under `/svm admin`).
-- Deprecated: `/svm admin lang`
+```bash
+/svm admin add <player> <amount>      # add balance
+/svm admin remove <player> <amount>     # deduct balance
+/svm admin set <player> <amount>      # set balance
+/svm admin balance <player>             # query balance (offline OK)
+```
 
-## Placeholder API
+## Source layout
 
-This mod bundles **Placeholder API** and registers:
-- `%server-market:balance%`
-- `%server-market:balance_short%`
-- `%server-market:parcel_count%`
-- `%server-market:player_name%`
-- `%server-market:top_name:<rank>%` (rank 1-10)
-- `%server-market:top_balance:<rank>%` (rank 1-10)
-- `%server-market:top_balance_short:<rank>%` (rank 1-10)
+```
+src/
+  common/       # shared logic
+  versions/
+    v1_20_4/    # legacy NBT ItemKey / GUI (1.20 – 1.20.4)
+    v1_20_6/    # legacy-compatible ItemKey / GUI helpers
+    v1_21_11/   # 1.21.9+ Placeholder API + modern ItemKey
+```
 
-## Integration API
+## CI
 
-Entry point: `asagiribeta.serverMarket.api.ServerMarketApiProvider`
+GitHub Actions runs `buildAll` and publishes release assets **only on pushes to `master`**.
 
-- `getBalance`, `getParcelCount`
-- `addBalance`, `withdraw`, `transfer`
-
-Event:
-- `ServerMarketEvents.BALANCE_CHANGED`
-
-## Configuration / Storage
-
-Config file: `config/server-market/config.properties`
-
-SQLite works out of the box. For MySQL, set `storage_type = mysql` and fill `mysql_*` fields.
-
-## License
-
-See [LICENSE.txt](./LICENSE.txt)
+See [README_ZH.md](./README_ZH.md) for the full feature list and Chinese documentation.

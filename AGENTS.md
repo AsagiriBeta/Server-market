@@ -2,29 +2,39 @@
 
 ## Cursor Cloud specific instructions
 
-This repo is a single product: **Server Market**, a server-side **Minecraft 1.21.10 Fabric mod** written in Kotlin and built with Gradle (Kotlin DSL) via the `./gradlew` wrapper. There is no JS/Python toolchain, no `Makefile`, and no automated test source set (`:test` is `NO-SOURCE`).
+This repo is **Server Market**, a server-side **Minecraft Fabric mod** (Kotlin + Gradle). One `master` branch builds multiple version-group JARs via `./gradlew buildAll`.
 
-### Prerequisites (already provided by the environment)
-- JDK 21 (the Gradle Java toolchain targets Java 21).
-- Gradle is provided by the wrapper (`./gradlew`, pinned to 9.2.0). Do not install Gradle globally.
-- First `build`/`runServer`/`runClient` downloads Minecraft, Yarn mappings, and Maven deps from the network; these are cached in `~/.gradle` and the Loom cache, so subsequent runs are fast.
+### Prerequisites
+- JDK 21 (Gradle toolchain; older MC groups compile with `--release` matching their bytecode target when needed).
+- Use the wrapper: `./gradlew` (Gradle 9.2.0).
 
-### Build / compile (this is the "lint")
-- Build the mod jar: `./gradlew build` → outputs `build/libs/Server-market_1.21.10-<version>.jar`.
-- There is no separate linter; the meaningful static check is `:compileKotlin`, which runs as part of `build`.
-- The warning `(3.45.1.0) is not valid semver for dependency org.xerial:sqlite-jdbc` during `:processIncludeJars` is benign.
+### Build
+- All supported groups: `./gradlew buildAll` → `build/libs/Server-market_<group>-<version>.jar`
+- Single group: `./gradlew build -Pmc_group=1_21_11`
+- Groups are defined in `gradle.properties` (`version_groups`, `group.*`).
+- No separate linter; `:compileKotlin` during `build` is the main static check.
+- `(3.45.1.0) is not valid semver for dependency org.xerial:sqlite-jdbc` during `:processIncludeJars` is benign.
 
-### Run the dev server (primary way to test end-to-end)
-- Run: `./gradlew runServer`. This launches a dedicated Minecraft server (the mod's `environment` is `server`) on port **25565** with the run directory at `run/` (gitignored).
-- First run stops immediately with "You need to agree to the EULA". To proceed you must set `eula=true` in `run/eula.txt`, then re-run. This is a one-time gotcha per fresh `run/` dir.
-- To allow the dev client (or any offline client) to connect without Mojang auth, set `online-mode=false` and `enforce-secure-profile=false` in `run/server.properties`.
-- The server console is interactive: you can type mod commands directly (without a leading `/`), e.g. `svm admin set <player> <amount>` and `svm admin balance <player>`. The console has op level 4, so admin commands work from it.
-- Storage defaults to embedded **SQLite** (`run/market.db`); no external DB is required. MySQL is optional (`storage_type=mysql` + `mysql_*` in `config/server-market/config.properties`).
+### Source layout
+- `src/common/` — shared Kotlin + resources
+- `src/versions/v1_20_4/` — overlay for MC 1.20 – 1.20.4 (NBT ItemKey, GUI, Placeholder stub, Java 17 bytecode)
+- `src/versions/v1_20_6/` — overlay for MC 1.20.5 – 1.21.8 (ItemKey, GUI helpers, Placeholder stub)
+- `src/versions/v1_21_11/` — overlay for MC 1.21.9+ (modern ItemKey, Placeholder API)
 
-### Run the dev client (optional, for in-game / GUI testing)
-- Run: `DISPLAY=:1 ./gradlew runClient` (a display server is available at `:1`). Audio/OpenAL errors in the log are expected (no sound card) and are non-fatal.
-- The dev client auto-generates a player username like `Player###` (visible in the server log on join). Use that name for admin commands such as `svm admin set <name> <amount>`.
-- In-game, open chat with `t`, then run e.g. `/svm money` (shows balance) or `/svm menu` (opens the Server Market GUI). `/svm admin set` requires the target player to be online.
+### Dev server
+- `./gradlew runServer` (defaults to latest group `1_21_11`)
+- Override group: `./gradlew runServer -Pmc_group=1_21_8`
+- First run needs `eula=true` in `run/eula.txt`.
+- For offline testing: `online-mode=false`, `enforce-secure-profile=false` in `run/server.properties`.
+- Console commands omit the leading `/`, e.g. `svm admin remove Player123 50`.
+- Storage defaults to SQLite at `run/market.db`.
+
+### Dev client (optional)
+- `DISPLAY=:1 ./gradlew runClient -Pmc_group=1_21_11`
+
+### CI
+- `.github/workflows/build-release.yml` runs only on pushes to `master`.
 
 ### Notes
-- `fabric-permissions-api` is a hard dependency but is pulled by Gradle for the dev runtime; on a real server it must be installed separately. LuckPerms / XConomy are optional.
+- `fabric-permissions-api` is required at runtime on real servers.
+- LuckPerms / XConomy are optional integrations.
