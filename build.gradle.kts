@@ -1,5 +1,7 @@
+import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import javax.inject.Inject
 
 plugins {
     kotlin("jvm") version "2.3.0"
@@ -11,10 +13,78 @@ plugins {
 version = project.property("mod_version") as String
 group = project.property("maven_group") as String
 
-val targetJavaVersion = 21
+data class VersionGroup(
+    val id: String,
+    val buildKey: String,
+    val overlay: String,
+    val javaVersion: Int,
+    val minecraftRange: String,
+)
+
+fun parseVersionGroups(): List<VersionGroup> {
+    val ids = (project.property("version_groups") as String).split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    return ids.map { id ->
+        val parts = (project.property("group.$id") as String).split(",").map { it.trim() }
+        require(parts.size == 4) { "group.$id must have 4 comma-separated values" }
+        VersionGroup(id, parts[0], parts[1], parts[2].toInt(), parts[3])
+    }
+}
+
+val versionGroups = parseVersionGroups()
+val activeGroupId = (project.findProperty("mc_group") as String?)
+    ?: versionGroups.last().id
+val activeGroup = versionGroups.firstOrNull { it.id == activeGroupId }
+    ?: throw GradleException("Unknown mc_group '$activeGroupId'. Valid: ${versionGroups.joinToString { it.id }}")
+
+fun prop(buildKey: String, key: String): String {
+    val specific = project.findProperty("${key}_$buildKey")?.toString()
+    if (!specific.isNullOrBlank()) return specific
+    return project.property(key) as String
+}
+
+fun optionalProp(buildKey: String, key: String): String? {
+    val specific = project.findProperty("${key}_$buildKey")?.toString()
+    if (specific != null) return specific.ifBlank { null }
+    return project.findProperty(key)?.toString()?.ifBlank { null }
+}
+
+val buildKey = activeGroup.buildKey
+val minecraftVersion = prop(buildKey, "minecraft_version")
+val yarnMappings = prop(buildKey, "yarn_mappings")
+val loaderVersion = prop(buildKey, "loader_version")
+val kotlinLoaderVersion = prop(buildKey, "kotlin_loader_version")
+val fabricVersion = prop(buildKey, "fabric_version")
+val fpaVersion = prop(buildKey, "fpa_version")
+val sguiVersion = optionalProp(buildKey, "sgui_version")
+val placeholderApiVersion = optionalProp(buildKey, "placeholder_api_version")
+val serverTranslationsVersion = optionalProp(buildKey, "server_translations_version")
+
+val targetJavaVersion = activeGroup.javaVersion
+val toolchainJavaVersion = maxOf(21, targetJavaVersion)
+
 java {
-    toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    toolchain.languageVersion.set(JavaLanguageVersion.of(toolchainJavaVersion))
     withSourcesJar()
+}
+
+val commonMain = file("src/common/main")
+val commonClient = file("src/common/client")
+val versionMain = file("src/versions/${activeGroup.overlay}/main")
+val versionClient = file("src/versions/${activeGroup.overlay}/client")
+
+fun configureVersionSourceSets() {
+    sourceSets.named("main") {
+        kotlin.srcDir(commonMain.resolve("kotlin"))
+        resources.srcDir(commonMain.resolve("resources"))
+        if (versionMain.resolve("kotlin").exists()) kotlin.srcDir(versionMain.resolve("kotlin"))
+        if (versionMain.resolve("resources").exists()) resources.srcDir(versionMain.resolve("resources"))
+    }
+    sourceSets.named("client") {
+        kotlin.srcDir(commonClient.resolve("kotlin"))
+        resources.srcDir(commonClient.resolve("resources"))
+        if (versionClient.resolve("kotlin").exists()) kotlin.srcDir(versionClient.resolve("kotlin"))
+        if (versionClient.resolve("resources").exists()) resources.srcDir(versionClient.resolve("resources"))
+    }
 }
 
 loom {
@@ -28,32 +98,22 @@ loom {
     }
 }
 
+configureVersionSourceSets()
+
 fabricApi {
     configureDataGeneration {
         client = true
     }
 }
 
-val minecraftVersion = project.property("minecraft_version") as String
-val yarnMappings = project.property("yarn_mappings") as String
-val loaderVersion = project.property("loader_version") as String
-val kotlinLoaderVersion = project.property("kotlin_loader_version") as String
-val fabricVersion = project.property("fabric_version") as String
-val fpaVersion = project.property("fpa_version") as String
-val sguiVersion = project.property("sgui_version") as String
-val placeholderApiVersion = project.property("placeholder_api_version") as String
-
 base {
-    archivesName.set("${project.property("archives_base_name")}_${minecraftVersion}")
+    archivesName.set("${project.property("archives_base_name")}_${activeGroup.id}")
 }
 
 repositories {
     mavenCentral()
-    // Lucko (fabric-permissions-api)
     maven("https://repo.lucko.me/")
-    // Nucleoid (sgui, server-translations-api)
     maven("https://maven.nucleoid.xyz/")
-    // Sonatype snapshots (only needed when using snapshot deps)
     maven("https://oss.sonatype.org/content/repositories/snapshots/")
 }
 
@@ -64,26 +124,26 @@ dependencies {
     modImplementation("net.fabricmc:fabric-language-kotlin:$kotlinLoaderVersion")
     modImplementation("net.fabricmc.fabric-api:fabric-api:$fabricVersion")
 
-    // fabric-permissions-api (do NOT include; server should install it separately)
     modImplementation("me.lucko:fabric-permissions-api:$fpaVersion")
 
-    // SGUI (included)
-    modImplementation("eu.pb4:sgui:$sguiVersion")
-    include("eu.pb4:sgui:$sguiVersion")
+    if (sguiVersion != null) {
+        modImplementation("eu.pb4:sgui:$sguiVersion")
+        include("eu.pb4:sgui:$sguiVersion")
+    }
 
-    // Placeholder API (included)
-    modImplementation("eu.pb4:placeholder-api:$placeholderApiVersion")
-    include("eu.pb4:placeholder-api:$placeholderApiVersion")
+    if (placeholderApiVersion != null) {
+        modImplementation("eu.pb4:placeholder-api:$placeholderApiVersion")
+        include("eu.pb4:placeholder-api:$placeholderApiVersion")
+    }
 
-    // Server Translations API (included)
-    modImplementation("xyz.nucleoid:server-translations-api:2.5.2+1.21.9-pre3")
-    include("xyz.nucleoid:server-translations-api:2.5.2+1.21.9-pre3")
+    if (serverTranslationsVersion != null) {
+        modImplementation("xyz.nucleoid:server-translations-api:$serverTranslationsVersion")
+        include("xyz.nucleoid:server-translations-api:$serverTranslationsVersion")
+    }
 
-    // SQLite
     modImplementation("org.xerial:sqlite-jdbc:3.45.1.0")
     include("org.xerial:sqlite-jdbc:3.45.1.0")
 
-    // MySQL (included)
     implementation("com.mysql:mysql-connector-j:9.4.0")
     include("com.mysql:mysql-connector-j:9.4.0")
 }
@@ -99,10 +159,13 @@ tasks.withType<KotlinCompile>().configureEach {
 
 tasks.jar {
     manifest {
-        attributes("Implementation-Version" to project.version)
+        attributes(
+            "Implementation-Version" to project.version,
+            "Implementation-Minecraft-Range" to activeGroup.minecraftRange,
+        )
     }
 
-    from("LICENSE") {
+    from("LICENSE.txt") {
         rename { "${it}_${project.base.archivesName}" }
     }
 }
@@ -110,19 +173,56 @@ tasks.jar {
 tasks.processResources {
     inputs.property("version", project.version)
     inputs.property("minecraft_version", minecraftVersion)
+    inputs.property("minecraft_range", activeGroup.minecraftRange)
     inputs.property("loader_version", loaderVersion)
     inputs.property("kotlin_loader_version", kotlinLoaderVersion)
     inputs.property("fabric_version", fabricVersion)
+    inputs.property("has_placeholder_api", placeholderApiVersion != null)
 
     filesMatching("fabric.mod.json") {
         expand(
             "version" to project.version,
             "minecraft_version" to minecraftVersion,
+            "minecraft_range" to activeGroup.minecraftRange,
             "loader_version" to loaderVersion,
             "kotlin_loader_version" to kotlinLoaderVersion,
-            "fabric_version" to fabricVersion
+            "fabric_version" to fabricVersion,
+            "has_placeholder_api" to (placeholderApiVersion != null).toString(),
         )
     }
+}
+
+abstract class BuildAllTask : DefaultTask() {
+    @get:Inject
+    abstract val execOps: ExecOperations
+
+    @TaskAction
+    fun buildAll() {
+        val groups = (project.findProperty("version_groups") as String).split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        val gradleCommand = if (System.getProperty("os.name").lowercase().contains("win")) "gradlew.bat" else "./gradlew"
+
+        groups.forEach { groupId ->
+            logger.lifecycle("=== Building version group: $groupId ===")
+            execOps.exec {
+                commandLine(gradleCommand, "build", "-Pmc_group=$groupId", "--stacktrace")
+            }
+        }
+
+        execOps.exec {
+            commandLine(gradleCommand, "deleteSourcesJar")
+        }
+    }
+}
+
+tasks.register<BuildAllTask>("buildAll") {
+    group = "build"
+    description = "Build JARs for all supported Minecraft version groups"
+}
+
+tasks.register<Delete>("deleteSourcesJar") {
+    group = "build"
+    description = "Remove generated *-sources.jar files from build/libs"
+    delete(fileTree("build/libs") { include("**/*-sources.jar") })
 }
 
 publishing {
@@ -131,9 +231,5 @@ publishing {
             artifactId = project.property("archives_base_name") as String
             from(components["java"])
         }
-    }
-
-    repositories {
-        // Configure publish repositories here.
     }
 }
