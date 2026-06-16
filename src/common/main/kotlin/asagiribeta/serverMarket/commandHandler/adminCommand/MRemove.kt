@@ -1,6 +1,7 @@
 package asagiribeta.serverMarket.commandHandler.adminCommand
 
 import asagiribeta.serverMarket.ServerMarket
+import asagiribeta.serverMarket.service.EconomyService
 import asagiribeta.serverMarket.util.CommandSuggestions
 import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.PermissionUtil
@@ -58,7 +59,7 @@ class MRemove {
 
                 ServerMarket.instance.economyService.withdraw(
                     uuid, amount, reason = "admin_remove",
-                    history = asagiribeta.serverMarket.service.EconomyService.HistoryContext(
+                    history = EconomyService.HistoryContext(
                         fromId = uuid, fromType = "player", fromName = targetName,
                         toId = ServerMarket.instance.economyService.systemUuid,
                         toType = "system", toName = "ADMIN",

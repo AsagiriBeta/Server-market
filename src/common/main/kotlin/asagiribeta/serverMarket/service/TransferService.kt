@@ -11,7 +11,6 @@ class TransferService(private val database: Database) {
 
     private val economy get() = asagiribeta.serverMarket.ServerMarket.instance.economyService
 
-    /** @deprecated Use [EconomyService.TransferOutcome] directly */
     sealed class TransferResult {
         object Success : TransferResult()
         object InsufficientFunds : TransferResult()
