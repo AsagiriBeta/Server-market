@@ -2,55 +2,38 @@
 
 [中文说明](./README_ZH.md)
 
-Currency and market mod for Minecraft Fabric servers (GUI + commands).
+**Server Market** is a Fabric server-side mod that adds a player economy and trading marketplace (GUI + commands).
+
+## Features
+
+- Player balances, transfers, and transaction history
+- Player shops and system store
+- Buy orders, parcel station delivery, optional physical currency
+- SQLite by default; optional MySQL / XConomy record integration
+- Inter-mod API (`ServerMarketApi`, `EconomyProvider`) and market events
 
 ## Supported versions
 
-Run `./gradlew buildAll` on `master` to produce **6 JARs** covering **Minecraft 1.20 – 1.21.11**:
+Minecraft **1.20 – 1.21.11** (Fabric). Pick the JAR that matches your server version from [Releases](https://github.com/AsagiriBeta/Server-market/releases).
 
-| Artifact suffix | Minecraft range |
-|---|---|
-| `Server-market_1_20_4-*.jar` | 1.20 – 1.20.4 |
-| `Server-market_1_20_6-*.jar` | 1.20.5 – 1.20.6 |
-| `Server-market_1_21_1-*.jar` | 1.21 – 1.21.1 |
-| `Server-market_1_21_5-*.jar` | 1.21.2 – 1.21.5 |
-| `Server-market_1_21_8-*.jar` | 1.21.6 – 1.21.8 |
-| `Server-market_1_21_11-*.jar` | 1.21.9 – 1.21.11 |
+## Documentation
 
-Build everything:
+Detailed docs live in the repo (also suitable as GitHub Wiki pages):
 
-```bash
-./gradlew buildAll
-```
+| Page | Description |
+|------|-------------|
+| [Installation](./docs/Installation.md) | Dependencies, setup, configuration |
+| [Commands](./docs/Commands.md) | Full `/svm` command reference |
+| [Dev](./docs/Dev.md) | Building from source, project layout, API |
 
-Build one group:
+## Quick start
 
 ```bash
-./gradlew build -Pmc_group=1_21_11
+/svm              # open market GUI
+/svm money        # check balance
+/svm pay <player> <amount>
 ```
 
-## Admin balance commands
+## License
 
-```bash
-/svm admin add <player> <amount>      # add balance
-/svm admin remove <player> <amount>     # deduct balance
-/svm admin set <player> <amount>      # set balance
-/svm admin balance <player>             # query balance (offline OK)
-```
-
-## Source layout
-
-```
-src/
-  common/       # shared logic
-  versions/
-    v1_20_4/    # legacy NBT ItemKey / GUI (1.20 – 1.20.4)
-    v1_20_6/    # legacy-compatible ItemKey / GUI helpers
-    v1_21_11/   # 1.21.9+ Placeholder API + modern ItemKey
-```
-
-## CI
-
-GitHub Actions runs `buildAll` and publishes release assets **only on pushes to `master`**.
-
-See [README_ZH.md](./README_ZH.md) for the full feature list and Chinese documentation.
+See [LICENSE.txt](./LICENSE.txt).
