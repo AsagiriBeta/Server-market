@@ -45,6 +45,11 @@ sealed class PurchaseResult {
     object CannotBuyOwnItem : PurchaseResult()
 
     /**
+     * Cancelled by a PRE_PURCHASE event listener.
+     */
+    object CancelledByPlugin : PurchaseResult()
+
+    /**
      * 其他错误
      * @property message 错误消息
      */

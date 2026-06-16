@@ -1,35 +1,32 @@
 package asagiribeta.serverMarket.commandHandler.command
 
 import asagiribeta.serverMarket.ServerMarket
-import asagiribeta.serverMarket.service.TransferService
+import asagiribeta.serverMarket.service.EconomyService
+import asagiribeta.serverMarket.util.CommandSuggestions
 import asagiribeta.serverMarket.util.Config
 import asagiribeta.serverMarket.util.MoneyFormat
-import com.mojang.brigadier.context.CommandContext
-import com.mojang.brigadier.arguments.StringArgumentType
+import asagiribeta.serverMarket.util.PermissionUtil
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.DoubleArgumentType
+import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
-import net.minecraft.command.CommandSource
+import com.mojang.brigadier.context.CommandContext
 import net.minecraft.server.command.CommandManager.argument
 import net.minecraft.server.command.CommandManager.literal
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 
-import asagiribeta.serverMarket.util.PermissionUtil
-import asagiribeta.serverMarket.util.whenCompleteOnServerThread
-
 class MPay {
-    // 构建 /svm pay 子命令
     fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
         return literal("pay")
             .requires(PermissionUtil.requirePlayer("servermarket.command.pay", 0))
-            .then(argument("player", StringArgumentType.string())
-                .suggests { context, builder ->
-                    val names = context.source.server.playerManager.playerNames
-                    CommandSource.suggestMatching(names, builder)
-                }
-                .then(argument("amount", DoubleArgumentType.doubleArg())
-                    .executes(this::execute)
-                )
+            .then(
+                argument("player", StringArgumentType.string())
+                    .suggests(CommandSuggestions.PLAYER_NAME_SUGGESTIONS)
+                    .then(
+                        argument("amount", DoubleArgumentType.doubleArg())
+                            .executes(this::execute)
+                    )
             )
     }
 
@@ -53,54 +50,68 @@ class MPay {
             return 0
         }
 
-        val targetPlayer = context.source.server.playerManager.getPlayer(targetName) ?: run {
-            context.source.sendError(Text.translatable("servermarket.command.mpay.player_offline"))
-            return 0
+        val server = context.source.server
+        val onlineTarget = server.playerManager.getPlayer(targetName)
+
+        if (onlineTarget != null) {
+            doTransfer(context, sender.uuid, sender.name.string, onlineTarget.uuid, onlineTarget.name.string, amount)
+            return 1
         }
 
-        // Use TransferService instead of direct database access
-        ServerMarket.instance.transferService.transfer(
-            fromUuid = sender.uuid,
-            fromName = sender.name.string,
-            toUuid = targetPlayer.uuid,
-            toName = targetPlayer.name.string,
-            amount = amount
-        ).whenCompleteOnServerThread(context.source.server) { result, ex ->
-            if (ex != null) {
-                context.source.sendError(Text.translatable("servermarket.command.mpay.transfer_failed"))
-                ServerMarket.LOGGER.error("/svm pay failed", ex)
-                return@whenCompleteOnServerThread
+        // Offline player support (XConomy-style)
+        val db = ServerMarket.instance.database
+        db.supplyAsync0 { db.playerLookupService.getUuidByPlayerName(targetName) }
+            .whenCompleteOnServerThread(server) { uuid, ex ->
+                if (ex != null || uuid == null) {
+                    context.source.sendError(Text.translatable("servermarket.command.mpay.player_not_found"))
+                    return@whenCompleteOnServerThread
+                }
+                doTransfer(context, sender.uuid, sender.name.string, uuid, targetName, amount)
             }
-
-            when (result) {
-                null -> {
-                    context.source.sendError(Text.translatable("servermarket.command.mpay.transfer_failed"))
-                }
-                is TransferService.TransferResult.Success -> {
-                    context.source.sendMessage(
-                        Text.translatable(
-                            "servermarket.command.mpay.success",
-                            targetPlayer.name,
-                            MoneyFormat.format(amount, 2)
-                        )
-                    )
-                    targetPlayer.sendMessage(
-                        Text.translatable(
-                            "servermarket.command.mpay.received",
-                            sender.name,
-                            MoneyFormat.format(amount, 2)
-                        )
-                    )
-                }
-                is TransferService.TransferResult.InsufficientFunds -> {
-                    context.source.sendError(Text.translatable("servermarket.command.mpay.insufficient_funds"))
-                }
-                is TransferService.TransferResult.Error -> {
-                    context.source.sendError(Text.translatable("servermarket.command.mpay.transfer_failed"))
-                    ServerMarket.LOGGER.error("/svm pay error: {}", result.message)
-                }
-            }
-        }
         return 1
+    }
+
+    private fun doTransfer(
+        context: CommandContext<ServerCommandSource>,
+        fromUuid: java.util.UUID,
+        fromName: String,
+        toUuid: java.util.UUID,
+        toName: String,
+        amount: Double
+    ) {
+        ServerMarket.instance.economyService.transfer(fromUuid, fromName, toUuid, toName, amount)
+            .whenCompleteOnServerThread(context.source.server) { outcome, ex ->
+                if (ex != null) {
+                    context.source.sendError(Text.translatable("servermarket.command.mpay.transfer_failed"))
+                    ServerMarket.LOGGER.error("/svm pay failed", ex)
+                    return@whenCompleteOnServerThread
+                }
+                when (outcome) {
+                    is EconomyService.TransferOutcome.Success -> {
+                        context.source.sendMessage(
+                            Text.translatable(
+                                "servermarket.command.mpay.success",
+                                toName,
+                                MoneyFormat.format(amount, 2)
+                            )
+                        )
+                        context.source.server.playerManager.getPlayer(toUuid)?.sendMessage(
+                            Text.translatable(
+                                "servermarket.command.mpay.received",
+                                fromName,
+                                MoneyFormat.format(amount, 2)
+                            )
+                        )
+                    }
+                    is EconomyService.TransferOutcome.InsufficientFunds -> {
+                        context.source.sendError(Text.translatable("servermarket.command.mpay.insufficient_funds"))
+                    }
+                    is EconomyService.TransferOutcome.Error -> {
+                        context.source.sendError(Text.translatable("servermarket.command.mpay.transfer_failed"))
+                        ServerMarket.LOGGER.error("/svm pay error: {}", outcome.message)
+                    }
+                    null -> context.source.sendError(Text.translatable("servermarket.command.mpay.transfer_failed"))
+                }
+            }
     }
 }

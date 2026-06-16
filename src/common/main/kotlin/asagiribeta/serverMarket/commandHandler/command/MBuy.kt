@@ -164,6 +164,9 @@ class MBuy {
                         )
                     )
                 }
+                PurchaseResult.CancelledByPlugin -> {
+                    context.source.sendError(Text.translatable("servermarket.command.mbuy.cancelled"))
+                }
             }
         }
         return 1
@@ -253,6 +256,9 @@ class MBuy {
                             result.variantCount
                         )
                     )
+                }
+                PurchaseResult.CancelledByPlugin -> {
+                    context.source.sendError(Text.translatable("servermarket.command.mbuy.cancelled"))
                 }
             }
         }

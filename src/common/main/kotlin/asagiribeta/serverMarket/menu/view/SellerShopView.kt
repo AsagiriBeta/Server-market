@@ -205,6 +205,10 @@ class SellerShopView(private val gui: MarketGui) {
                             false
                         )
                     }
+
+                    PurchaseResult.CancelledByPlugin -> {
+                        player.sendMessage(Text.translatable("servermarket.command.mbuy.cancelled"), false)
+                    }
                 }
             }
         }
