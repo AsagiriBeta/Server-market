@@ -120,13 +120,33 @@ src/
 
 ## 联动 API
 
+### ServerMarketApi
+
 入口：`asagiribeta.serverMarket.api.ServerMarketApiProvider`
 
-- `getBalance`, `getParcelCount`
-- `addBalance`, `withdraw`, `transfer`
+- `getBalance`, `hasEnough`, `getParcelCount`
+- `addBalance`, `withdraw`, `setBalance`, `transfer`
+- `getTopBalances`, `getHistory`, `format`
+- `openMenu`, `getModVersion`
 
-事件：
-- `ServerMarketEvents.BALANCE_CHANGED`
+### EconomyProvider（Vault 风格）
+
+入口：`asagiribeta.serverMarket.api.economy.EconomyProviderRegistry`
+
+其他模组可通过 `EconomyProviderRegistry.get()` 获取统一经济接口，支持余额查询、存取款、转账与格式化。
+
+### 事件
+
+- `ServerMarketEvents.BALANCE_CHANGED` — 任意余额变动后触发
+- `ServerMarketEvents.PRE_PURCHASE` — 购买前拦截（返回 false 取消）
+- `ServerMarketEvents.POST_PURCHASE` — 购买完成后通知
+
+### 经济特性
+
+- **市场税**：配置 `enable_tax` / `market_tax_rate`，卖家结算时自动扣税
+- **交易历史**：`enable_transaction_history` + `max_history_records` 自动修剪
+- **离线转账**：`/svm pay` 支持离线玩家（基于余额表 lookup）
+- **历史查询**：`/svm history [页码]`、`/svm admin history <玩家> [页码]`
 
 ## 配置 / 数据库
 

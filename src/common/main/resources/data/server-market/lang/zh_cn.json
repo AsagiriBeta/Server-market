@@ -20,6 +20,7 @@
   "servermarket.command.mpay.amount_too_large": "转账金额过大，最大允许 %s",
   "servermarket.command.mpay.cannot_pay_self": "不能向自己转账",
   "servermarket.command.mpay.player_offline": "目标玩家不在线",
+  "servermarket.command.mpay.player_not_found": "未找到该玩家（该玩家可能从未加入过服务器）",
   "servermarket.command.mpay.insufficient_funds": "余额不足",
   "servermarket.command.mpay.success": "成功向 %s 转账 %s",
   "servermarket.command.mpay.received": "%s 向您转账 %s",
@@ -35,6 +36,15 @@
   "servermarket.command.mremove.success": "成功扣除玩家 %2$s 的余额 %1$s",
   "servermarket.command.mremove.notified": "管理员已扣除您的余额 %s",
   "servermarket.command.mremove.failed": "扣除余额失败",
+  "servermarket.command.mremove.insufficient_funds": "该玩家余额不足，无法扣除",
+
+  "servermarket.command.mhistory.empty": "暂无交易记录",
+  "servermarket.command.mhistory.failed": "查询交易历史失败",
+  "servermarket.command.mhistory.header": "=== %s 的交易历史 (第 %s 页) ===",
+  "servermarket.command.mhistory.entry": "[%s] %s → %s | %s | %s",
+  "servermarket.command.mhistory.player_not_found": "未找到该玩家",
+
+  "servermarket.command.mbuy.cancelled": "购买已被插件取消",
 
   "servermarket.command.mset.player_offline": "目标玩家不在线",
   "servermarket.command.mset.negative_amount": "金额不能为负数",

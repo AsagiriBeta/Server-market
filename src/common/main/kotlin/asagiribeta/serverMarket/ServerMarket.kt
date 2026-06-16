@@ -12,7 +12,10 @@ import asagiribeta.serverMarket.service.PurchaseService
 import asagiribeta.serverMarket.service.ParcelService
 import asagiribeta.serverMarket.integration.PlaceholderIntegration
 import asagiribeta.serverMarket.api.ServerMarketApiProvider
+import asagiribeta.serverMarket.api.economy.EconomyProviderRegistry
+import asagiribeta.serverMarket.api.economy.ServerMarketEconomyProvider
 import asagiribeta.serverMarket.api.internal.ServerMarketApiImpl
+import asagiribeta.serverMarket.service.EconomyService
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
@@ -24,6 +27,7 @@ import org.slf4j.Logger
 class ServerMarket : ModInitializer {
     internal lateinit var configManager: ConfigManager
     internal lateinit var database: Database
+    internal lateinit var economyService: EconomyService
     internal lateinit var marketService: MarketService
     internal lateinit var currencyService: CurrencyService
     internal lateinit var transferService: TransferService
@@ -53,15 +57,17 @@ class ServerMarket : ModInitializer {
         LOGGER.info("Database initialized using storage_type={} (MySQL={})", Config.storageType, database.isMySQL)
 
         // 4. 初始化业务服务层
-        marketService = MarketService(database)
+        economyService = EconomyService(database)
+        marketService = MarketService(database, economyService)
         currencyService = CurrencyService(database)
         transferService = TransferService(database)
         purchaseService = PurchaseService(database)
         parcelService = ParcelService(database)
         LOGGER.info("Business services initialized")
 
-        // Public API for other mods
+        // Public API & economy provider for other mods
         ServerMarketApiProvider.set(ServerMarketApiImpl(this))
+        EconomyProviderRegistry.register(ServerMarketEconomyProvider(economyService))
 
         // 记录服务器引用
         ServerLifecycleEvents.SERVER_STARTING.register { srv -> server = srv }

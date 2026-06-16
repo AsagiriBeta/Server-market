@@ -20,6 +20,7 @@
   "servermarket.command.mpay.amount_too_large": "Amount is too large (max: %s)",
   "servermarket.command.mpay.cannot_pay_self": "Cannot transfer money to yourself",
   "servermarket.command.mpay.player_offline": "Target player is offline",
+  "servermarket.command.mpay.player_not_found": "Player not found (they may never have joined this server)",
   "servermarket.command.mpay.insufficient_funds": "Insufficient funds",
   "servermarket.command.mpay.success": "Transferred %s to %s",
   "servermarket.command.mpay.received": "You received %s from %s",
@@ -35,6 +36,15 @@
   "servermarket.command.mremove.success": "Removed %s from %s's balance",
   "servermarket.command.mremove.notified": "An administrator removed %s from your balance",
   "servermarket.command.mremove.failed": "Failed to remove balance",
+  "servermarket.command.mremove.insufficient_funds": "Player has insufficient balance for this deduction",
+
+  "servermarket.command.mhistory.empty": "No transaction history found",
+  "servermarket.command.mhistory.failed": "Failed to query transaction history",
+  "servermarket.command.mhistory.header": "=== Transaction history for %s (page %s) ===",
+  "servermarket.command.mhistory.entry": "[%s] %s → %s | %s | %s",
+  "servermarket.command.mhistory.player_not_found": "Player not found",
+
+  "servermarket.command.mbuy.cancelled": "Purchase was cancelled by a plugin",
 
   "servermarket.command.mset.player_offline": "Target player is offline",
   "servermarket.command.mset.negative_amount": "Amount cannot be negative",

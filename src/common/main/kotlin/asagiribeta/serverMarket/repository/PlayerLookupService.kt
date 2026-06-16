@@ -19,6 +19,27 @@ internal class PlayerLookupService(private val database: Database) {
      * - We treat playerName as case-sensitive first; if not found, we try a case-insensitive match.
      * - If multiple rows match in case-insensitive mode (rare but possible), the first row is returned.
      */
+    fun getPlayerNameByUuid(uuid: UUID): String? {
+        return if (database.isMySQL) {
+            val playerTable = Config.xconomyPlayerTable
+            val sql = "SELECT player FROM $playerTable WHERE UID = ? LIMIT 1"
+            database.connection.prepareStatement(sql).use { ps ->
+                ps.setString(1, uuid.toString())
+                ps.executeQuery().use { rs ->
+                    if (rs.next()) rs.getString(1)?.takeIf { it.isNotBlank() } else null
+                }
+            }
+        } else {
+            val sql = "SELECT player FROM balances WHERE uid = ? LIMIT 1"
+            database.connection.prepareStatement(sql).use { ps ->
+                ps.setString(1, uuid.toString())
+                ps.executeQuery().use { rs ->
+                    if (rs.next()) rs.getString(1)?.takeIf { it.isNotBlank() } else null
+                }
+            }
+        }
+    }
+
     fun getUuidByPlayerName(playerName: String): UUID? {
         // Exact match first
         getUuidByPlayerNameExact(playerName)?.let { return it }

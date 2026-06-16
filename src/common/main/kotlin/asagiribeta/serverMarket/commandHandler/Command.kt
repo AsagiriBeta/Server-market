@@ -17,6 +17,7 @@ import asagiribeta.serverMarket.commandHandler.command.MCash
 import asagiribeta.serverMarket.commandHandler.command.MExchange
 import asagiribeta.serverMarket.commandHandler.command.MList
 import asagiribeta.serverMarket.commandHandler.command.MMenu
+import asagiribeta.serverMarket.commandHandler.command.MHistory
 import asagiribeta.serverMarket.commandHandler.command.MPay
 import asagiribeta.serverMarket.commandHandler.command.MPrice
 import asagiribeta.serverMarket.commandHandler.command.MPull
@@ -64,6 +65,8 @@ class Command {
             )
             // /svm pay - 转账
             .then(MPay().buildSubCommand())
+            // /svm history - 交易历史
+            .then(MHistory().buildSubCommand())
             // /svm sell - 设置价格/上架（原 /svm price）
             .then(MPrice().buildSubCommand())
             // /svm pull - 下架商品
@@ -120,6 +123,8 @@ class Command {
             .then(MBalanceRank().buildSubCommand())
             // /svm admin reload - 重载配置
             .then(MReload().buildSubCommand())
+            // /svm admin history - 查询玩家交易历史
+            .then(MHistory().buildAdminSubCommand())
     }
 
     private fun executeMoneyCommand(context: CommandContext<ServerCommandSource>): Int {
