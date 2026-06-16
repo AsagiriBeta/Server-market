@@ -3,6 +3,7 @@ package asagiribeta.serverMarket.commandHandler.command
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.model.SellToBuyerResult
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.ItemStackUtil
 import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.PermissionUtil
 import asagiribeta.serverMarket.util.InventoryQuery
@@ -75,7 +76,7 @@ class MSellToPurchase {
                     for (stack in allStacks) {
                         if (remaining <= 0) break
                         val deduct = minOf(remaining, stack.count)
-                        stack.decrement(deduct)
+                        ItemStackUtil.decrement(stack, deduct)
                         remaining -= deduct
                     }
 

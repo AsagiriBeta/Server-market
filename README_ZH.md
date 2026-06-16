@@ -8,17 +8,18 @@
 
 ### 支持的 Minecraft 版本
 
-主支 `master` 一次 `./gradlew buildAll` 可构建 **5 个 JAR**，覆盖 **1.20.5 – 1.21.11**：
+主支 `master` 一次 `./gradlew buildAll` 可构建 **6 个 JAR**，覆盖 **1.20 – 1.21.11**：
 
 | JAR 文件名后缀 | 兼容版本 |
 |---|---|
+| `Server-market_1_20_4-*.jar` | 1.20 – 1.20.4 |
 | `Server-market_1_20_6-*.jar` | 1.20.5 – 1.20.6 |
 | `Server-market_1_21_1-*.jar` | 1.21 – 1.21.1 |
 | `Server-market_1_21_5-*.jar` | 1.21.2 – 1.21.5 |
 | `Server-market_1_21_8-*.jar` | 1.21.6 – 1.21.8 |
 | `Server-market_1_21_11-*.jar` | 1.21.9 – 1.21.11 |
 
-> 1.20 – 1.20.4 因物品/NBT API 差异过大，暂未纳入统一构建；如需旧版请使用历史分支。
+> 1.20 – 1.20.4 使用独立 overlay（纯 NBT API，Java 17 字节码）；1.20.5+ 使用组件 API overlay。
 
 ### 构建
 
@@ -101,6 +102,7 @@
 src/
   common/          # 所有版本共享的业务逻辑
   versions/
+    v1_20_4/       # 1.20 – 1.20.4 专用代码（NBT ItemKey、GUI 等）
     v1_20_6/       # 1.20.5 – 1.21.8 专用代码（ItemKey、GUI 等）
     v1_21_11/      # 1.21.9+ 专用代码（Placeholder API、现代 ItemKey 等）
 ```

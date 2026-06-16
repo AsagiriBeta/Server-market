@@ -17,6 +17,7 @@ This repo is **Server Market**, a server-side **Minecraft Fabric mod** (Kotlin +
 
 ### Source layout
 - `src/common/` — shared Kotlin + resources
+- `src/versions/v1_20_4/` — overlay for MC 1.20 – 1.20.4 (NBT ItemKey, GUI, Placeholder stub, Java 17 bytecode)
 - `src/versions/v1_20_6/` — overlay for MC 1.20.5 – 1.21.8 (ItemKey, GUI helpers, Placeholder stub)
 - `src/versions/v1_21_11/` — overlay for MC 1.21.9+ (modern ItemKey, Placeholder API)
 

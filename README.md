@@ -6,10 +6,11 @@ Currency and market mod for Minecraft Fabric servers (GUI + commands).
 
 ## Supported versions
 
-Run `./gradlew buildAll` on `master` to produce **5 JARs** covering **Minecraft 1.20.5 – 1.21.11**:
+Run `./gradlew buildAll` on `master` to produce **6 JARs** covering **Minecraft 1.20 – 1.21.11**:
 
 | Artifact suffix | Minecraft range |
 |---|---|
+| `Server-market_1_20_4-*.jar` | 1.20 – 1.20.4 |
 | `Server-market_1_20_6-*.jar` | 1.20.5 – 1.20.6 |
 | `Server-market_1_21_1-*.jar` | 1.21 – 1.21.1 |
 | `Server-market_1_21_5-*.jar` | 1.21.2 – 1.21.5 |
@@ -43,6 +44,7 @@ Build one group:
 src/
   common/       # shared logic
   versions/
+    v1_20_4/    # legacy NBT ItemKey / GUI (1.20 – 1.20.4)
     v1_20_6/    # legacy-compatible ItemKey / GUI helpers
     v1_21_11/   # 1.21.9+ Placeholder API + modern ItemKey
 ```

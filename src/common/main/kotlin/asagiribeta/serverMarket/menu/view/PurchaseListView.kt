@@ -5,6 +5,7 @@ import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.model.PurchaseMenuEntry
 import asagiribeta.serverMarket.model.SellToBuyerResult
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.ItemStackUtil
 import asagiribeta.serverMarket.util.ItemStackFactory
 import asagiribeta.serverMarket.util.InventoryQuery
 import asagiribeta.serverMarket.util.MoneyFormat
@@ -172,7 +173,7 @@ class PurchaseListView(private val gui: MarketGui) {
                         for (stack in allStacks) {
                             if (remaining <= 0) break
                             val deduct = min(remaining, stack.count)
-                            stack.decrement(deduct)
+                            ItemStackUtil.decrement(stack, deduct)
                             remaining -= deduct
                         }
 

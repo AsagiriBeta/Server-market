@@ -3,6 +3,7 @@ package asagiribeta.serverMarket.commandHandler.command
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.model.SellResult
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.ItemStackUtil
 import asagiribeta.serverMarket.util.PermissionUtil
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.IntegerArgumentType
@@ -78,7 +79,7 @@ class MSell {
                     for (stack in allStacks) {
                         if (remaining <= 0) break
                         val deduct = minOf(remaining, stack.count)
-                        stack.decrement(deduct)
+                        ItemStackUtil.decrement(stack, deduct)
                         remaining -= deduct
                     }
 

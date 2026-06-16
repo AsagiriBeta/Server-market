@@ -4,6 +4,7 @@ import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.repository.MarketItem
 import asagiribeta.serverMarket.util.ItemKey
+import asagiribeta.serverMarket.util.ItemStackUtil
 import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.TextFormat
 import eu.pb4.sgui.api.elements.GuiElementBuilder
@@ -291,9 +292,9 @@ class MyShopDetailView(private val gui: MarketGui) {
             if (stack.isEmpty) continue
 
             // 检查物品是否匹配（包括NBT）
-            if (ItemStack.areItemsAndComponentsEqual(stack, targetStack)) {
+            if (ItemStackUtil.stacksMatch(stack, targetStack)) {
                 val toRemove = remaining.coerceAtMost(stack.count)
-                stack.decrement(toRemove)
+                ItemStackUtil.decrement(stack, toRemove)
                 remaining -= toRemove
             }
         }
