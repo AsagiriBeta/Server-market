@@ -2,7 +2,9 @@
 
 ## Prerequisites
 
-- **JDK 21** (Gradle toolchain; older MC groups may compile with `--release 17` bytecode)
+- **JDK 25** — build/run latest group `1_21_11` (MC 1.21.9–1.21.11; production servers commonly use Java 25)
+- **JDK 21** — sufficient for groups `1_20_6` through `1_21_8`
+- **JDK 17** — legacy group `1_20_4` (`--release 17` bytecode)
 - Git
 
 Use the Gradle wrapper: `./gradlew`
@@ -120,7 +122,7 @@ Use **ServerMarketApi** when you need market-specific features (parcels, GUI, hi
 
 ### Common Economy API (Patbox)
 
-Server Market registers a provider with [Common Economy API](https://github.com/Patbox/common-economy-api) when that mod is installed on the server (not bundled — use a build matching your Java/Minecraft version). Other mods should use:
+Server Market registers a provider with [Common Economy API](https://github.com/Patbox/common-economy-api) v2.0.0 (bundled in the **1_21_11** JAR; requires **Java 25**). Other mods should use:
 
 ```kotlin
 val account = CommonEconomy.getAccount(player, Identifier.of("server-market", player.uuidAsString))
