@@ -14,7 +14,8 @@
 |-----------|---------|
 | [LuckPerms](https://luckperms.net/) | Permission management (recommended) |
 | MySQL + XConomy tables | Shared economy storage across plugins |
-| Placeholder API | Placeholders (built into the 1.21.9+ JAR only) |
+| Placeholder API | Placeholders (built into every version-group JAR; MC-matched API version) |
+| Common Economy API | Economy integration for other mods (built into every version-group JAR) |
 
 ## Download
 
@@ -102,9 +103,9 @@ The mod uses [Fabric Permissions API](https://github.com/lucko/fabric-permission
 
 See command-specific nodes in [Commands](./Commands.md).
 
-## Placeholder API (1.21.9+ JAR only)
+## Placeholder API
 
-Available placeholders when Placeholder API is installed:
+Placeholder API is bundled in every version-group JAR (no separate download). Available placeholders:
 
 - `%server-market:balance%`
 - `%server-market:balance_short%`
