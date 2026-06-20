@@ -121,14 +121,28 @@ For balance read/write/transfer/format, use **Common Economy API** below.
 
 ### Common Economy API (Patbox)
 
-Server Market registers a provider with [Common Economy API](https://github.com/Patbox/common-economy-api) v2.0.0 (bundled in the **1_21_11** JAR; requires **Java 25**). Other mods should use:
+Each version-group JAR bundles a **MC- and Java-matched** [Common Economy API](https://github.com/Patbox/common-economy-api) build (JIJ). Other mods should use:
+
+| JAR suffix | Bundled API | Money type | Java |
+|------------|-------------|------------|------|
+| `1_20_4` | 1.1.1 | `long` minor units | 17 |
+| `1_20_6` – `1_21_8` | 1.2.1 | `long` minor units | 21 |
+| `1_21_11` | 2.0.0 | `BigInteger` minor units | 25 |
 
 ```kotlin
 val account = CommonEconomy.getAccount(player, Identifier.of("server-market", player.uuidAsString))
-account?.balance() // BigInteger minor units (scale 2)
+account?.balance() // minor units (scale 2)
 ```
 
 Provider id: `server-market`, currency id: `server-market:coin`.
+
+### Placeholder API
+
+All version-group JARs bundle a MC-matched Placeholder API. Registered placeholders:
+
+- `%server-market:balance%`, `%server-market:balance_short%`
+- `%server-market:parcel_count%`, `%server-market:player_name%`
+- `%server-market:top_name:<1-10>%`, `%server-market:top_balance:<1-10>%`, `%server-market:top_balance_short:<1-10>%`
 
 ### Events
 
@@ -151,7 +165,8 @@ ServerMarketEvents.POST_PURCHASE.register { buyer, itemId, qty, cost, success ->
 - **Database** — single-thread executor; use `database.supplyAsync { }` for async DB work
 - **MarketService** — purchase/sell logic; applies market tax when configured
 - **MarketOverviewService** — sell/buy order snapshot shown when listing items (Stonks-inspired)
-- **CommonEconomyBridge** — reflection-based Common Economy API v2 registration (Yarn/Mojang mapping safe)
+- **CommonEconomyBridge** — reflection-based Common Economy registration (v1 `long` / v2 `BigInteger`, Yarn/Mojang mapping safe)
+- **PlaceholderIntegration** — shared placeholder registrations in `src/common` (JIJ per version group)
 - **PlayerLookupService** — offline player name ↔ UUID resolution via balance table
 
 ## Related files

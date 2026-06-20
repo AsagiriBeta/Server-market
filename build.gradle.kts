@@ -57,6 +57,7 @@ val fabricVersion = prop(buildKey, "fabric_version")
 val fpaVersion = prop(buildKey, "fpa_version")
 val sguiVersion = optionalProp(buildKey, "sgui_version")
 val placeholderApiVersion = optionalProp(buildKey, "placeholder_api_version")
+val commonEconomyApiVersion = optionalProp(buildKey, "common_economy_api_version")
 val serverTranslationsVersion = optionalProp(buildKey, "server_translations_version")
 
 val targetJavaVersion = activeGroup.javaVersion
@@ -141,10 +142,9 @@ dependencies {
         include("xyz.nucleoid:server-translations-api:$serverTranslationsVersion")
     }
 
-    // Common Economy API v2.0.0 (Java 25) — bundled in 1_21_11 JAR only
-    if (targetJavaVersion >= 25) {
-        modImplementation("eu.pb4:common-economy-api:2.0.0")
-        include("eu.pb4:common-economy-api:2.0.0")
+    if (commonEconomyApiVersion != null) {
+        modImplementation("eu.pb4:common-economy-api:$commonEconomyApiVersion")
+        include("eu.pb4:common-economy-api:$commonEconomyApiVersion")
     }
 
     modImplementation("org.xerial:sqlite-jdbc:3.45.1.0")
