@@ -7,9 +7,10 @@ import java.util.concurrent.CompletableFuture
 /**
  * Transfer business logic — delegates to [EconomyService] for unified history and events.
  */
-class TransferService(private val database: Database) {
-
-    private val economy get() = asagiribeta.serverMarket.ServerMarket.instance.economyService
+class TransferService(
+    private val database: Database,
+    private val economy: EconomyService
+) {
 
     sealed class TransferResult {
         object Success : TransferResult()

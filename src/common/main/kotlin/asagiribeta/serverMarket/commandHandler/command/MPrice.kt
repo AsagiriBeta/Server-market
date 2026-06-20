@@ -39,12 +39,13 @@ class MPrice {
         }
 
         val db = ServerMarket.instance.database
+        val overviewService = ServerMarket.instance.marketOverviewService
         val itemId = Registries.ITEM.getId(itemStack.item).toString()
         val nbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(itemStack))
 
         db.supplyAsync { _ ->
             val marketRepo = db.marketRepository
-            if (!marketRepo.hasPlayerItem(player.uuid, itemId, nbt)) {
+            val op = if (!marketRepo.hasPlayerItem(player.uuid, itemId, nbt)) {
                 marketRepo.addPlayerItem(
                     sellerUuid = player.uuid,
                     sellerName = player.name.string,
@@ -57,13 +58,15 @@ class MPrice {
                 marketRepo.updatePlayerItemPrice(player.uuid, itemId, nbt, price)
                 "update"
             }
-        }.whenCompleteOnServerThread(source.server) { op, err ->
+            op to overviewService.getOverview(itemId, nbt)
+        }.whenCompleteOnServerThread(source.server) { result, err ->
             if (err != null) {
                 source.sendError(Text.translatable("servermarket.command.msell.operation_failed"))
                 ServerMarket.LOGGER.error("/svm sell failed", err)
                 return@whenCompleteOnServerThread
             }
 
+            val (op, overview) = result ?: return@whenCompleteOnServerThread
             if (op == "add") {
                 source.sendMessage(
                     Text.translatable(
@@ -81,6 +84,7 @@ class MPrice {
                     )
                 )
             }
+            source.sendMessage(overviewService.formatListingHint(overview, price))
         }
 
         return 1

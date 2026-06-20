@@ -10,7 +10,9 @@ import asagiribeta.serverMarket.service.CurrencyService
 import asagiribeta.serverMarket.service.TransferService
 import asagiribeta.serverMarket.service.PurchaseService
 import asagiribeta.serverMarket.service.ParcelService
+import asagiribeta.serverMarket.integration.CommonEconomyBridge
 import asagiribeta.serverMarket.integration.PlaceholderIntegration
+import asagiribeta.serverMarket.service.MarketOverviewService
 import asagiribeta.serverMarket.api.ServerMarketApiProvider
 import asagiribeta.serverMarket.api.economy.EconomyProviderRegistry
 import asagiribeta.serverMarket.api.economy.ServerMarketEconomyProvider
@@ -33,6 +35,7 @@ class ServerMarket : ModInitializer {
     internal lateinit var transferService: TransferService
     internal lateinit var purchaseService: PurchaseService
     internal lateinit var parcelService: ParcelService
+    internal lateinit var marketOverviewService: MarketOverviewService
 
     private val command = Command()
     internal var server: MinecraftServer? = null
@@ -60,14 +63,16 @@ class ServerMarket : ModInitializer {
         economyService = EconomyService(database)
         marketService = MarketService(database, economyService)
         currencyService = CurrencyService(database)
-        transferService = TransferService(database)
+        transferService = TransferService(database, economyService)
         purchaseService = PurchaseService(database)
         parcelService = ParcelService(database)
+        marketOverviewService = MarketOverviewService(database)
         LOGGER.info("Business services initialized")
 
         // Public API & economy provider for other mods
         ServerMarketApiProvider.set(ServerMarketApiImpl(this))
         EconomyProviderRegistry.register(ServerMarketEconomyProvider(economyService))
+        CommonEconomyBridge.register(economyService)
 
         // 记录服务器引用
         ServerLifecycleEvents.SERVER_STARTING.register { srv -> server = srv }

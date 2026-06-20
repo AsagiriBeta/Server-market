@@ -91,7 +91,13 @@ class Command {
                 .then(MPurchase().buildArgs())
             )
             // /svm supply - 向收购者出售物品
-            .then(CommandManager.literal("supply").then(MSellToPurchase().buildSubCommand()))
+            .then(
+                CommandManager.literal("supply")
+                    .requires(PermissionUtil.requirePlayer("servermarket.command.selltopurchase", 0))
+                    .then(MSellToPurchase().buildSubCommand())
+            )
+            // Legacy alias
+            .then(MSellToPurchase().buildLegacySubCommand())
             // 管理员命令子节点：/svm admin
             .then(buildAdminNode("admin"))
 

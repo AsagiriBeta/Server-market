@@ -109,6 +109,17 @@ eco.withdraw(uuid, 100.0, "shop_rent")
 eco.format(500.0)
 ```
 
+### Common Economy API (Patbox)
+
+Server Market registers a provider with [Common Economy API](https://github.com/Patbox/common-economy-api) v2.0.0 (bundled in the JAR). Other mods can use:
+
+```kotlin
+val account = CommonEconomy.getAccount(player, Identifier.of("server-market", player.uuidAsString))
+account?.balance() // BigInteger minor units (scale 2)
+```
+
+Provider id: `server-market`, currency id: `server-market:coin`.
+
 ### Events
 
 ```kotlin
@@ -127,6 +138,8 @@ ServerMarketEvents.POST_PURCHASE.register { buyer, itemId, qty, cost, success ->
 - **EconomyService** — single entry point for balance mutations, history, and events
 - **Database** — single-thread executor; use `database.supplyAsync { }` for async DB work
 - **MarketService** — purchase/sell logic; applies market tax when configured
+- **MarketOverviewService** — sell/buy order snapshot shown when listing items (Stonks-inspired)
+- **CommonEconomyBridge** — reflection-based Common Economy API v2 registration (Yarn/Mojang mapping safe)
 - **PlayerLookupService** — offline player name ↔ UUID resolution via balance table
 
 ## Related files

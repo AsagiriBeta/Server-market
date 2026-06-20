@@ -129,6 +129,13 @@
   "servermarket.command.mselltopurchase.error": "Failed to sell",
   "servermarket.command.mselltopurchase.success": "Successfully sold %d %s for %s",
 
+  "servermarket.market.overview.sell": "Market: %d sell listings (%d items), price %s – %s",
+  "servermarket.market.overview.no_sell": "Market: no competing sell listings for this item",
+  "servermarket.market.overview.buy": "Buy orders: %d active, top price %s (lowest %s)",
+  "servermarket.market.overview.price_below_min": "Your price is below the current lowest listing",
+  "servermarket.market.overview.price_above_max": "Your price is above all current listings",
+  "servermarket.market.overview.price_in_range": "Your price is within the current market range",
+
   "servermarket.command.mbuy.success": "Bought %d %s for %s",
   "servermarket.command.mbuy.insufficient_funds": "Insufficient funds (need %s)",
   "servermarket.command.mbuy.insufficient_stock": "Insufficient stock (available %d)",

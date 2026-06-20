@@ -129,6 +129,13 @@
   "servermarket.command.mselltopurchase.error": "出售失败",
   "servermarket.command.mselltopurchase.success": "成功出售 %d 个 %s，获得 %s",
 
+  "servermarket.market.overview.sell": "市场：%d 个在售（共 %d 件），价格 %s – %s",
+  "servermarket.market.overview.no_sell": "市场：暂无其他玩家在售此物品",
+  "servermarket.market.overview.buy": "收购：%d 个订单，最高 %s（最低 %s）",
+  "servermarket.market.overview.price_below_min": "你的定价低于当前最低在售价格",
+  "servermarket.market.overview.price_above_max": "你的定价高于当前所有在售价格",
+  "servermarket.market.overview.price_in_range": "你的定价处于当前市场区间内",
+
   "servermarket.ui.seller": " | 卖家: %s",
   "servermarket.ui.price": " | 单价: %s",
   "servermarket.ui.quantity": " | 数量: %s",

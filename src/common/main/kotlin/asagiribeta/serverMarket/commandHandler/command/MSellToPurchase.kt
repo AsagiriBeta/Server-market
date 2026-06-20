@@ -10,6 +10,7 @@ import asagiribeta.serverMarket.util.InventoryQuery
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
+import com.mojang.brigadier.builder.RequiredArgumentBuilder
 import com.mojang.brigadier.context.CommandContext
 import net.minecraft.registry.Registries
 import net.minecraft.server.command.CommandManager.argument
@@ -18,16 +19,19 @@ import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 
 /**
- * 玩家出售命令：/svm selltopurchase <quantity>
+ * Sell held items to matching buy orders: /svm supply <quantity>
+ * Legacy alias: /svm selltopurchase <quantity>
  */
 class MSellToPurchase {
-    fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
+    fun buildSubCommand(): RequiredArgumentBuilder<ServerCommandSource, Int> {
+        return argument("quantity", IntegerArgumentType.integer(1))
+            .executes(this::execute)
+    }
+
+    fun buildLegacySubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
         return literal("selltopurchase")
             .requires(PermissionUtil.requirePlayer("servermarket.command.selltopurchase", 0))
-            .then(
-                argument("quantity", IntegerArgumentType.integer(1))
-                    .executes(this::execute)
-            )
+            .then(buildSubCommand())
     }
 
     private fun execute(context: CommandContext<ServerCommandSource>): Int {
@@ -66,7 +70,7 @@ class MSellToPurchase {
         ).whenCompleteOnServerThread(context.source.server) { result: SellToBuyerResult?, ex ->
             if (ex != null) {
                 context.source.sendError(Text.translatable("servermarket.command.mselltopurchase.failed"))
-                ServerMarket.LOGGER.error("/svm selltopurchase failed", ex)
+                ServerMarket.LOGGER.error("/svm supply failed", ex)
                 return@whenCompleteOnServerThread
             }
 
@@ -115,7 +119,7 @@ class MSellToPurchase {
 
                 is SellToBuyerResult.Error -> {
                     context.source.sendError(Text.translatable("servermarket.command.mselltopurchase.error"))
-                    ServerMarket.LOGGER.error("/svm selltopurchase error: {}", result.message)
+                    ServerMarket.LOGGER.error("/svm supply error: {}", result.message)
                 }
 
                 null -> {

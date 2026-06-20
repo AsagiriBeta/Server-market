@@ -47,7 +47,8 @@ Hold the item you want to buy.
 |---------|-------------|
 | `/svm order <price> <amount>` | Create/update a buy order (alias of purchase args) |
 | `/svm purchase <price> <amount>` | Create/update a buy order |
-| `/svm supply selltopurchase <quantity>` | Sell held items to matching buy orders |
+| `/svm supply <quantity>` | Sell held items to matching buy orders |
+| `/svm selltopurchase <quantity>` | Legacy alias for `/svm supply` |
 
 ---
 

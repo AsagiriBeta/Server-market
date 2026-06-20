@@ -55,6 +55,7 @@ class MSell {
         }
 
         // Use MarketService to list/restock item
+        val overviewService = ServerMarket.instance.marketOverviewService
         ServerMarket.instance.marketService.listItemForSale(
             playerUuid = player.uuid,
             playerName = player.name.string,
@@ -90,6 +91,8 @@ class MSell {
                             itemName
                         )
                     )
+                    val overview = overviewService.getOverview(itemId, snbt)
+                    context.source.sendMessage(overviewService.formatListingHint(overview))
                 }
                 SellResult.InvalidPrice -> {
                     context.source.sendError(Text.translatable("servermarket.command.mrestock.not_listed"))
