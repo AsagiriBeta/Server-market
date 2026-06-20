@@ -61,7 +61,7 @@ class ServerMarket : ModInitializer {
         currencyService = CurrencyService(database, economyService)
         LOGGER.info("Business services initialized")
 
-        // Public API & economy provider for other mods
+        // Market API (parcels/history/GUI) + Common Economy provider
         ServerMarketApiProvider.set(ServerMarketApiImpl(this))
         CommonEconomyBridge.register(economyService)
 
