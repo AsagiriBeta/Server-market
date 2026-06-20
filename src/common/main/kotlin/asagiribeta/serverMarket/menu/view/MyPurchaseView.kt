@@ -6,6 +6,8 @@ import asagiribeta.serverMarket.repository.PlayerPurchaseEntry
 import asagiribeta.serverMarket.util.ItemStackFactory
 import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.TextFormat
+import asagiribeta.serverMarket.util.marketServer
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import net.minecraft.item.Items
 import net.minecraft.text.Text
@@ -30,21 +32,17 @@ class MyPurchaseView(private val gui: MarketGui) {
     }
 
     private fun loadMyPurchases() {
-        val db = ServerMarket.instance.database
-        val playerUuid = gui.player.uuid
+        val player = gui.player
+        ServerMarket.instance.purchaseService.getPlayerPurchases(player.uuid)
+            .whenCompleteOnServerThread(player.marketServer()) { list, _ ->
+                if (gui.mode != ViewMode.MY_PURCHASE) return@whenCompleteOnServerThread
 
-        db.supplyAsync { db.purchaseRepository.getPlayerPurchasesByBuyer(playerUuid) }
-            .whenComplete { list, _ ->
-                gui.serverExecute {
-                    if (gui.mode != ViewMode.MY_PURCHASE) return@serverExecute
-
-                    myPurchases = list ?: emptyList()
-                    gui.renderPagedContent(
-                        list = myPurchases,
-                        buildElement = { entry -> buildPurchaseElement(entry) },
-                        buildNav = { buildNav() }
-                    )
-                }
+                myPurchases = list ?: emptyList()
+                gui.renderPagedContent(
+                    list = myPurchases,
+                    buildElement = { entry -> buildPurchaseElement(entry) },
+                    buildNav = { buildNav() }
+                )
             }
     }
 
@@ -92,28 +90,34 @@ class MyPurchaseView(private val gui: MarketGui) {
     }
 
     private fun handleCancelPurchase(entry: PlayerPurchaseEntry) {
-        val db = ServerMarket.instance.database
-        val playerUuid = gui.player.uuid
+        val player = gui.player
 
-        db.runAsync {
-            db.purchaseRepository.removePlayerPurchase(playerUuid, entry.itemId, entry.nbt)
-
-            gui.serverExecute {
-                // In cancel callback / response message, use localized display name
-                val stack = ItemStackFactory.forDisplay(
-                    itemId = entry.itemId,
-                    snbt = entry.nbt,
-                    count = 1,
-                    fallbackItem = Items.STONE
-                )
-
-                gui.player.sendMessage(
-                    Text.translatable("servermarket.menu.mypurchase.cancel_success", TextFormat.displayItemName(stack, entry.itemId)),
+        ServerMarket.instance.purchaseService.cancelPlayerPurchase(
+            buyerUuid = player.uuid,
+            itemId = entry.itemId,
+            nbt = entry.nbt
+        ).whenCompleteOnServerThread(player.marketServer()) { cancelled, ex ->
+            if (ex != null || cancelled != true) {
+                player.sendMessage(
+                    Text.translatable("servermarket.menu.mypurchase.cancel_failed").copy()
+                        .formatted(net.minecraft.util.Formatting.RED),
                     false
                 )
-                // 刷新界面
-                show(false)
+                return@whenCompleteOnServerThread
             }
+
+            val stack = ItemStackFactory.forDisplay(
+                itemId = entry.itemId,
+                snbt = entry.nbt,
+                count = 1,
+                fallbackItem = Items.STONE
+            )
+
+            player.sendMessage(
+                Text.translatable("servermarket.menu.mypurchase.cancel_success", TextFormat.displayItemName(stack, entry.itemId)),
+                false
+            )
+            show(false)
         }
     }
 

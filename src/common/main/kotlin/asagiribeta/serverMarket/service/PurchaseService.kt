@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.service
 
 import asagiribeta.serverMarket.model.*
 import asagiribeta.serverMarket.repository.Database
+import asagiribeta.serverMarket.repository.PlayerPurchaseEntry
 import asagiribeta.serverMarket.util.ItemKey
 import java.time.LocalDate
 import java.util.UUID
@@ -35,6 +36,27 @@ class PurchaseService(
     ): CompletableFuture<Unit> {
         return database.supplyAsync {
             purchaseRepo.addPlayerPurchase(buyerUuid, buyerName, itemId, nbt, price, targetAmount)
+        }
+    }
+
+    fun getPlayerPurchases(buyerUuid: UUID): CompletableFuture<List<PlayerPurchaseEntry>> {
+        return database.supplyAsync {
+            purchaseRepo.getPlayerPurchasesByBuyer(buyerUuid)
+        }
+    }
+
+    fun cancelPlayerPurchase(
+        buyerUuid: UUID,
+        itemId: String,
+        nbt: String
+    ): CompletableFuture<Boolean> {
+        return database.supplyAsync {
+            val normalizedNbt = ItemKey.normalizeSnbt(nbt)
+            val exists = purchaseRepo.getPlayerPurchasesByBuyer(buyerUuid)
+                .any { it.itemId == itemId && ItemKey.normalizeSnbt(it.nbt) == normalizedNbt }
+            if (!exists) return@supplyAsync false
+            purchaseRepo.removePlayerPurchase(buyerUuid, itemId, normalizedNbt)
+            true
         }
     }
 

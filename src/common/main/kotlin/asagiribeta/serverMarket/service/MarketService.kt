@@ -4,6 +4,8 @@ import asagiribeta.serverMarket.api.ServerMarketEvents
 import asagiribeta.serverMarket.model.*
 import asagiribeta.serverMarket.repository.Database
 import asagiribeta.serverMarket.repository.MarketItem
+import asagiribeta.serverMarket.repository.MarketMenuEntry
+import asagiribeta.serverMarket.repository.SellerMenuEntry
 import asagiribeta.serverMarket.util.Config
 import java.time.LocalDate
 import java.util.UUID
@@ -19,6 +21,24 @@ class MarketService(
 
     private val marketRepo = database.marketRepository
     private val systemUuid = economy.systemUuid
+
+    fun getPlayerListings(playerUuid: UUID): CompletableFuture<List<MarketItem>> {
+        return database.supplyAsync {
+            marketRepo.getPlayerItems(playerUuid.toString())
+        }
+    }
+
+    fun getAllSellersForMenu(): CompletableFuture<List<SellerMenuEntry>> {
+        return database.supplyAsync {
+            marketRepo.getAllSellersForMenu()
+        }
+    }
+
+    fun getSellerListings(sellerId: String): CompletableFuture<List<MarketMenuEntry>> {
+        return database.supplyAsync {
+            marketRepo.getAllListingsForSeller(sellerId)
+        }
+    }
 
     fun purchaseItem(
         playerUuid: UUID,

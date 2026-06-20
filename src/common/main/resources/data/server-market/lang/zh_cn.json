@@ -231,6 +231,7 @@
   "servermarket.menu.mypurchase.completed": "已完成",
   "servermarket.menu.mypurchase.click_cancel": "点击取消",
   "servermarket.menu.mypurchase.cancel_success": "已取消收购订单：%s",
+  "servermarket.menu.mypurchase.cancel_failed": "取消收购订单失败",
 
   "servermarket.menu.myshop.title": "我的店铺",
   "servermarket.menu.myshop.tip1": "点击商品进行管理",

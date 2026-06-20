@@ -141,8 +141,8 @@ dependencies {
         include("xyz.nucleoid:server-translations-api:$serverTranslationsVersion")
     }
 
-    modImplementation("eu.pb4:common-economy-api:2.0.0")
-    include("eu.pb4:common-economy-api:2.0.0")
+    // Optional interop: do not bundle — v2.0.0 targets Java 25+; install separately on servers.
+    modCompileOnly("eu.pb4:common-economy-api:2.0.0")
 
     modImplementation("org.xerial:sqlite-jdbc:3.45.1.0")
     include("org.xerial:sqlite-jdbc:3.45.1.0")

@@ -63,6 +63,23 @@ First run:
 
 Console commands omit the leading `/`, e.g. `svm admin remove Player123 50`.
 
+### Headless player testing (Minecraft Console Client)
+
+For low-resource integration testing without a GUI client:
+
+```bash
+# Terminal 1 — dev server
+./gradlew runServer
+
+# Terminal 2 — console client (offline server)
+curl -fsSL https://mccteam.github.io/install.sh | sh   # downloads ./MinecraftClient
+./MinecraftClient TestPlayer - localhost:25565
+# then type commands, e.g. /svm balance
+```
+
+Set `online-mode=false` in `run/server.properties` for offline mode.
+
+
 Storage defaults to SQLite at `run/market.db`.
 
 ## Local dev client (optional)
@@ -103,7 +120,7 @@ Use **ServerMarketApi** when you need market-specific features (parcels, GUI, hi
 
 ### Common Economy API (Patbox)
 
-Server Market registers a provider with [Common Economy API](https://github.com/Patbox/common-economy-api) v2.0.0 (bundled in the JAR). This is the standard Fabric economy bridge (similar to Vault on Bukkit). Other mods should use:
+Server Market registers a provider with [Common Economy API](https://github.com/Patbox/common-economy-api) when that mod is installed on the server (not bundled — use a build matching your Java/Minecraft version). Other mods should use:
 
 ```kotlin
 val account = CommonEconomy.getAccount(player, Identifier.of("server-market", player.uuidAsString))

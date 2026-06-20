@@ -35,11 +35,10 @@ class MyShopView(private val gui: MarketGui) {
     }
 
     private fun loadMyItems() {
-        val db = ServerMarket.instance.database
-        val playerUuid = gui.player.uuid
+        val player = gui.player
 
-        db.supplyAsync { db.marketRepository.getPlayerItems(playerUuid.toString()) }
-            .whenCompleteOnServerThread(gui.player.marketServer()) { list, _ ->
+        ServerMarket.instance.marketService.getPlayerListings(player.uuid)
+            .whenCompleteOnServerThread(player.marketServer()) { list, _ ->
                 if (gui.mode != ViewMode.MY_SHOP) return@whenCompleteOnServerThread
 
                     myItems = list ?: emptyList()

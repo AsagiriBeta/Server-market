@@ -253,6 +253,7 @@
   "servermarket.menu.mypurchase.auto_sent_tip": "Sold items will be delivered automatically",
   "servermarket.menu.mypurchase.click_cancel": "Click to cancel",
   "servermarket.menu.mypurchase.cancel_success": "Cancelled buy order for %s",
+  "servermarket.menu.mypurchase.cancel_failed": "Failed to cancel buy order",
   "servermarket.menu.mypurchase.progress": "Progress: %d/%d (%d%%)",
   "servermarket.menu.mypurchase.completed": "Completed",
 
