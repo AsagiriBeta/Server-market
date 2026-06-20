@@ -5,7 +5,7 @@
 This repo is **Server Market**, a server-side **Minecraft Fabric mod** (Kotlin + Gradle). One `master` branch builds multiple version-group JARs via `./gradlew buildAll`.
 
 ### Prerequisites
-- JDK 21 (Gradle toolchain; older MC groups compile with `--release` matching their bytecode target when needed).
+- JDK **25** for Gradle when building/running the latest group (`1_21_11`); older MC groups compile with `--release` matching their bytecode target (17 or 21).
 - Use the wrapper: `./gradlew` (Gradle 9.2.0).
 
 ### Build

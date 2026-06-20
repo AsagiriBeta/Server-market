@@ -8,6 +8,8 @@
   "servermarket.command.msell.add_success": "Listed %s for %s",
   "servermarket.command.msell.update_success": "Updated %s price to %s",
   "servermarket.command.msell.operation_failed": "Listing operation failed",
+  "servermarket.command.msell.invalid_price": "Price must be greater than zero",
+  "servermarket.command.msell.zero_stock_hint": "Stock is 0 — use /svm stock <quantity> to add items",
 
   "servermarket.command.mrestock.player_only": "Only players can execute this command",
   "servermarket.command.mrestock.hold_item": "Hold the item you want to restock",
@@ -129,6 +131,13 @@
   "servermarket.command.mselltopurchase.error": "Failed to sell",
   "servermarket.command.mselltopurchase.success": "Successfully sold %d %s for %s",
 
+  "servermarket.market.overview.sell": "Market: %d sell listings (%d items), price %s – %s",
+  "servermarket.market.overview.no_sell": "Market: no competing sell listings for this item",
+  "servermarket.market.overview.buy": "Buy orders: %d active, top price %s (lowest %s)",
+  "servermarket.market.overview.price_below_min": "Your price is below the current lowest listing",
+  "servermarket.market.overview.price_above_max": "Your price is above all current listings",
+  "servermarket.market.overview.price_in_range": "Your price is within the current market range",
+
   "servermarket.command.mbuy.success": "Bought %d %s for %s",
   "servermarket.command.mbuy.insufficient_funds": "Insufficient funds (need %s)",
   "servermarket.command.mbuy.insufficient_stock": "Insufficient stock (available %d)",
@@ -141,7 +150,7 @@
   "servermarket.command.mpull.player_only": "Only players can execute this command",
   "servermarket.command.mpull.hold_item": "Hold the item you want to unlist",
   "servermarket.command.mpull.not_listed": "This item isn't listed",
-  "servermarket.command.mpull.success": "Unlisted %s x%d",
+  "servermarket.command.mpull.success": "Unlisted %s x%d — items sent to parcel station",
   "servermarket.command.mpull.operation_failed": "Unlist failed",
 
   "servermarket.command": "Commands",
@@ -244,6 +253,7 @@
   "servermarket.menu.mypurchase.auto_sent_tip": "Sold items will be delivered automatically",
   "servermarket.menu.mypurchase.click_cancel": "Click to cancel",
   "servermarket.menu.mypurchase.cancel_success": "Cancelled buy order for %s",
+  "servermarket.menu.mypurchase.cancel_failed": "Failed to cancel buy order",
   "servermarket.menu.mypurchase.progress": "Progress: %d/%d (%d%%)",
   "servermarket.menu.mypurchase.completed": "Completed",
 

@@ -8,6 +8,7 @@ import net.minecraft.server.command.CommandManager.argument
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import asagiribeta.serverMarket.ServerMarket
 import net.minecraft.registry.Registries
+import asagiribeta.serverMarket.service.MarketService
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.PermissionUtil
@@ -15,14 +16,23 @@ import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import net.minecraft.text.Text
 
 class MPrice {
-    // 构建 /svm sell 子命令（原 /svm price）
+    /** /svm sell <price> — legacy name; prefer /svm price */
     fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
         return literal("sell")
             .requires(PermissionUtil.requirePlayer("servermarket.command.sell", 0))
-            .then(argument("price", DoubleArgumentType.doubleArg(0.0))
-                .executes(this::execute)
-            )
+            .then(priceArgument())
     }
+
+    /** /svm price <price> — clearer alias for setting unit price */
+    fun buildPriceAlias(): LiteralArgumentBuilder<ServerCommandSource> {
+        return literal("price")
+            .requires(PermissionUtil.requirePlayer("servermarket.command.sell", 0))
+            .then(priceArgument())
+    }
+
+    private fun priceArgument() =
+        argument("price", DoubleArgumentType.doubleArg(0.01))
+            .executes(this::execute)
 
     internal fun execute(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
@@ -38,48 +48,69 @@ class MPrice {
             return 0
         }
 
-        val db = ServerMarket.instance.database
+        val marketService = ServerMarket.instance.marketService
+        val overviewService = ServerMarket.instance.marketOverviewService
         val itemId = Registries.ITEM.getId(itemStack.item).toString()
         val nbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(itemStack))
 
-        db.supplyAsync { _ ->
-            val marketRepo = db.marketRepository
-            if (!marketRepo.hasPlayerItem(player.uuid, itemId, nbt)) {
-                marketRepo.addPlayerItem(
-                    sellerUuid = player.uuid,
-                    sellerName = player.name.string,
-                    itemId = itemId,
-                    nbt = nbt,
-                    price = price
-                )
-                "add"
-            } else {
-                marketRepo.updatePlayerItemPrice(player.uuid, itemId, nbt, price)
-                "update"
+        marketService.setListingPrice(
+            playerUuid = player.uuid,
+            playerName = player.name.string,
+            itemId = itemId,
+            nbt = nbt,
+            price = price
+        ).thenApply { result ->
+            when (result) {
+                MarketService.SetPriceResult.Added -> "add"
+                MarketService.SetPriceResult.Updated -> "update"
+                else -> result
             }
-        }.whenCompleteOnServerThread(source.server) { op, err ->
+        }.thenCompose { marker ->
+            if (marker is String) {
+                ServerMarket.instance.database.supplyAsync {
+                    marker to overviewService.getOverview(itemId, nbt)
+                }
+            } else {
+                java.util.concurrent.CompletableFuture.completedFuture(marker to null)
+            }
+        }.whenCompleteOnServerThread(source.server) { payload, err ->
             if (err != null) {
                 source.sendError(Text.translatable("servermarket.command.msell.operation_failed"))
-                ServerMarket.LOGGER.error("/svm sell failed", err)
+                ServerMarket.LOGGER.error("/svm price failed", err)
                 return@whenCompleteOnServerThread
             }
 
-            if (op == "add") {
-                source.sendMessage(
-                    Text.translatable(
-                        "servermarket.command.msell.add_success",
-                        itemStack.name,
-                        MoneyFormat.format(price, 2)
+            val (marker, overview) = payload ?: return@whenCompleteOnServerThread
+            when (marker) {
+                "add" -> {
+                    source.sendMessage(
+                        Text.translatable(
+                            "servermarket.command.msell.add_success",
+                            itemStack.name,
+                            MoneyFormat.format(price, 2)
+                        )
                     )
-                )
-            } else {
-                source.sendMessage(
-                    Text.translatable(
-                        "servermarket.command.msell.update_success",
-                        itemStack.name,
-                        MoneyFormat.format(price, 2)
+                    source.sendMessage(Text.translatable("servermarket.command.msell.zero_stock_hint"))
+                }
+                "update" -> {
+                    source.sendMessage(
+                        Text.translatable(
+                            "servermarket.command.msell.update_success",
+                            itemStack.name,
+                            MoneyFormat.format(price, 2)
+                        )
                     )
-                )
+                }
+                MarketService.SetPriceResult.InvalidPrice -> {
+                    source.sendError(Text.translatable("servermarket.command.msell.invalid_price"))
+                }
+                is MarketService.SetPriceResult.Error -> {
+                    source.sendError(Text.translatable("servermarket.command.msell.operation_failed"))
+                    ServerMarket.LOGGER.error("/svm price error: {}", marker.message)
+                }
+            }
+            if (overview != null) {
+                source.sendMessage(overviewService.formatListingHint(overview, price))
             }
         }
 

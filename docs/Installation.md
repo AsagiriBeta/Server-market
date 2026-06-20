@@ -3,6 +3,7 @@
 ## Requirements
 
 - **Minecraft server**: 1.20 – 1.21.11 (Fabric)
+- **Java**: **25** recommended for **1.21.9 – 1.21.11** (Common Economy API and current server practice); Java 21 for 1.20.5 – 1.21.8; Java 17 for 1.20 – 1.20.4
 - **Fabric Loader** and **Fabric API** (version matched to your MC version)
 - **Fabric Language Kotlin**
 - **Fabric Permissions API** (required at runtime)

@@ -38,8 +38,7 @@ class SellerShopView(private val gui: MarketGui) {
     }
 
     private fun loadShopItems(sellerId: String) {
-        val db = ServerMarket.instance.database
-        db.supplyAsync { db.marketRepository.getAllListingsForSeller(sellerId) }
+        ServerMarket.instance.marketService.getSellerListings(sellerId)
             .whenComplete { list, _ ->
                 gui.serverExecute {
                     if (gui.mode != ViewMode.SELLER_SHOP || selectedSellerId != sellerId) return@serverExecute

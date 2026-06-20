@@ -141,6 +141,12 @@ dependencies {
         include("xyz.nucleoid:server-translations-api:$serverTranslationsVersion")
     }
 
+    // Common Economy API v2.0.0 (Java 25) — bundled in 1_21_11 JAR only
+    if (targetJavaVersion >= 25) {
+        modImplementation("eu.pb4:common-economy-api:2.0.0")
+        include("eu.pb4:common-economy-api:2.0.0")
+    }
+
     modImplementation("org.xerial:sqlite-jdbc:3.45.1.0")
     include("org.xerial:sqlite-jdbc:3.45.1.0")
 

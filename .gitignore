@@ -53,3 +53,7 @@ identifier.sqlite
 
 # macOS
 # (duplicate removed; .DS_Store is already ignored above)
+
+# Local dev test artifacts (Minecraft Console Client)
+tools/mcc/
+MinecraftClient.ini

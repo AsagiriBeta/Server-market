@@ -48,7 +48,7 @@ class MBalance {
                     return@whenCompleteOnServerThread
                 }
 
-                ServerMarket.instance.transferService.getBalance(uuid)
+                ServerMarket.instance.economyService.getBalance(uuid)
                     .whenCompleteOnServerThread(server) { balance, ex2 ->
                         if (ex2 != null) {
                             context.source.sendError(Text.translatable("servermarket.command.mbalance.failed"))

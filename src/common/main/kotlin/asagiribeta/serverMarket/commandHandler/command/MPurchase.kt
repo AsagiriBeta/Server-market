@@ -55,17 +55,14 @@ class MPurchase {
         val itemId = Registries.ITEM.getId(mainHandStack.item).toString()
         val snbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(mainHandStack))
 
-        // 添加收购订单
-        ServerMarket.instance.database.supplyAsync {
-            ServerMarket.instance.database.purchaseRepository.addPlayerPurchase(
-                buyerUuid = player.uuid,
-                buyerName = player.name.string,
-                itemId = itemId,
-                nbt = snbt,
-                price = price,
-                targetAmount = amount
-            )
-        }.whenCompleteOnServerThread(context.source.server) { _, ex ->
+        ServerMarket.instance.purchaseService.createPlayerPurchase(
+            buyerUuid = player.uuid,
+            buyerName = player.name.string,
+            itemId = itemId,
+            nbt = snbt,
+            price = price,
+            targetAmount = amount
+        ).whenCompleteOnServerThread(context.source.server) { _, ex ->
             if (ex != null) {
                 context.source.sendError(Text.translatable("servermarket.command.mpurchase.failed"))
                 ServerMarket.LOGGER.error("/svm purchase-order create failed", ex)

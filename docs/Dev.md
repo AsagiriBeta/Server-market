@@ -2,7 +2,9 @@
 
 ## Prerequisites
 
-- **JDK 21** (Gradle toolchain; older MC groups may compile with `--release 17` bytecode)
+- **JDK 25** — build/run latest group `1_21_11` (MC 1.21.9–1.21.11; production servers commonly use Java 25)
+- **JDK 21** — sufficient for groups `1_20_6` through `1_21_8`
+- **JDK 17** — legacy group `1_20_4` (`--release 17` bytecode)
 - Git
 
 Use the Gradle wrapper: `./gradlew`
@@ -63,6 +65,23 @@ First run:
 
 Console commands omit the leading `/`, e.g. `svm admin remove Player123 50`.
 
+### Headless player testing (Minecraft Console Client)
+
+For low-resource integration testing without a GUI client:
+
+```bash
+# Terminal 1 — dev server
+./gradlew runServer
+
+# Terminal 2 — console client (offline server)
+curl -fsSL https://mccteam.github.io/install.sh | sh   # downloads ./MinecraftClient
+./MinecraftClient TestPlayer - localhost:25565
+# then type commands, e.g. /svm balance
+```
+
+Set `online-mode=false` in `run/server.properties` for offline mode.
+
+
 Storage defaults to SQLite at `run/market.db`.
 
 ## Local dev client (optional)
@@ -99,15 +118,18 @@ api.openMenu(player)
 
 Methods: `getBalance`, `hasEnough`, `getParcelCount`, `addBalance`, `withdraw`, `setBalance`, `transfer`, `getTopBalances`, `getHistory`, `format`, `openMenu`, `getModVersion`.
 
-### EconomyProvider (Vault-style)
+Use **ServerMarketApi** when you need market-specific features (parcels, GUI, history). For balance-only integration, prefer **Common Economy API** below.
 
-Entry: `asagiribeta.serverMarket.api.economy.EconomyProviderRegistry`
+### Common Economy API (Patbox)
+
+Server Market registers a provider with [Common Economy API](https://github.com/Patbox/common-economy-api) v2.0.0 (bundled in the **1_21_11** JAR; requires **Java 25**). Other mods should use:
 
 ```kotlin
-val eco = EconomyProviderRegistry.get() ?: return
-eco.withdraw(uuid, 100.0, "shop_rent")
-eco.format(500.0)
+val account = CommonEconomy.getAccount(player, Identifier.of("server-market", player.uuidAsString))
+account?.balance() // BigInteger minor units (scale 2)
 ```
+
+Provider id: `server-market`, currency id: `server-market:coin`.
 
 ### Events
 
@@ -127,6 +149,8 @@ ServerMarketEvents.POST_PURCHASE.register { buyer, itemId, qty, cost, success ->
 - **EconomyService** — single entry point for balance mutations, history, and events
 - **Database** — single-thread executor; use `database.supplyAsync { }` for async DB work
 - **MarketService** — purchase/sell logic; applies market tax when configured
+- **MarketOverviewService** — sell/buy order snapshot shown when listing items (Stonks-inspired)
+- **CommonEconomyBridge** — reflection-based Common Economy API v2 registration (Yarn/Mojang mapping safe)
 - **PlayerLookupService** — offline player name ↔ UUID resolution via balance table
 
 ## Related files

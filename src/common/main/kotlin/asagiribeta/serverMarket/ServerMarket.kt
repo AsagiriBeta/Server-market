@@ -7,13 +7,12 @@ import asagiribeta.serverMarket.util.Config
 import asagiribeta.serverMarket.config.ConfigManager
 import asagiribeta.serverMarket.service.MarketService
 import asagiribeta.serverMarket.service.CurrencyService
-import asagiribeta.serverMarket.service.TransferService
 import asagiribeta.serverMarket.service.PurchaseService
 import asagiribeta.serverMarket.service.ParcelService
+import asagiribeta.serverMarket.integration.CommonEconomyBridge
 import asagiribeta.serverMarket.integration.PlaceholderIntegration
+import asagiribeta.serverMarket.service.MarketOverviewService
 import asagiribeta.serverMarket.api.ServerMarketApiProvider
-import asagiribeta.serverMarket.api.economy.EconomyProviderRegistry
-import asagiribeta.serverMarket.api.economy.ServerMarketEconomyProvider
 import asagiribeta.serverMarket.api.internal.ServerMarketApiImpl
 import asagiribeta.serverMarket.service.EconomyService
 import net.fabricmc.api.ModInitializer
@@ -30,9 +29,9 @@ class ServerMarket : ModInitializer {
     internal lateinit var economyService: EconomyService
     internal lateinit var marketService: MarketService
     internal lateinit var currencyService: CurrencyService
-    internal lateinit var transferService: TransferService
     internal lateinit var purchaseService: PurchaseService
     internal lateinit var parcelService: ParcelService
+    internal lateinit var marketOverviewService: MarketOverviewService
 
     private val command = Command()
     internal var server: MinecraftServer? = null
@@ -47,10 +46,7 @@ class ServerMarket : ModInitializer {
 
         // 1. 初始化配置管理器
         configManager = ConfigManager()
-        LOGGER.info("Configuration loaded")
-
-        // 2. 兼容旧代码：同步配置到 Config object
-        Config.reloadConfig()
+        Config.bind(configManager)
 
         // 3. 初始化数据库（根据 storage_type 创建 SQLite 或 MySQL 连接）
         database = Database()
@@ -59,15 +55,15 @@ class ServerMarket : ModInitializer {
         // 4. 初始化业务服务层
         economyService = EconomyService(database)
         marketService = MarketService(database, economyService)
-        currencyService = CurrencyService(database)
-        transferService = TransferService(database)
-        purchaseService = PurchaseService(database)
+        purchaseService = PurchaseService(database, economyService)
         parcelService = ParcelService(database)
+        marketOverviewService = MarketOverviewService(database)
+        currencyService = CurrencyService(database, economyService)
         LOGGER.info("Business services initialized")
 
         // Public API & economy provider for other mods
         ServerMarketApiProvider.set(ServerMarketApiImpl(this))
-        EconomyProviderRegistry.register(ServerMarketEconomyProvider(economyService))
+        CommonEconomyBridge.register(economyService)
 
         // 记录服务器引用
         ServerLifecycleEvents.SERVER_STARTING.register { srv -> server = srv }

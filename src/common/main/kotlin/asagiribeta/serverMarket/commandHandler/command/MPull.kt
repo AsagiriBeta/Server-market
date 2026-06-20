@@ -12,7 +12,6 @@ import asagiribeta.serverMarket.util.PermissionUtil
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 
 class MPull {
-    // 构建 /svm pull 子命令
     fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
         return literal("pull")
             .requires(PermissionUtil.requirePlayer("servermarket.command.pull", 0))
@@ -36,12 +35,11 @@ class MPull {
         val nbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(itemStack))
         val itemName = itemStack.name.string
 
-        // Use MarketService to remove item from sale
-        ServerMarket.instance.marketService.removeItemFromSale(
+        ServerMarket.instance.marketService.unlistToParcel(
             playerUuid = player.uuid,
+            playerName = player.name.string,
             itemId = itemId,
-            nbt = nbt,
-            quantity = Int.MAX_VALUE  // Remove all
+            nbt = nbt
         ).whenCompleteOnServerThread(source.server) { returnedQuantity, ex ->
             if (ex != null) {
                 source.sendError(Text.translatable("servermarket.command.mpull.operation_failed"))
@@ -54,10 +52,6 @@ class MPull {
                 source.sendError(Text.translatable("servermarket.command.mpull.not_listed"))
                 return@whenCompleteOnServerThread
             }
-
-            // Return items to player
-            val returnStack = itemStack.copy().apply { count = qty }
-            player.giveItemStack(returnStack)
 
             source.sendMessage(
                 Text.translatable(

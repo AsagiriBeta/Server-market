@@ -28,8 +28,7 @@ class SellerListView(private val gui: MarketGui) {
     }
 
     private fun loadSellerList() {
-        val db = ServerMarket.instance.database
-        db.supplyAsync { db.marketRepository.getAllSellersForMenu() }
+        ServerMarket.instance.marketService.getAllSellersForMenu()
             .whenCompleteOnServerThread(gui.player.marketServer()) { list, _ ->
                 if (gui.mode != ViewMode.SELLER_LIST) return@whenCompleteOnServerThread
 

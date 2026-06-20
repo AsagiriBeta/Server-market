@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.service
 
 import asagiribeta.serverMarket.model.*
 import asagiribeta.serverMarket.repository.Database
+import asagiribeta.serverMarket.repository.PlayerPurchaseEntry
 import asagiribeta.serverMarket.util.ItemKey
 import java.time.LocalDate
 import java.util.UUID
@@ -17,9 +18,47 @@ import java.util.concurrent.CompletableFuture
  * - 因为添加包裹是交易事务的一部分，需要在同一个数据库连接中完成
  * - ParcelService 提供的异步方法供其他场景（如 GUI）使用
  */
-class PurchaseService(private val database: Database) {
+class PurchaseService(
+    private val database: Database,
+    private val economy: EconomyService
+) {
 
     private val purchaseRepo = database.purchaseRepository
+    private val systemUuid = economy.systemUuid
+
+    fun createPlayerPurchase(
+        buyerUuid: UUID,
+        buyerName: String,
+        itemId: String,
+        nbt: String,
+        price: Double,
+        targetAmount: Int
+    ): CompletableFuture<Unit> {
+        return database.supplyAsync {
+            purchaseRepo.addPlayerPurchase(buyerUuid, buyerName, itemId, nbt, price, targetAmount)
+        }
+    }
+
+    fun getPlayerPurchases(buyerUuid: UUID): CompletableFuture<List<PlayerPurchaseEntry>> {
+        return database.supplyAsync {
+            purchaseRepo.getPlayerPurchasesByBuyer(buyerUuid)
+        }
+    }
+
+    fun cancelPlayerPurchase(
+        buyerUuid: UUID,
+        itemId: String,
+        nbt: String
+    ): CompletableFuture<Boolean> {
+        return database.supplyAsync {
+            val normalizedNbt = ItemKey.normalizeSnbt(nbt)
+            val exists = purchaseRepo.getPlayerPurchasesByBuyer(buyerUuid)
+                .any { it.itemId == itemId && ItemKey.normalizeSnbt(it.nbt) == normalizedNbt }
+            if (!exists) return@supplyAsync false
+            purchaseRepo.removePlayerPurchase(buyerUuid, itemId, normalizedNbt)
+            true
+        }
+    }
 
     /**
      * 玩家向收购者出售物品（异步）
@@ -132,24 +171,17 @@ class PurchaseService(private val database: Database) {
         // 6. 检查收购者余额（玩家收购）
         if (!order.isSystemBuyer) {
             val buyerUuid = order.buyerUuid ?: return SellToBuyerResult.Error("无效的收购者UUID")
-            val buyerBalance = database.getBalance(buyerUuid)
-
-            if (buyerBalance < totalEarned) {
+            if (database.getBalance(buyerUuid) < totalEarned) {
                 return SellToBuyerResult.InsufficientFunds(totalEarned)
             }
         }
 
         // 7. 执行交易
         try {
-            // 扣除收购者余额（玩家收购）
             if (!order.isSystemBuyer) {
                 val buyerUuid = order.buyerUuid ?: return SellToBuyerResult.Error("无效的收购者UUID")
-                database.addBalance(buyerUuid, -totalEarned)
-
-                // 增加玩家收购订单的当前数量
                 purchaseRepo.incrementPlayerPurchaseAmount(buyerUuid, itemId, normalizedNbt, actualQuantity)
 
-                // 将物品发送到快递驿站（reason 存储为翻译 key，避免英文环境显示中文）
                 database.parcelRepository.addParcel(
                     recipientUuid = buyerUuid,
                     recipientName = order.buyerName,
@@ -158,28 +190,35 @@ class PurchaseService(private val database: Database) {
                     quantity = actualQuantity,
                     reason = "servermarket.parcel.reason.purchase"
                 )
+
+                economy.transferFundsSync(
+                    fromUuid = buyerUuid,
+                    toUuid = sellerUuid,
+                    amount = totalEarned,
+                    reason = "supply_sale",
+                    history = EconomyService.HistoryContext(
+                        fromId = buyerUuid, fromType = "player", fromName = order.buyerName,
+                        toId = sellerUuid, toType = "player", toName = sellerName,
+                        price = totalEarned, item = itemId
+                    )
+                )
+            } else {
+                economy.transferFundsSync(
+                    fromUuid = systemUuid,
+                    toUuid = sellerUuid,
+                    amount = totalEarned,
+                    reason = "system_supply_sale",
+                    history = EconomyService.HistoryContext(
+                        fromId = systemUuid, fromType = "system", fromName = "MARKET",
+                        toId = sellerUuid, toType = "player", toName = sellerName,
+                        price = totalEarned, item = itemId
+                    )
+                )
             }
 
-            // 增加卖家余额
-            database.addBalance(sellerUuid, totalEarned)
-
-            // 记录限额（系统收购）
             if (order.isSystemBuyer && order.hasLimitPerDay) {
                 purchaseRepo.incrementSystemSoldOn(today, sellerUuid, itemId, normalizedNbt, actualQuantity)
             }
-
-            // 记录交易历史
-            database.historyRepository.postHistory(
-                dtg = System.currentTimeMillis(),
-                fromId = order.buyerUuid ?: UUID(0, 0),
-                fromType = if (order.isSystemBuyer) "SYSTEM" else "PLAYER",
-                fromName = order.buyerName,
-                toId = sellerUuid,
-                toType = "PLAYER",
-                toName = sellerName,
-                price = totalEarned,
-                item = itemId
-            )
 
             return SellToBuyerResult.Success(actualQuantity, totalEarned)
 
