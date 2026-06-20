@@ -38,11 +38,9 @@ class MSearch {
     private fun execute(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
         val itemId = StringArgumentType.getString(context, "item_id")
-        val db = ServerMarket.instance.database
-
         val displayQuery = resolveDisplayName(itemId)
 
-        db.supplyAsync { db.marketRepository.searchForDisplay(itemId) }
+        ServerMarket.instance.marketService.searchListings(itemId)
             .whenCompleteOnServerThread(source.server) { items, ex ->
                 if (ex != null) {
                     source.sendError(Text.translatable("servermarket.command.msearch.search_failed"))

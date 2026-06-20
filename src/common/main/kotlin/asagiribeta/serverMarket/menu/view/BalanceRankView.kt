@@ -4,7 +4,7 @@ import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.menu.MarketGui
 import asagiribeta.serverMarket.menu.builder.GuiElementBuilders
 import asagiribeta.serverMarket.menu.builder.GuiElementBuilders.setPlayerSkin
-import asagiribeta.serverMarket.repository.BalanceRepository
+import asagiribeta.serverMarket.model.BalanceRankEntry
 import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.marketServer
 import asagiribeta.serverMarket.util.whenCompleteOnServerThread
@@ -16,7 +16,7 @@ import net.minecraft.text.Text
  * 余额排行榜视图（管理员）
  */
 class BalanceRankView(private val gui: MarketGui) {
-    private var entries: List<BalanceRepository.BalanceRankEntry> = emptyList()
+    private var entries: List<BalanceRankEntry> = emptyList()
 
     fun show(resetPage: Boolean = true) {
         gui.mode = ViewMode.BALANCE_RANK
@@ -28,8 +28,7 @@ class BalanceRankView(private val gui: MarketGui) {
     }
 
     private fun loadRankings() {
-        val db = ServerMarket.instance.database
-        db.supplyAsync0 { db.getTopBalances(100) }
+        ServerMarket.instance.economyService.getTopBalances(100)
             .whenCompleteOnServerThread(gui.player.marketServer()) { list, _ ->
                 if (gui.mode != ViewMode.BALANCE_RANK) return@whenCompleteOnServerThread
 
@@ -42,7 +41,7 @@ class BalanceRankView(private val gui: MarketGui) {
             }
     }
 
-    private fun buildRankElement(entry: BalanceRepository.BalanceRankEntry): GuiElementBuilder {
+    private fun buildRankElement(entry: BalanceRankEntry): GuiElementBuilder {
         val rank = entries.indexOf(entry) + 1
         val displayName = entry.name.ifBlank { entry.uuid.toString() }
 

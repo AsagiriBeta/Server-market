@@ -77,11 +77,11 @@ class APrice {
     private fun execute(context: CommandContext<ServerCommandSource>): Int {
         val prepared = prepare(context) ?: return 0
 
-        val repo = ServerMarket.instance.database.marketRepository
-        // 直接 UPSERT，避免多一次 has 查询
-        ServerMarket.instance.database.runAsync {
-            repo.addSystemItem(prepared.itemId, prepared.nbt, prepared.price, -1)
-        }.whenCompleteOnServerThread(prepared.source.server) { _, ex ->
+        ServerMarket.instance.marketService.setSystemListing(
+            itemId = prepared.itemId,
+            nbt = prepared.nbt,
+            price = prepared.price
+        ).whenCompleteOnServerThread(prepared.source.server) { _, ex ->
             handleCompletion(prepared, ex)
         }
         return 1
@@ -91,10 +91,12 @@ class APrice {
         val prepared = prepare(context) ?: return 0
 
         val limitPerDay = IntegerArgumentType.getInteger(context, "limitPerDay")
-        val repo = ServerMarket.instance.database.marketRepository
-        ServerMarket.instance.database.runAsync {
-            repo.addSystemItem(prepared.itemId, prepared.nbt, prepared.price, limitPerDay)
-        }.whenCompleteOnServerThread(prepared.source.server) { _, ex ->
+        ServerMarket.instance.marketService.setSystemListing(
+            itemId = prepared.itemId,
+            nbt = prepared.nbt,
+            price = prepared.price,
+            limitPerDay = limitPerDay
+        ).whenCompleteOnServerThread(prepared.source.server) { _, ex ->
             handleCompletion(prepared, ex)
         }
         return 1

@@ -1,7 +1,8 @@
 package asagiribeta.serverMarket.integration
 
 import asagiribeta.serverMarket.ServerMarket
-import asagiribeta.serverMarket.repository.BalanceRepository
+import asagiribeta.serverMarket.api.ServerMarketEvents
+import asagiribeta.serverMarket.model.BalanceRankEntry
 import asagiribeta.serverMarket.util.MoneyFormat
 import eu.pb4.placeholders.api.PlaceholderContext
 import eu.pb4.placeholders.api.PlaceholderResult
@@ -23,10 +24,15 @@ object PlaceholderIntegration {
     private val refreshingBalance = ConcurrentHashMap<UUID, AtomicBoolean>()
     private val refreshingParcels = ConcurrentHashMap<UUID, AtomicBoolean>()
     @Volatile
-    private var topBalanceCache: Cached<List<BalanceRepository.BalanceRankEntry>>? = null
+    private var topBalanceCache: Cached<List<BalanceRankEntry>>? = null
     private val refreshingTopBalances = AtomicBoolean(false)
 
     fun register() {
+        ServerMarketEvents.BALANCE_CHANGED.register { uuid, _, _, _ ->
+            balanceCache.remove(uuid)
+            topBalanceCache = null
+        }
+
         // %server-market:balance% (requires player)
         Placeholders.register(Identifier.of("server-market", "balance")) { ctx, _ ->
             val player = ctx.player ?: return@register PlaceholderResult.invalid("No player")
@@ -88,18 +94,17 @@ object PlaceholderIntegration {
         return if (rank in 1..TOP_BALANCE_LIMIT) rank else null
     }
 
-    private fun getTopBalancesCached(limit: Int): List<BalanceRepository.BalanceRankEntry>? {
+    private fun getTopBalancesCached(limit: Int): List<BalanceRankEntry>? {
         val now = System.currentTimeMillis()
         val cached = topBalanceCache
         if (cached != null && now - cached.atMs <= REFRESH_INTERVAL_MS) return cached.value
 
         if (refreshingTopBalances.compareAndSet(false, true)) {
-            ServerMarket.instance.database.supplyAsync0 {
-                ServerMarket.instance.database.getTopBalances(limit)
-            }.whenComplete { v, _ ->
-                if (v != null) topBalanceCache = Cached(v, System.currentTimeMillis())
-                refreshingTopBalances.set(false)
-            }
+            ServerMarket.instance.economyService.getTopBalances(limit)
+                .whenComplete { v, _ ->
+                    if (v != null) topBalanceCache = Cached(v, System.currentTimeMillis())
+                    refreshingTopBalances.set(false)
+                }
         }
 
         return cached?.value
@@ -112,12 +117,11 @@ object PlaceholderIntegration {
 
         refreshingBalance.computeIfAbsent(uuid) { AtomicBoolean(false) }.let { flag ->
             if (flag.compareAndSet(false, true)) {
-                ServerMarket.instance.database.supplyAsync0 {
-                    ServerMarket.instance.database.getBalance(uuid)
-                }.whenComplete { v, _ ->
-                    if (v != null) balanceCache[uuid] = Cached(v, System.currentTimeMillis())
-                    flag.set(false)
-                }
+                ServerMarket.instance.economyService.getBalance(uuid)
+                    .whenComplete { v, _ ->
+                        if (v != null) balanceCache[uuid] = Cached(v, System.currentTimeMillis())
+                        flag.set(false)
+                    }
             }
         }
 
@@ -131,12 +135,11 @@ object PlaceholderIntegration {
 
         refreshingParcels.computeIfAbsent(uuid) { AtomicBoolean(false) }.let { flag ->
             if (flag.compareAndSet(false, true)) {
-                ServerMarket.instance.database.supplyAsync0 {
-                    ServerMarket.instance.database.parcelRepository.getParcelCountForPlayer(uuid)
-                }.whenComplete { v, _ ->
-                    if (v != null) parcelCountCache[uuid] = Cached(v, System.currentTimeMillis())
-                    flag.set(false)
-                }
+                ServerMarket.instance.parcelService.getParcelCountForPlayer(uuid)
+                    .whenComplete { v, _ ->
+                        if (v != null) parcelCountCache[uuid] = Cached(v, System.currentTimeMillis())
+                        flag.set(false)
+                    }
             }
         }
 

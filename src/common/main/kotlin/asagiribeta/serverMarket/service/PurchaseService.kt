@@ -1,6 +1,8 @@
 package asagiribeta.serverMarket.service
 
-import asagiribeta.serverMarket.model.*
+import asagiribeta.serverMarket.model.PurchaseMenuEntry
+import asagiribeta.serverMarket.model.PurchaseOrder
+import asagiribeta.serverMarket.model.SellToBuyerResult
 import asagiribeta.serverMarket.repository.Database
 import asagiribeta.serverMarket.repository.PlayerPurchaseEntry
 import asagiribeta.serverMarket.util.ItemKey
@@ -57,6 +59,56 @@ class PurchaseService(
             if (!exists) return@supplyAsync false
             purchaseRepo.removePlayerPurchase(buyerUuid, itemId, normalizedNbt)
             true
+        }
+    }
+
+    fun getPurchaseMenuEntries(): CompletableFuture<List<PurchaseMenuEntry>> {
+        return database.supplyAsync {
+            val allPurchases = mutableListOf<PurchaseMenuEntry>()
+            purchaseRepo.getAllSystemPurchases().forEach { order ->
+                allPurchases.add(
+                    PurchaseMenuEntry(
+                        itemId = order.itemId,
+                        nbt = order.nbt,
+                        price = order.price,
+                        buyerName = "SERVER",
+                        buyerUuid = null,
+                        limitPerDay = order.limitPerDay
+                    )
+                )
+            }
+            purchaseRepo.getAllPlayerPurchases()
+                .filter { !it.isCompleted }
+                .forEach { entry ->
+                    allPurchases.add(
+                        PurchaseMenuEntry(
+                            itemId = entry.itemId,
+                            nbt = entry.nbt,
+                            price = entry.price,
+                            buyerName = entry.buyerName,
+                            buyerUuid = entry.buyerUuid,
+                            limitPerDay = -1,
+                            targetAmount = entry.targetAmount,
+                            currentAmount = entry.currentAmount
+                        )
+                    )
+                }
+            allPurchases
+        }
+    }
+
+    /** @return true if a system purchase already existed (update), false if newly added */
+    fun upsertSystemPurchase(
+        itemId: String,
+        nbt: String,
+        price: Double,
+        limitPerDay: Int
+    ): CompletableFuture<Boolean> {
+        return database.supplyAsync {
+            val normalized = ItemKey.normalizeSnbt(nbt)
+            val existed = purchaseRepo.hasSystemPurchase(itemId, normalized)
+            purchaseRepo.addSystemPurchase(itemId, normalized, price, limitPerDay)
+            existed
         }
     }
 

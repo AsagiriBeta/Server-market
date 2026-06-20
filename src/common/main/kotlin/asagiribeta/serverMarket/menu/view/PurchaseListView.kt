@@ -41,46 +41,7 @@ class PurchaseListView(private val gui: MarketGui) {
     }
 
     private fun loadPurchaseList() {
-        val db = ServerMarket.instance.database
-        db.supplyAsync {
-            val systemPurchases = db.purchaseRepository.getAllSystemPurchases()
-            val playerPurchases = db.purchaseRepository.getAllPlayerPurchases()
-
-            // 合并系统和玩家收购
-            val allPurchases = mutableListOf<PurchaseMenuEntry>()
-
-            // 添加系统收购
-            systemPurchases.forEach { order ->
-                allPurchases.add(
-                    PurchaseMenuEntry(
-                        itemId = order.itemId,
-                        nbt = order.nbt,
-                        price = order.price,
-                        buyerName = "SERVER",
-                        buyerUuid = null,
-                        limitPerDay = order.limitPerDay
-                    )
-                )
-            }
-
-            // 添加玩家收购（仅未完成的）
-            playerPurchases.filter { !it.isCompleted }.forEach { entry ->
-                allPurchases.add(
-                    PurchaseMenuEntry(
-                        itemId = entry.itemId,
-                        nbt = entry.nbt,
-                        price = entry.price,
-                        buyerName = entry.buyerName,
-                        buyerUuid = entry.buyerUuid,
-                        limitPerDay = -1,
-                        targetAmount = entry.targetAmount,
-                        currentAmount = entry.currentAmount
-                    )
-                )
-            }
-
-            allPurchases
-        }.whenCompleteOnServerThread(gui.player.marketServer()) { list, _ ->
+        ServerMarket.instance.purchaseService.getPurchaseMenuEntries().whenCompleteOnServerThread(gui.player.marketServer()) { list, _ ->
             if (gui.mode != ViewMode.PURCHASE_LIST) return@whenCompleteOnServerThread
 
             purchaseEntries = list ?: emptyList()

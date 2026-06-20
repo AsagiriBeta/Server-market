@@ -6,6 +6,7 @@ import asagiribeta.serverMarket.repository.Database
 import asagiribeta.serverMarket.repository.MarketItem
 import asagiribeta.serverMarket.repository.MarketMenuEntry
 import asagiribeta.serverMarket.repository.SellerMenuEntry
+import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.Config
 import java.time.LocalDate
 import java.util.UUID
@@ -37,6 +38,32 @@ class MarketService(
     fun getSellerListings(sellerId: String): CompletableFuture<List<MarketMenuEntry>> {
         return database.supplyAsync {
             marketRepo.getAllListingsForSeller(sellerId)
+        }
+    }
+
+    fun searchListings(itemId: String): CompletableFuture<List<MarketItem>> {
+        return database.supplyAsync {
+            marketRepo.searchForDisplay(itemId)
+        }
+    }
+
+    fun setSystemListing(
+        itemId: String,
+        nbt: String,
+        price: Double,
+        limitPerDay: Int = -1
+    ): CompletableFuture<Unit> {
+        return database.supplyAsync {
+            marketRepo.addSystemItem(itemId, ItemKey.normalizeSnbt(nbt), price, limitPerDay)
+        }
+    }
+
+    fun removeSystemListing(itemId: String, nbt: String): CompletableFuture<Boolean> {
+        return database.supplyAsync {
+            val normalized = ItemKey.normalizeSnbt(nbt)
+            if (!marketRepo.hasSystemItem(itemId, normalized)) return@supplyAsync false
+            marketRepo.removeSystemItem(itemId, normalized)
+            true
         }
     }
 

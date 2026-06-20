@@ -2,6 +2,7 @@ package asagiribeta.serverMarket.service
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.api.ServerMarketEvents
+import asagiribeta.serverMarket.model.BalanceRankEntry
 import asagiribeta.serverMarket.model.TransactionRecord
 import asagiribeta.serverMarket.repository.Database
 import asagiribeta.serverMarket.util.Config
@@ -28,6 +29,11 @@ class EconomyService(private val database: Database) {
 
     fun hasEnough(uuid: UUID, amount: Double): CompletableFuture<Boolean> =
         database.supplyAsync0 { database.getBalance(uuid) >= amount }
+
+    fun getTopBalances(limit: Int): CompletableFuture<List<BalanceRankEntry>> =
+        database.supplyAsync0 {
+            database.getTopBalances(limit).map { BalanceRankEntry(it.uuid, it.name, it.balance) }
+        }
 
     fun getHistory(uuid: UUID, page: Int, pageSize: Int): CompletableFuture<List<TransactionRecord>> =
         database.supplyAsync0 {

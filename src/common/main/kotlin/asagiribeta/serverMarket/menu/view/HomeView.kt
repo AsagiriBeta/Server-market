@@ -59,11 +59,10 @@ class HomeView(private val gui: MarketGui) {
     }
 
     private fun loadAsyncData() {
-        val db = ServerMarket.instance.database
+        val economy = ServerMarket.instance.economyService
         val player = gui.player
 
-        // 加载余额
-        db.supplyAsync0 { db.getBalance(player.uuid) }
+        economy.getBalance(player.uuid)
             .whenCompleteOnServerThread(gui.player.marketServer()) { balance, _ ->
                 if (gui.mode != ViewMode.HOME) return@whenCompleteOnServerThread
 

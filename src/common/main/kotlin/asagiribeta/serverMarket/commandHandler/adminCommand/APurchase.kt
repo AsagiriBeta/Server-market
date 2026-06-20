@@ -17,8 +17,6 @@ import net.minecraft.text.Text
 
 /**
  * 管理员系统收购命令：/svm edit purchase <price> `[limit]`
- *
- * 根据手持物品设置系统收购，可设置每日限额
  */
 class APurchase {
     fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
@@ -50,7 +48,6 @@ class APurchase {
         }
 
         val price = DoubleArgumentType.getDouble(context, "price")
-
         val mainHandStack = player.mainHandStack
         if (mainHandStack.isEmpty) {
             context.source.sendError(Text.translatable("servermarket.command.apurchase.hold_item"))
@@ -61,24 +58,23 @@ class APurchase {
         val itemId = Registries.ITEM.getId(mainHandStack.item).toString()
         val snbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(mainHandStack))
 
-        // 添加系统收购
-        ServerMarket.instance.database.supplyAsync {
-            val existed = ServerMarket.instance.database.purchaseRepository.hasSystemPurchase(itemId, snbt)
-            ServerMarket.instance.database.purchaseRepository.addSystemPurchase(
-                itemId = itemId,
-                nbt = snbt,
-                price = price,
-                limitPerDay = limitPerDay
-            )
-            existed
-        }.whenCompleteOnServerThread(context.source.server) { existed, ex ->
+        ServerMarket.instance.purchaseService.upsertSystemPurchase(
+            itemId = itemId,
+            nbt = snbt,
+            price = price,
+            limitPerDay = limitPerDay
+        ).whenCompleteOnServerThread(context.source.server) { existed, ex ->
             if (ex != null) {
                 context.source.sendError(Text.translatable("servermarket.command.apurchase.failed"))
                 ServerMarket.LOGGER.error("/svm admin purchase failed", ex)
                 return@whenCompleteOnServerThread
             }
 
-            val limitStr = if (limitPerDay < 0) Text.translatable("servermarket.command.apurchase.unlimited") else Text.literal(limitPerDay.toString())
+            val limitStr = if (limitPerDay < 0) {
+                Text.translatable("servermarket.command.apurchase.unlimited")
+            } else {
+                Text.literal(limitPerDay.toString())
+            }
             val formattedPrice = MoneyFormat.format(price, 2)
             if (existed == true) {
                 context.source.sendMessage(
