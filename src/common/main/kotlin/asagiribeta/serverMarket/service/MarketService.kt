@@ -43,8 +43,6 @@ class MarketService(
         quantity: Int,
         seller: String?
     ): PurchaseResult {
-        val today = LocalDate.now().toString()
-
         val items = if (seller == null) {
             marketRepo.searchForTransaction(itemId)
         } else {
@@ -62,62 +60,7 @@ class MarketService(
             return PurchaseResult.AmbiguousVariants(itemId = itemId, variantCount = variantCount)
         }
 
-        val hasOwnItems = items.any { entry ->
-            entry.sellerName != "SERVER" &&
-            try { UUID.fromString(entry.sellerName) == playerUuid } catch (_: Exception) { false }
-        }
-        if (hasOwnItems) return PurchaseResult.CannotBuyOwnItem
-
-        var totalAvailable = 0
-        for (entry in items) {
-            if (entry.sellerName == "SERVER") {
-                val limit = marketRepo.getSystemLimitPerDay(entry.itemId, entry.nbt)
-                if (limit < 0) {
-                    totalAvailable = Int.MAX_VALUE
-                    break
-                } else {
-                    val purchased = marketRepo.getSystemPurchasedOn(today, playerUuid, entry.itemId, entry.nbt)
-                    totalAvailable = totalAvailable.saturatingAdd((limit - purchased).coerceAtLeast(0))
-                }
-            } else {
-                totalAvailable = if (totalAvailable == Int.MAX_VALUE) Int.MAX_VALUE
-                else totalAvailable.saturatingAdd(entry.quantity)
-            }
-        }
-        if (totalAvailable < quantity) return PurchaseResult.InsufficientStock(totalAvailable)
-
-        var remaining = quantity
-        var totalCost = 0.0
-        val purchaseList = mutableListOf<Pair<MarketItem, Int>>()
-
-        for (entry in items) {
-            if (remaining <= 0) break
-            val purchaseAmount = if (entry.sellerName == "SERVER") {
-                val limit = marketRepo.getSystemLimitPerDay(entry.itemId, entry.nbt)
-                if (limit < 0) remaining else {
-                    val purchased = marketRepo.getSystemPurchasedOn(today, playerUuid, entry.itemId, entry.nbt)
-                    minOf(remaining, (limit - purchased).coerceAtLeast(0))
-                }
-            } else {
-                minOf(remaining, entry.quantity)
-            }
-            if (purchaseAmount <= 0) continue
-            totalCost += entry.price * purchaseAmount
-            purchaseList.add(entry to purchaseAmount)
-            remaining -= purchaseAmount
-        }
-
-        val primaryNbt = purchaseList.firstOrNull()?.first?.nbt ?: ""
-        if (!ServerMarketEvents.PRE_PURCHASE.invoker().allowPurchase(playerUuid, itemId, primaryNbt, quantity, totalCost)) {
-            notifyPurchase(playerUuid, itemId, quantity, totalCost, false)
-            return PurchaseResult.CancelledByPlugin
-        }
-
-        if (database.getBalance(playerUuid) < totalCost) {
-            return PurchaseResult.InsufficientFunds(totalCost)
-        }
-
-        return executePurchase(playerUuid, playerName, itemId, quantity, totalCost, purchaseList, today)
+        return doPurchaseItemVariant(playerUuid, playerName, itemId, items.first().nbt, quantity, seller)
     }
 
     fun purchaseItemVariant(
@@ -338,22 +281,59 @@ class MarketService(
         playerName: String,
         itemId: String,
         nbt: String,
-        quantity: Int = Int.MAX_VALUE
+        quantity: Int = Int.MAX_VALUE,
+        parcelReason: String = "servermarket.parcel.reason.unlist"
     ): CompletableFuture<Int> {
         return database.supplyAsync {
             try {
-                val removed = marketRepo.removePlayerItem(playerUuid, itemId, nbt).coerceAtMost(quantity)
+                val normalizedNbt = asagiribeta.serverMarket.util.ItemKey.normalizeSnbt(nbt)
+                val removed = marketRepo.removePlayerItem(playerUuid, itemId, normalizedNbt).coerceAtMost(quantity)
                 if (removed > 0) {
                     database.parcelRepository.addParcel(
                         recipientUuid = playerUuid,
                         recipientName = playerName,
                         itemId = itemId,
-                        nbt = nbt,
+                        nbt = normalizedNbt,
                         quantity = removed,
-                        reason = "servermarket.parcel.reason.unlist"
+                        reason = parcelReason
                     )
                 }
                 removed
+            } catch (_: Exception) {
+                0
+            }
+        }
+    }
+
+    /**
+     * Partially unlist stock and send items to the parcel station.
+     */
+    fun unlistPartialToParcel(
+        playerUuid: UUID,
+        playerName: String,
+        itemId: String,
+        nbt: String,
+        quantity: Int
+    ): CompletableFuture<Int> {
+        return database.supplyAsync {
+            try {
+                val normalizedNbt = asagiribeta.serverMarket.util.ItemKey.normalizeSnbt(nbt)
+                val current = marketRepo.getPlayerItems(playerUuid.toString())
+                    .firstOrNull { it.itemId == itemId && asagiribeta.serverMarket.util.ItemKey.normalizeSnbt(it.nbt) == normalizedNbt }
+                    ?.quantity ?: 0
+                val actual = minOf(quantity.coerceAtLeast(0), current)
+                if (actual <= 0) return@supplyAsync 0
+
+                marketRepo.incrementPlayerItemQuantity(playerUuid, itemId, normalizedNbt, -actual)
+                database.parcelRepository.addParcel(
+                    recipientUuid = playerUuid,
+                    recipientName = playerName,
+                    itemId = itemId,
+                    nbt = normalizedNbt,
+                    quantity = actual,
+                    reason = "servermarket.parcel.reason.unlist"
+                )
+                actual
             } catch (_: Exception) {
                 0
             }

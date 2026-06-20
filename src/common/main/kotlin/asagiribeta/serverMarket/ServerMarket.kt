@@ -13,8 +13,6 @@ import asagiribeta.serverMarket.integration.CommonEconomyBridge
 import asagiribeta.serverMarket.integration.PlaceholderIntegration
 import asagiribeta.serverMarket.service.MarketOverviewService
 import asagiribeta.serverMarket.api.ServerMarketApiProvider
-import asagiribeta.serverMarket.api.economy.EconomyProviderRegistry
-import asagiribeta.serverMarket.api.economy.ServerMarketEconomyProvider
 import asagiribeta.serverMarket.api.internal.ServerMarketApiImpl
 import asagiribeta.serverMarket.service.EconomyService
 import net.fabricmc.api.ModInitializer
@@ -48,10 +46,7 @@ class ServerMarket : ModInitializer {
 
         // 1. 初始化配置管理器
         configManager = ConfigManager()
-        LOGGER.info("Configuration loaded")
-
-        // 2. 兼容旧代码：同步配置到 Config object
-        Config.reloadConfig()
+        Config.bind(configManager)
 
         // 3. 初始化数据库（根据 storage_type 创建 SQLite 或 MySQL 连接）
         database = Database()
@@ -68,7 +63,6 @@ class ServerMarket : ModInitializer {
 
         // Public API & economy provider for other mods
         ServerMarketApiProvider.set(ServerMarketApiImpl(this))
-        EconomyProviderRegistry.register(ServerMarketEconomyProvider(economyService))
         CommonEconomyBridge.register(economyService)
 
         // 记录服务器引用

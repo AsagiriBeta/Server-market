@@ -161,7 +161,7 @@ class Database {
     // ============== 余额相关方法（委托给 BalanceRepository） ==============
     // 注意：这些方法在 Service 层的 lambda 中被使用，IDE 可能无法正确识别
 
-    @Suppress("unused") // 在 TransferService 的 lambda 中使用
+    @Suppress("unused") // 在 EconomyService 的 lambda 中使用
     internal fun isSystem(uuid: UUID): Boolean = balanceRepository.isSystem(uuid)
 
     internal fun getBalance(uuid: UUID): Double = balanceRepository.getBalance(uuid)

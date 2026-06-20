@@ -2,11 +2,14 @@ package asagiribeta.serverMarket.menu.view
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.menu.MarketGui
+import asagiribeta.serverMarket.model.SellResult
 import asagiribeta.serverMarket.repository.MarketItem
 import asagiribeta.serverMarket.util.ItemKey
 import asagiribeta.serverMarket.util.ItemStackUtil
 import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.util.TextFormat
+import asagiribeta.serverMarket.util.marketServer
+import asagiribeta.serverMarket.util.whenCompleteOnServerThread
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
@@ -149,14 +152,11 @@ class MyShopDetailView(private val gui: MarketGui) {
      */
     private fun handlePartialUnlist(amount: Int) {
         val item = currentItem ?: return
-        val db = ServerMarket.instance.database
-        val playerUuid = gui.player.uuid
-
-        // 计算实际下架数量
+        val player = gui.player
         val actualAmount = amount.coerceAtMost(item.quantity)
 
         if (actualAmount <= 0) {
-            gui.player.sendMessage(
+            player.sendMessage(
                 Text.translatable("servermarket.menu.myshop.detail.no_stock").copy().formatted(net.minecraft.util.Formatting.RED),
                 false
             )
@@ -168,41 +168,36 @@ class MyShopDetailView(private val gui: MarketGui) {
             item.itemId
         )
 
-        db.runAsync {
-            // 减少库存
-            db.marketRepository.incrementPlayerItemQuantity(
-                playerUuid, item.itemId, item.nbt, -actualAmount
-            )
-
-            // 发送到快递驿站
-            db.parcelRepository.addParcel(
-                playerUuid,
-                gui.player.name.string,
-                item.itemId,
-                item.nbt,
-                actualAmount,
-                "servermarket.parcel.reason.unlist"
-            )
-
-            gui.serverExecute {
-                gui.player.sendMessage(
-                    Text.translatable(
-                        "servermarket.menu.myshop.detail.unlist_success",
-                        actualAmount,
-                        displayName
-                    ),
+        ServerMarket.instance.marketService.unlistPartialToParcel(
+            playerUuid = player.uuid,
+            playerName = player.name.string,
+            itemId = item.itemId,
+            nbt = item.nbt,
+            quantity = actualAmount
+        ).whenCompleteOnServerThread(player.marketServer()) { removed, ex ->
+            if (ex != null || removed == null || removed <= 0) {
+                player.sendMessage(
+                    Text.translatable("servermarket.menu.myshop.detail.no_stock").copy().formatted(net.minecraft.util.Formatting.RED),
                     false
                 )
+                return@whenCompleteOnServerThread
+            }
 
-                // 刷新当前项目数据
-                val updatedQuantity = item.quantity - actualAmount
-                if (updatedQuantity > 0) {
-                    currentItem = item.copy(quantity = updatedQuantity)
-                    renderDetailView()
-                } else {
-                    // 库存为0，返回列表
-                    gui.showMyShop(false)
-                }
+            player.sendMessage(
+                Text.translatable(
+                    "servermarket.menu.myshop.detail.unlist_success",
+                    removed,
+                    displayName
+                ),
+                false
+            )
+
+            val updatedQuantity = item.quantity - removed
+            if (updatedQuantity > 0) {
+                currentItem = item.copy(quantity = updatedQuantity)
+                renderDetailView()
+            } else {
+                gui.showMyShop(false)
             }
         }
     }
@@ -212,8 +207,6 @@ class MyShopDetailView(private val gui: MarketGui) {
      */
     private fun handleRestock(amount: Int) {
         val item = currentItem ?: return
-        val db = ServerMarket.instance.database
-        val playerUuid = gui.player.uuid
         val player = gui.player
 
         val displayName = TextFormat.displayItemName(
@@ -221,55 +214,54 @@ class MyShopDetailView(private val gui: MarketGui) {
             item.itemId
         )
 
-        db.runAsync {
-            // 构建要查找的物品
-            val targetStack = ItemKey.tryBuildFullStackFromSnbt(item.nbt, amount)
+        val targetStack = ItemKey.tryBuildFullStackFromSnbt(item.nbt, amount)
+        if (targetStack == null) {
+            player.sendMessage(
+                Text.translatable("servermarket.menu.myshop.detail.invalid_item").copy().formatted(net.minecraft.util.Formatting.RED),
+                false
+            )
+            return
+        }
 
-            if (targetStack == null) {
-                gui.serverExecute {
-                    player.sendMessage(
-                        Text.translatable("servermarket.menu.myshop.detail.invalid_item").copy().formatted(net.minecraft.util.Formatting.RED),
-                        false
-                    )
-                }
-                return@runAsync
+        val removedAmount = removeItemsFromInventory(player, targetStack, amount)
+        if (removedAmount <= 0) {
+            player.sendMessage(
+                Text.translatable("servermarket.menu.myshop.detail.insufficient_items", amount)
+                    .copy().formatted(net.minecraft.util.Formatting.RED),
+                false
+            )
+            return
+        }
+
+        ServerMarket.instance.marketService.listItemForSale(
+            playerUuid = player.uuid,
+            playerName = player.name.string,
+            itemId = item.itemId,
+            nbt = item.nbt,
+            quantity = removedAmount,
+            price = null
+        ).whenCompleteOnServerThread(player.marketServer()) { result, ex ->
+            if (ex != null || result !is SellResult.Success) {
+                giveItemsBack(player, targetStack, removedAmount)
+                player.sendMessage(
+                    Text.translatable("servermarket.menu.myshop.detail.insufficient_items", amount)
+                        .copy().formatted(net.minecraft.util.Formatting.RED),
+                    false
+                )
+                return@whenCompleteOnServerThread
             }
 
-            // 在主线程检查并扣除玩家背包物品
-            gui.serverExecute {
-                val removedAmount = removeItemsFromInventory(player, targetStack, amount)
+            player.sendMessage(
+                Text.translatable(
+                    "servermarket.menu.myshop.detail.restock_success",
+                    removedAmount,
+                    displayName
+                ),
+                false
+            )
 
-                if (removedAmount <= 0) {
-                    player.sendMessage(
-                        Text.translatable("servermarket.menu.myshop.detail.insufficient_items", amount)
-                            .copy().formatted(net.minecraft.util.Formatting.RED),
-                        false
-                    )
-                    return@serverExecute
-                }
-
-                // 在数据库线程增加库存
-                db.runAsync {
-                    db.marketRepository.incrementPlayerItemQuantity(
-                        playerUuid, item.itemId, item.nbt, removedAmount
-                    )
-
-                    gui.serverExecute {
-                        player.sendMessage(
-                            Text.translatable(
-                                "servermarket.menu.myshop.detail.restock_success",
-                                removedAmount,
-                                displayName
-                            ),
-                            false
-                        )
-
-                        // 刷新当前项目数据
-                        currentItem = item.copy(quantity = item.quantity + removedAmount)
-                        renderDetailView()
-                    }
-                }
-            }
+            currentItem = item.copy(quantity = item.quantity + removedAmount)
+            renderDetailView()
         }
     }
 
@@ -291,7 +283,6 @@ class MyShopDetailView(private val gui: MarketGui) {
             val stack = inventory.getStack(i)
             if (stack.isEmpty) continue
 
-            // 检查物品是否匹配（包括NBT）
             if (ItemStackUtil.stacksMatch(stack, targetStack)) {
                 val toRemove = remaining.coerceAtMost(stack.count)
                 ItemStackUtil.decrement(stack, toRemove)
@@ -302,41 +293,51 @@ class MyShopDetailView(private val gui: MarketGui) {
         return requestedAmount - remaining
     }
 
+    private fun giveItemsBack(
+        player: net.minecraft.server.network.ServerPlayerEntity,
+        template: ItemStack,
+        amount: Int
+    ) {
+        var remaining = amount
+        while (remaining > 0) {
+            val stack = template.copy()
+            stack.count = remaining.coerceAtMost(stack.maxCount)
+            player.giveItemStack(stack)
+            remaining -= stack.count
+        }
+    }
+
     /**
      * 完全下架（移除所有库存并发送到快递驿站）
      */
     private fun handleUnlistAll() {
         val item = currentItem ?: return
-        val db = ServerMarket.instance.database
-        val playerUuid = gui.player.uuid
+        val player = gui.player
 
-        db.runAsync {
-            val quantity = db.marketRepository.removePlayerItem(playerUuid, item.itemId, item.nbt)
-
-            // 返还库存到快递驿站
-            if (quantity > 0) {
-                ServerMarket.instance.parcelService.addParcel(
-                    playerUuid,
-                    gui.player.name.string,
-                    item.itemId,
-                    item.nbt,
-                    quantity,
-                    "servermarket.parcel.reason.unlist_all"
-                )
-            }
-
-            gui.serverExecute {
-                // Prefer localized, clean display name
-                val stack = ItemKey.tryBuildFullStackFromSnbt(item.nbt, 1) ?: ItemStack.EMPTY
-                val displayName = TextFormat.displayItemName(stack, item.itemId)
-
-                gui.player.sendMessage(
-                    Text.translatable("servermarket.menu.myshop.detail.unlist_all_success", displayName, quantity),
+        ServerMarket.instance.marketService.unlistToParcel(
+            playerUuid = player.uuid,
+            playerName = player.name.string,
+            itemId = item.itemId,
+            nbt = item.nbt,
+            parcelReason = "servermarket.parcel.reason.unlist_all"
+        ).whenCompleteOnServerThread(player.marketServer()) { quantity, ex ->
+            if (ex != null) {
+                player.sendMessage(
+                    Text.translatable("servermarket.menu.myshop.detail.no_stock").copy().formatted(net.minecraft.util.Formatting.RED),
                     false
                 )
-                // 返回列表
-                gui.showMyShop(false)
+                return@whenCompleteOnServerThread
             }
+
+            val qty = quantity ?: 0
+            val stack = ItemKey.tryBuildFullStackFromSnbt(item.nbt, 1) ?: ItemStack.EMPTY
+            val displayName = TextFormat.displayItemName(stack, item.itemId)
+
+            player.sendMessage(
+                Text.translatable("servermarket.menu.myshop.detail.unlist_all_success", displayName, qty),
+                false
+            )
+            gui.showMyShop(false)
         }
     }
 

@@ -10,7 +10,7 @@
 - Player shops and system store
 - Buy orders, parcel station delivery, optional physical currency
 - SQLite by default; optional MySQL / XConomy record integration
-- Inter-mod API (`ServerMarketApi`, `EconomyProvider`) and market events
+- Inter-mod API (`ServerMarketApi`, Common Economy API) and market events
 
 ## Supported versions
 

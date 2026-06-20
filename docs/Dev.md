@@ -99,19 +99,11 @@ api.openMenu(player)
 
 Methods: `getBalance`, `hasEnough`, `getParcelCount`, `addBalance`, `withdraw`, `setBalance`, `transfer`, `getTopBalances`, `getHistory`, `format`, `openMenu`, `getModVersion`.
 
-### EconomyProvider (Vault-style)
-
-Entry: `asagiribeta.serverMarket.api.economy.EconomyProviderRegistry`
-
-```kotlin
-val eco = EconomyProviderRegistry.get() ?: return
-eco.withdraw(uuid, 100.0, "shop_rent")
-eco.format(500.0)
-```
+Use **ServerMarketApi** when you need market-specific features (parcels, GUI, history). For balance-only integration, prefer **Common Economy API** below.
 
 ### Common Economy API (Patbox)
 
-Server Market registers a provider with [Common Economy API](https://github.com/Patbox/common-economy-api) v2.0.0 (bundled in the JAR). Other mods can use:
+Server Market registers a provider with [Common Economy API](https://github.com/Patbox/common-economy-api) v2.0.0 (bundled in the JAR). This is the standard Fabric economy bridge (similar to Vault on Bukkit). Other mods should use:
 
 ```kotlin
 val account = CommonEconomy.getAccount(player, Identifier.of("server-market", player.uuidAsString))
