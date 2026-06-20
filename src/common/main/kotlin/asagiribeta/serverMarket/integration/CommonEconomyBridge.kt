@@ -28,6 +28,7 @@ object CommonEconomyBridge {
     private lateinit var economyAccountClass: Class<*>
     private lateinit var transactionSimpleClass: Class<*>
 
+    private lateinit var economy: EconomyService
     private lateinit var database: asagiribeta.serverMarket.repository.Database
 
     private val providerProxy: Any by lazy { buildProviderProxy() }
@@ -35,6 +36,7 @@ object CommonEconomyBridge {
     private val accountCache = ConcurrentHashMap<UUID, Any>()
 
     fun register(economyService: EconomyService) {
+        economy = economyService
         database = ServerMarket.instance.database
         try {
             loadApiClasses()
@@ -58,7 +60,9 @@ object CommonEconomyBridge {
         transactionSimpleClass = Class.forName("eu.pb4.common.economy.api.EconomyTransaction\$Simple")
     }
 
-    private fun buildProviderProxy(): Any = proxy(economyProviderClass) { proxy, method, args ->
+    private fun <T> onDbThread(block: () -> T): T = database.supplyAsync0(block).join()
+
+    private fun buildProviderProxy(): Any = proxy(economyProviderClass) { _, method, args ->
         when (method.name) {
             "name" -> Text.literal("Server Market")
             "getCurrencies" -> listOf(currencyProxy)
@@ -106,30 +110,38 @@ object CommonEconomyBridge {
             "id" -> Identifier.of(PROVIDER_ID, profile.id.toString())
             "provider" -> providerProxy
             "currency" -> currencyProxy
-            "balance" -> MoneyUnits.toMinorUnits(database.getBalance(profile.id))
-            "setBalance" -> {
-                database.setBalance(profile.id, MoneyUnits.fromMinorUnits(args[0] as BigInteger))
+            "balance" -> onDbThread {
+                MoneyUnits.toMinorUnits(economy.getBalanceSync(profile.id))
+            }
+            "setBalance" -> onDbThread {
+                economy.setBalanceSync(
+                    profile.id,
+                    MoneyUnits.fromMinorUnits(args[0] as BigInteger),
+                    reason = "common_economy"
+                )
                 null
             }
             "canIncreaseBalance" -> buildTransaction(profile, proxy, args[0] as BigInteger, increase = true)
             "canDecreaseBalance" -> buildTransaction(profile, proxy, args[0] as BigInteger, increase = false)
-            "increaseBalance" -> {
+            "increaseBalance" -> onDbThread {
                 val delta = args[0] as BigInteger
-                database.addBalance(profile.id, MoneyUnits.fromMinorUnits(delta))
-                val finalBalance = MoneyUnits.toMinorUnits(database.getBalance(profile.id))
+                val amount = MoneyUnits.fromMinorUnits(delta)
+                val previous = MoneyUnits.toMinorUnits(economy.getBalanceSync(profile.id))
+                economy.depositSync(profile.id, amount, reason = "common_economy")
+                val finalBalance = MoneyUnits.toMinorUnits(economy.getBalanceSync(profile.id))
                 createTransaction(
                     success = true,
                     message = Text.literal("Success"),
                     finalBalance = finalBalance,
-                    previousBalance = finalBalance.subtract(delta),
+                    previousBalance = previous,
                     transactionAmount = delta,
                     account = proxy
                 )
             }
-            "decreaseBalance" -> {
+            "decreaseBalance" -> onDbThread {
                 val delta = args[0] as BigInteger
                 val amount = MoneyUnits.fromMinorUnits(delta)
-                val previous = MoneyUnits.toMinorUnits(database.getBalance(profile.id))
+                val previous = MoneyUnits.toMinorUnits(economy.getBalanceSync(profile.id))
                 if (previous < delta) {
                     createTransaction(
                         success = false,
@@ -140,8 +152,8 @@ object CommonEconomyBridge {
                         account = proxy
                     )
                 } else {
-                    val ok = database.withdrawIfEnough(database.connection, profile.id, amount)
-                    val finalBalance = MoneyUnits.toMinorUnits(database.getBalance(profile.id))
+                    val ok = economy.withdrawSync(profile.id, amount, reason = "common_economy")
+                    val finalBalance = MoneyUnits.toMinorUnits(economy.getBalanceSync(profile.id))
                     createTransaction(
                         success = ok,
                         message = Text.literal(if (ok) "Success" else "Insufficient funds"),
@@ -161,9 +173,9 @@ object CommonEconomyBridge {
         account: Any,
         delta: BigInteger,
         increase: Boolean
-    ): Any {
-        val previous = MoneyUnits.toMinorUnits(database.getBalance(profile.id))
-        return if (increase) {
+    ): Any = onDbThread {
+        val previous = MoneyUnits.toMinorUnits(economy.getBalanceSync(profile.id))
+        if (increase) {
             createTransaction(
                 success = true,
                 message = Text.literal("Success"),

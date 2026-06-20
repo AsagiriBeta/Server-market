@@ -3,7 +3,7 @@ package asagiribeta.serverMarket.commandHandler.command
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.util.MoneyFormat
 import asagiribeta.serverMarket.model.PurchaseResult
-import com.mojang.brigadier.arguments.DoubleArgumentType
+import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
@@ -27,7 +27,7 @@ class MBuy {
     fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
         return literal("buy")
             .requires(PermissionUtil.requirePlayer("servermarket.command.buy", 0))
-            .then(argument("quantity", DoubleArgumentType.doubleArg(1.0))
+            .then(argument("quantity", IntegerArgumentType.integer(1))
                 .then(argument("item", IdentifierArgumentType.identifier())
                     .suggests(CommandSuggestions.ITEM_ID_SUGGESTIONS)
                     .executes(this::executeBuy)
@@ -84,7 +84,7 @@ class MBuy {
 
     private fun executeBuy(context: CommandContext<ServerCommandSource>): Int {
         val player = context.source.player ?: return 0
-        val quantity = DoubleArgumentType.getDouble(context, "quantity").toInt()
+        val quantity = IntegerArgumentType.getInteger(context, "quantity")
         val itemId = IdentifierArgumentType.getIdentifier(context, "item").toString()
 
         // Use MarketService instead of direct database access
@@ -174,7 +174,7 @@ class MBuy {
 
     private fun executeBuyWithSeller(context: CommandContext<ServerCommandSource>): Int {
         val player = context.source.player ?: return 0
-        val quantity = DoubleArgumentType.getDouble(context, "quantity").toInt()
+        val quantity = IntegerArgumentType.getInteger(context, "quantity")
         val itemId = IdentifierArgumentType.getIdentifier(context, "item").toString()
         val seller = StringArgumentType.getString(context, "seller")
 

@@ -67,14 +67,16 @@ class Command {
             .then(MPay().buildSubCommand())
             // /svm history - 交易历史
             .then(MHistory().buildSubCommand())
-            // /svm sell - 设置价格/上架（原 /svm price）
+            // /svm sell|price - 设置上架单价
             .then(MPrice().buildSubCommand())
-            // /svm pull - 下架商品
+            .then(MPrice().buildPriceAlias())
+            // /svm pull - 下架商品（送至快递驿站）
             .then(MPull().buildSubCommand())
             // /svm list - 查看列表
             .then(MList().buildSubCommand())
-            // /svm restock - 补货/上架数量（原 /svm sell）
+            // /svm restock|stock - 补充上架数量
             .then(MSell().buildSubCommand())
+            .then(MSell().buildStockAlias())
             // /svm search - 搜索商品
             .then(MSearch().buildSubCommand())
             // /svm buy - 购买商品
@@ -85,11 +87,12 @@ class Command {
             .then(MExchange().buildSubCommand())
             // /svm menu - 打开GUI
             .then(MMenu().buildSubCommand())
-            // /svm order - 设置收购订单
+            // /svm order|purchase - 设置收购订单
             .then(CommandManager.literal("order")
                 .requires(PermissionUtil.requirePlayer("servermarket.command.purchase", 0))
                 .then(MPurchase().buildArgs())
             )
+            .then(MPurchase().buildSubCommand())
             // /svm supply - 向收购者出售物品
             .then(
                 CommandManager.literal("supply")
@@ -139,7 +142,7 @@ class Command {
             return 0
         }
         val uuid = player.uuid
-        ServerMarket.instance.transferService.getBalance(uuid)
+        ServerMarket.instance.economyService.getBalance(uuid)
             .whenCompleteOnServerThread(context.source.server) { balance, _ ->
                 context.source.sendMessage(
                     Text.translatable("servermarket.command.money.balance", MoneyFormat.format(balance ?: 0.0, 2))

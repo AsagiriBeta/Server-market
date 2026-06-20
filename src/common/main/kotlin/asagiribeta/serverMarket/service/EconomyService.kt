@@ -10,6 +10,7 @@ import asagiribeta.serverMarket.util.Config
 import asagiribeta.serverMarket.util.MoneyFormat
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
+import java.sql.SQLException
 
 /**
  * Unified economy service — all balance mutations go through here.
@@ -140,11 +141,53 @@ class EconomyService(private val database: Database) {
                 fireBalanceChanged(toUuid, amount, reason, actor)
                 maybeRecordHistory(ctx)
                 TransferOutcome.Success
-            } catch (_: Exception) {
-                TransferOutcome.InsufficientFunds
+            } catch (e: SQLException) {
+                if (e.message?.contains("余额不足") == true) {
+                    TransferOutcome.InsufficientFunds
+                } else {
+                    TransferOutcome.Error(e.message ?: "Transfer failed")
+                }
             } catch (e: Exception) {
                 TransferOutcome.Error(e.message ?: "Transfer failed")
             }
+        }
+    }
+
+    // ── DB-thread sync helpers (for in-transaction / blocking API bridges) ───
+
+    /** Must run on the database executor thread. */
+    internal fun getBalanceSync(uuid: UUID): Double = database.getBalance(uuid)
+
+    /** Must run on the database executor thread. */
+    internal fun depositSync(
+        uuid: UUID,
+        amount: Double,
+        reason: String? = null,
+        history: HistoryContext? = null
+    ) {
+        database.addBalance(uuid, amount)
+        postMutation(uuid, amount, reason, null, history)
+    }
+
+    /** Must run on the database executor thread. Returns false when funds are insufficient. */
+    internal fun withdrawSync(
+        uuid: UUID,
+        amount: Double,
+        reason: String? = null,
+        history: HistoryContext? = null
+    ): Boolean {
+        if (!database.withdrawIfEnough(database.connection, uuid, amount)) return false
+        postMutation(uuid, -amount, reason, null, history)
+        return true
+    }
+
+    /** Must run on the database executor thread. */
+    internal fun setBalanceSync(uuid: UUID, amount: Double, reason: String? = null) {
+        val oldBal = database.getBalance(uuid)
+        database.setBalance(uuid, amount)
+        val delta = amount - oldBal
+        if (delta != 0.0) {
+            postMutation(uuid, delta, reason, null, null)
         }
     }
 

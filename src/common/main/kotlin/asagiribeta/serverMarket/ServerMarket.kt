@@ -7,7 +7,6 @@ import asagiribeta.serverMarket.util.Config
 import asagiribeta.serverMarket.config.ConfigManager
 import asagiribeta.serverMarket.service.MarketService
 import asagiribeta.serverMarket.service.CurrencyService
-import asagiribeta.serverMarket.service.TransferService
 import asagiribeta.serverMarket.service.PurchaseService
 import asagiribeta.serverMarket.service.ParcelService
 import asagiribeta.serverMarket.integration.CommonEconomyBridge
@@ -32,7 +31,6 @@ class ServerMarket : ModInitializer {
     internal lateinit var economyService: EconomyService
     internal lateinit var marketService: MarketService
     internal lateinit var currencyService: CurrencyService
-    internal lateinit var transferService: TransferService
     internal lateinit var purchaseService: PurchaseService
     internal lateinit var parcelService: ParcelService
     internal lateinit var marketOverviewService: MarketOverviewService
@@ -62,11 +60,10 @@ class ServerMarket : ModInitializer {
         // 4. 初始化业务服务层
         economyService = EconomyService(database)
         marketService = MarketService(database, economyService)
-        currencyService = CurrencyService(database)
-        transferService = TransferService(database, economyService)
-        purchaseService = PurchaseService(database)
+        purchaseService = PurchaseService(database, economyService)
         parcelService = ParcelService(database)
         marketOverviewService = MarketOverviewService(database)
+        currencyService = CurrencyService(database, economyService)
         LOGGER.info("Business services initialized")
 
         // Public API & economy provider for other mods

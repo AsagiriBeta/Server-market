@@ -23,9 +23,11 @@ Hold the item in your main hand unless noted.
 
 | Command | Description |
 |---------|-------------|
-| `/svm sell <price>` | List held item at `<price>` (first listing) |
-| `/svm restock <quantity>` | Add stock to an already-listed item |
-| `/svm pull` | Remove held item from your shop |
+| `/svm price <price>` | Set unit price for held item (recommended) |
+| `/svm sell <price>` | Legacy alias for `/svm price` |
+| `/svm stock <quantity>` | Add stock to an already-listed item (recommended) |
+| `/svm restock <quantity>` | Legacy alias for `/svm stock` |
+| `/svm pull` | Unlist held item — items go to your parcel station |
 | `/svm list` | List items on the market |
 | `/svm search <keyword>` | Search market listings |
 | `/svm buy <quantity> <item> [seller]` | Buy from market (`<item>` is an item ID, e.g. `minecraft:diamond`) |
@@ -61,8 +63,8 @@ Base: `/svm admin` (requires `servermarket.admin`, OP 4)
 | Command | Description |
 |---------|-------------|
 | `/svm admin balance <player>` | Query balance (offline OK) |
-| `/svm admin set <player> <amount>` | Set balance |
-| `/svm admin add <player> <amount>` | Add balance |
+| `/svm admin set <player> <amount>` | Set balance (offline OK) |
+| `/svm admin add <player> <amount>` | Add balance (offline OK) |
 | `/svm admin remove <player> <amount>` | Deduct balance (offline OK; fails if insufficient) |
 | `/svm admin rank` | Show balance leaderboard |
 | `/svm admin history <player> [page]` | View a player's transaction history |

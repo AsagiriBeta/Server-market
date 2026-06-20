@@ -16,14 +16,23 @@ import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 
 class MSell {
-    // 构建 /svm restock 子命令（原 /svm sell）
+    /** /svm restock <qty> — legacy name; prefer /svm stock */
     fun buildSubCommand(): LiteralArgumentBuilder<ServerCommandSource> {
         return literal("restock")
             .requires(PermissionUtil.requirePlayer("servermarket.command.restock", 0))
-            .then(argument("quantity", IntegerArgumentType.integer(1))
-                .executes(this::execute)
-            )
+            .then(quantityArgument())
     }
+
+    /** /svm stock <qty> — clearer alias for adding listing quantity */
+    fun buildStockAlias(): LiteralArgumentBuilder<ServerCommandSource> {
+        return literal("stock")
+            .requires(PermissionUtil.requirePlayer("servermarket.command.restock", 0))
+            .then(quantityArgument())
+    }
+
+    private fun quantityArgument() =
+        argument("quantity", IntegerArgumentType.integer(1))
+            .executes(this::execute)
 
     private fun execute(context: CommandContext<ServerCommandSource>): Int {
         val player = context.source.player ?: run {
@@ -41,7 +50,6 @@ class MSell {
         val itemId = Registries.ITEM.getId(mainHandStack.item).toString()
         val snbt = ItemKey.normalizeSnbt(ItemKey.snbtOf(mainHandStack))
 
-        // Check inventory for sufficient items
         val allStacks = (0 until player.inventory.size()).map { player.inventory.getStack(it) }.filter {
             !it.isEmpty &&
                 Registries.ITEM.getId(it.item).toString() == itemId &&
@@ -54,7 +62,14 @@ class MSell {
             return 0
         }
 
-        // Use MarketService to list/restock item
+        var remaining = quantity
+        for (stack in allStacks) {
+            if (remaining <= 0) break
+            val deduct = minOf(remaining, stack.count)
+            ItemStackUtil.decrement(stack, deduct)
+            remaining -= deduct
+        }
+
         val overviewService = ServerMarket.instance.marketOverviewService
         ServerMarket.instance.marketService.listItemForSale(
             playerUuid = player.uuid,
@@ -62,28 +77,30 @@ class MSell {
             itemId = itemId,
             nbt = snbt,
             quantity = quantity,
-            price = null  // Keep existing price if already listed
-        ).whenCompleteOnServerThread(context.source.server) { result, ex ->
+            price = null
+        ).thenCompose { result ->
+            if (result is SellResult.Success) {
+                ServerMarket.instance.database.supplyAsync {
+                    result to overviewService.getOverview(itemId, snbt)
+                }
+            } else {
+                java.util.concurrent.CompletableFuture.completedFuture(result to null)
+            }
+        }.whenCompleteOnServerThread(context.source.server) { payload, ex ->
             if (ex != null) {
+                player.giveItemStack(mainHandStack.copy().apply { count = quantity })
                 context.source.sendError(Text.translatable("servermarket.command.mrestock.operation_failed"))
-                ServerMarket.LOGGER.error("/svm restock failed", ex)
+                ServerMarket.LOGGER.error("/svm stock failed", ex)
                 return@whenCompleteOnServerThread
             }
 
+            val (result, overview) = payload ?: run {
+                player.giveItemStack(mainHandStack.copy().apply { count = quantity })
+                context.source.sendError(Text.translatable("servermarket.command.mrestock.operation_failed"))
+                return@whenCompleteOnServerThread
+            }
             when (result) {
-                null -> {
-                    context.source.sendError(Text.translatable("servermarket.command.mrestock.operation_failed"))
-                }
                 is SellResult.Success -> {
-                    // Deduct items from inventory
-                    var remaining = quantity
-                    for (stack in allStacks) {
-                        if (remaining <= 0) break
-                        val deduct = minOf(remaining, stack.count)
-                        ItemStackUtil.decrement(stack, deduct)
-                        remaining -= deduct
-                    }
-
                     context.source.sendMessage(
                         Text.translatable(
                             "servermarket.command.mrestock.success",
@@ -91,17 +108,21 @@ class MSell {
                             itemName
                         )
                     )
-                    val overview = overviewService.getOverview(itemId, snbt)
-                    context.source.sendMessage(overviewService.formatListingHint(overview))
+                    if (overview != null) {
+                        context.source.sendMessage(overviewService.formatListingHint(overview))
+                    }
                 }
                 SellResult.InvalidPrice -> {
+                    player.giveItemStack(mainHandStack.copy().apply { count = quantity })
                     context.source.sendError(Text.translatable("servermarket.command.mrestock.not_listed"))
                 }
                 is SellResult.Error -> {
+                    player.giveItemStack(mainHandStack.copy().apply { count = quantity })
                     context.source.sendError(Text.translatable("servermarket.command.mrestock.operation_failed"))
-                    ServerMarket.LOGGER.error("/svm restock error: {}", result.message)
+                    ServerMarket.LOGGER.error("/svm stock error: {}", result.message)
                 }
                 else -> {
+                    player.giveItemStack(mainHandStack.copy().apply { count = quantity })
                     context.source.sendError(Text.translatable("servermarket.command.mrestock.operation_failed"))
                 }
             }

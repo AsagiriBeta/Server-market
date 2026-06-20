@@ -329,6 +329,69 @@ class MarketService(
             }
         }
     }
+
+    /**
+     * Unlist items and deliver them to the player's parcel station (same path as GUI unlist).
+     */
+    fun unlistToParcel(
+        playerUuid: UUID,
+        playerName: String,
+        itemId: String,
+        nbt: String,
+        quantity: Int = Int.MAX_VALUE
+    ): CompletableFuture<Int> {
+        return database.supplyAsync {
+            try {
+                val removed = marketRepo.removePlayerItem(playerUuid, itemId, nbt).coerceAtMost(quantity)
+                if (removed > 0) {
+                    database.parcelRepository.addParcel(
+                        recipientUuid = playerUuid,
+                        recipientName = playerName,
+                        itemId = itemId,
+                        nbt = nbt,
+                        quantity = removed,
+                        reason = "servermarket.parcel.reason.unlist"
+                    )
+                }
+                removed
+            } catch (_: Exception) {
+                0
+            }
+        }
+    }
+
+    sealed class SetPriceResult {
+        object Added : SetPriceResult()
+        object Updated : SetPriceResult()
+        object InvalidPrice : SetPriceResult()
+        data class Error(val message: String) : SetPriceResult()
+    }
+
+    fun setListingPrice(
+        playerUuid: UUID,
+        playerName: String,
+        itemId: String,
+        nbt: String,
+        price: Double
+    ): CompletableFuture<SetPriceResult> {
+        return database.supplyAsync {
+            try {
+                if (price <= 0.0 || price.isNaN() || price.isInfinite()) {
+                    return@supplyAsync SetPriceResult.InvalidPrice
+                }
+                val exists = marketRepo.hasPlayerItem(playerUuid, itemId, nbt)
+                if (!exists) {
+                    marketRepo.addPlayerItem(playerUuid, playerName, itemId, nbt, price)
+                    SetPriceResult.Added
+                } else {
+                    marketRepo.updatePlayerItemPrice(playerUuid, itemId, nbt, price)
+                    SetPriceResult.Updated
+                }
+            } catch (e: Exception) {
+                SetPriceResult.Error(e.message ?: "未知错误")
+            }
+        }
+    }
 }
 
 private fun Int.saturatingAdd(other: Int): Int {
