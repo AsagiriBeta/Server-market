@@ -1,12 +1,14 @@
 package asagiribeta.serverMarket.api
 
 /**
- * Static access point for other mods.
+ * Static access point for market-specific inter-mod features.
+ *
+ * Balance integration: use Common Economy API (`server-market` provider).
  *
  * Kotlin:
  *   val api = ServerMarketApiProvider.get() ?: return
- * Java:
- *   ServerMarketApi api = ServerMarketApiProvider.get();
+ *   api.getHistory(uuid)
+ *   api.openMenu(player)
  */
 object ServerMarketApiProvider {
     @Volatile

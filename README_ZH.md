@@ -10,7 +10,7 @@
 - 玩家商店与系统商店
 - 收购订单、快递驿站投递、可选实物货币
 - 默认 SQLite；可选 MySQL / XConomy 记录写入
-- 模组联动 API（`ServerMarketApi`、Common Economy API）与市场事件
+- 模组联动：**Common Economy API**（余额）+ **ServerMarketApi**（包裹、历史、GUI）与市场事件
 
 ## 支持版本
 

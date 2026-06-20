@@ -2,12 +2,9 @@ package asagiribeta.serverMarket.service
 
 import asagiribeta.serverMarket.ServerMarket
 import asagiribeta.serverMarket.api.ServerMarketEvents
-import asagiribeta.serverMarket.api.economy.EconomyTransactionResult
-import asagiribeta.serverMarket.api.economy.BalanceRankEntry
 import asagiribeta.serverMarket.model.TransactionRecord
 import asagiribeta.serverMarket.repository.Database
 import asagiribeta.serverMarket.util.Config
-import asagiribeta.serverMarket.util.MoneyFormat
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.sql.SQLException
@@ -32,17 +29,10 @@ class EconomyService(private val database: Database) {
     fun hasEnough(uuid: UUID, amount: Double): CompletableFuture<Boolean> =
         database.supplyAsync0 { database.getBalance(uuid) >= amount }
 
-    fun getTopBalances(limit: Int): CompletableFuture<List<BalanceRankEntry>> =
-        database.supplyAsync0 {
-            database.getTopBalances(limit).map { BalanceRankEntry(it.uuid, it.name, it.balance) }
-        }
-
     fun getHistory(uuid: UUID, page: Int, pageSize: Int): CompletableFuture<List<TransactionRecord>> =
         database.supplyAsync0 {
             historyRepo.queryHistory(uuid, page.coerceAtLeast(1), pageSize.coerceIn(1, 50))
         }
-
-    fun format(amount: Double): String = MoneyFormat.format(amount, 2)
 
     // ── Mutations ────────────────────────────────────────────────────────────
 
@@ -52,7 +42,7 @@ class EconomyService(private val database: Database) {
         reason: String? = null,
         actor: UUID? = null,
         history: HistoryContext? = null
-    ): CompletableFuture<EconomyTransactionResult> = mutate(uuid, amount, reason, actor, history) {
+    ): CompletableFuture<EconomyMutationResult> = mutate(uuid, amount, reason, actor, history) {
         database.addBalance(uuid, amount)
     }
 
@@ -62,23 +52,23 @@ class EconomyService(private val database: Database) {
         reason: String? = null,
         actor: UUID? = null,
         history: HistoryContext? = null
-    ): CompletableFuture<EconomyTransactionResult> {
+    ): CompletableFuture<EconomyMutationResult> {
         if (amount <= 0.0 || amount.isNaN() || amount.isInfinite()) {
-            return CompletableFuture.completedFuture(EconomyTransactionResult(false, "Invalid amount"))
+            return CompletableFuture.completedFuture(EconomyMutationResult(false, "Invalid amount"))
         }
         return database.supplyAsync { conn ->
             try {
                 val ok = database.withdrawIfEnough(conn, uuid, amount)
                 if (!ok) {
-                    return@supplyAsync EconomyTransactionResult(
+                    return@supplyAsync EconomyMutationResult(
                         false, "Insufficient funds", newBalance = database.getBalance(uuid)
                     )
                 }
                 val newBal = database.getBalance(uuid)
                 postMutation(uuid, -amount, reason, actor, history)
-                EconomyTransactionResult(true, newBalance = newBal)
+                EconomyMutationResult(true, newBalance = newBal)
             } catch (t: Throwable) {
-                EconomyTransactionResult(false, t.message)
+                EconomyMutationResult(false, t.message)
             }
         }
     }
@@ -88,9 +78,9 @@ class EconomyService(private val database: Database) {
         amount: Double,
         reason: String? = null,
         actor: UUID? = null
-    ): CompletableFuture<EconomyTransactionResult> {
+    ): CompletableFuture<EconomyMutationResult> {
         if (amount.isNaN() || amount.isInfinite() || amount < 0.0) {
-            return CompletableFuture.completedFuture(EconomyTransactionResult(false, "Invalid amount"))
+            return CompletableFuture.completedFuture(EconomyMutationResult(false, "Invalid amount"))
         }
         return database.supplyAsync0 {
             try {
@@ -100,9 +90,9 @@ class EconomyService(private val database: Database) {
                 if (delta != 0.0) {
                     postMutation(uuid, delta, reason, actor, null)
                 }
-                EconomyTransactionResult(true, newBalance = amount)
+                EconomyMutationResult(true, newBalance = amount)
             } catch (t: Throwable) {
-                EconomyTransactionResult(false, t.message)
+                EconomyMutationResult(false, t.message)
             }
         }
     }
@@ -202,9 +192,9 @@ class EconomyService(private val database: Database) {
         reason: String? = null,
         actor: UUID? = null,
         history: HistoryContext? = null
-    ): CompletableFuture<EconomyTransactionResult> {
+    ): CompletableFuture<EconomyMutationResult> {
         if (amount <= 0.0 || amount.isNaN() || amount.isInfinite()) {
-            return CompletableFuture.completedFuture(EconomyTransactionResult(false, "Invalid amount"))
+            return CompletableFuture.completedFuture(EconomyMutationResult(false, "Invalid amount"))
         }
         return database.supplyAsync0 {
             try {
@@ -212,9 +202,9 @@ class EconomyService(private val database: Database) {
                 fireBalanceChanged(fromUuid, -amount, reason, actor)
                 fireBalanceChanged(toUuid, amount, reason, actor)
                 maybeRecordHistory(history)
-                EconomyTransactionResult(true)
+                EconomyMutationResult(true)
             } catch (t: Throwable) {
-                EconomyTransactionResult(false, t.message)
+                EconomyMutationResult(false, t.message)
             }
         }
     }
@@ -256,18 +246,18 @@ class EconomyService(private val database: Database) {
         actor: UUID?,
         history: HistoryContext?,
         block: () -> Unit
-    ): CompletableFuture<EconomyTransactionResult> {
+    ): CompletableFuture<EconomyMutationResult> {
         if (amount.isNaN() || amount.isInfinite()) {
-            return CompletableFuture.completedFuture(EconomyTransactionResult(false, "Invalid amount"))
+            return CompletableFuture.completedFuture(EconomyMutationResult(false, "Invalid amount"))
         }
         return database.supplyAsync0 {
             try {
                 block()
                 val newBal = database.getBalance(uuid)
                 postMutation(uuid, amount, reason, actor, history)
-                EconomyTransactionResult(true, newBalance = newBal)
+                EconomyMutationResult(true, newBalance = newBal)
             } catch (t: Throwable) {
-                EconomyTransactionResult(false, t.message)
+                EconomyMutationResult(false, t.message)
             }
         }
     }
@@ -315,4 +305,11 @@ class EconomyService(private val database: Database) {
         object InsufficientFunds : TransferOutcome()
         data class Error(val message: String) : TransferOutcome()
     }
+
+    /** Internal result for async balance mutations (commands / services). */
+    data class EconomyMutationResult(
+        val success: Boolean,
+        val error: String? = null,
+        val newBalance: Double? = null
+    )
 }

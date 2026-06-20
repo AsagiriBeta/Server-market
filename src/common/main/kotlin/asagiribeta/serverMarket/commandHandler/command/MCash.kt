@@ -85,13 +85,13 @@ class MCash {
 
                     val id = Identifier.tryParse(mapping.itemId)
                     if (id == null || !Registries.ITEM.containsId(id)) {
-                        db.supplyAsync0 { db.addBalance(uuid, deducted) }
+                        refundCash(uuid, deducted)
                         source.sendError(Text.translatable("servermarket.command.mcash.failed"))
                         return@whenCompleteOnServerThread
                     }
                     val item = Registries.ITEM.get(id)
                     if (item.defaultStack.isEmpty) {
-                        db.supplyAsync0 { db.addBalance(uuid, deducted) }
+                        refundCash(uuid, deducted)
                         source.sendError(Text.translatable("servermarket.command.mcash.failed"))
                         return@whenCompleteOnServerThread
                     }
@@ -122,12 +122,16 @@ class MCash {
                             )
                         )
                     } catch (e: Exception) {
-                        db.supplyAsync0 { db.addBalance(uuid, deducted) }
+                        refundCash(uuid, deducted)
                         ServerMarket.LOGGER.error("/svm cash item delivery failed; refunded", e)
                         source.sendError(Text.translatable("servermarket.command.mcash.failed"))
                     }
                 }
             }
         return 1
+    }
+
+    private fun refundCash(uuid: java.util.UUID, amount: Double) {
+        ServerMarket.instance.economyService.deposit(uuid, amount, reason = "cash_refund")
     }
 }

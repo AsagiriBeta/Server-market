@@ -106,19 +106,18 @@ Manual trigger: **Actions → Build and Release → Run workflow**.
 
 Entry: `asagiribeta.serverMarket.api.ServerMarketApiProvider`
 
+Market-specific integration only (does **not** duplicate Common Economy):
+
 ```kotlin
 val api = ServerMarketApiProvider.get() ?: return
-api.getBalance(uuid)
-api.hasEnough(uuid, amount)
-api.transfer(from, to, amount, reason = "my-mod")
+api.getParcelCount(uuid)
 api.getHistory(uuid, page = 1)
-api.format(1234.5)
 api.openMenu(player)
 ```
 
-Methods: `getBalance`, `hasEnough`, `getParcelCount`, `addBalance`, `withdraw`, `setBalance`, `transfer`, `getTopBalances`, `getHistory`, `format`, `openMenu`, `getModVersion`.
+Methods: `getParcelCount`, `getHistory`, `openMenu`, `getModVersion`.
 
-Use **ServerMarketApi** when you need market-specific features (parcels, GUI, history). For balance-only integration, prefer **Common Economy API** below.
+For balance read/write/transfer/format, use **Common Economy API** below.
 
 ### Common Economy API (Patbox)
 
@@ -146,7 +145,9 @@ ServerMarketEvents.POST_PURCHASE.register { buyer, itemId, qty, cost, success ->
 
 ## Architecture notes
 
-- **EconomyService** — single entry point for balance mutations, history, and events
+- **Common Economy API** — standard balance integration for other mods (`server-market` provider)
+- **ServerMarketApi** — parcels, transaction history, GUI only
+- **EconomyService** — internal single entry point for balance mutations, history, and events
 - **Database** — single-thread executor; use `database.supplyAsync { }` for async DB work
 - **MarketService** — purchase/sell logic; applies market tax when configured
 - **MarketOverviewService** — sell/buy order snapshot shown when listing items (Stonks-inspired)
